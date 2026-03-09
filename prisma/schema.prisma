@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskType {
+  FOLLOW_UP
+  CALL
+  MEETING
+  WHATSAPP
+  EMAIL
+  DOCS
+  OTHER
+}
+
+enum Role {
+  CALLCENTER
+  MANAGER
+  SALES
+  ADMIN
+}
+
+enum LeadStatus {
+  NEW
+  WORKING
+  SALES_READY
+  MANAGER_REVIEW
+  ASSIGNED
+  WON
+  LOST
+  ARCHIVED
+}
+
+enum ActivityType {
+  CALL
+  NOTE
+  MEETING
+  WHATSAPP
+  EMAIL
+  STATUS_CHANGE
+  ASSIGNMENT
+}
+
+enum CallOutcome {
+  OPENED
+  NO_ANSWER
+  BUSY
+  UNREACHABLE
+  CALL_AGAIN
+  INTERESTED
+  NOT_INTERESTED
+  QUALIFIED
+  WON
+  LOST
+  WRONG_NUMBER
+}
+
+enum MetaPlatform {
+  FB_MESSENGER
+  IG
+  LEAD_ADS
+}
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String
+  role         Role
+  passwordHash String
+  isActive     Boolean @default(true)
+
+  avatarUrl String?
+
+  managerId String?
+  manager   User?   @relation("ManagerToReps", fields: [managerId], references: [id])
+  reps      User[]  @relation("ManagerToReps")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  callcenterLeads Lead[] @relation("CallCenterOwner")
+  managedLeads    Lead[] @relation("ManagerOwner")
+  salesLeads      Lead[] @relation("SalesOwner")
+
+  activities   LeadActivity[]     @relation("UserLeadActivities")
+  stageChanges LeadStageHistory[] @relation("UserStageChanges")
+
+  audits        AuditLog[]
+  refreshTokens RefreshToken[]
+
+  tasksCreated  Task[] @relation("TasksCreatedBy")
+  tasksAssigned Task[] @relation("TasksAssignedTo")
+
+  trustedDevices TrustedDevice[]
+  loginOtps      LoginOtp[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Lead {
+  id       String  @id @default(cuid())
+  fullName String
+  phone    String
+  email    String?
+  source   String?
+  country  String?
+  language String?
+  notes    String?
+
+  status LeadStatus @default(NEW)
+  score  Int?
+
+  avatarUrl String?
+
+  // Meta-ready fields (for Messenger/IG profile photos later)
+  metaPlatform MetaPlatform?
+  metaPsid     String?
+  metaLeadId   String?
+
+  ownerCallCenterId String?
+  ownerCallCenter   User?   @relation("CallCenterOwner", fields: [ownerCallCenterId], references: [id])
+
+  assignedManagerId String?
+  assignedManager   User?   @relation("ManagerOwner", fields: [assignedManagerId], references: [id])
+
+  assignedSalesId String?
+  assignedSales   User?   @relation("SalesOwner", fields: [assignedSalesId], references: [id])
+
+  lastContactAt  DateTime?
+  nextFollowUpAt DateTime?
+  lastActivityAt DateTime?
+
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities   LeadActivity[]
+  stageHistory LeadStageHistory[]
+
+  // Opposite side of Task.lead
+  tasks Task[] @relation("LeadTasks")
+
+  @@unique([metaLeadId])
+  @@index([status])
+  @@index([nextFollowUpAt])
+  @@index([assignedSalesId])
+  @@index([assignedManagerId])
+  @@index([ownerCallCenterId])
+  @@index([phone])
+  @@index([lastActivityAt])
+  @@index([nextFollowUpAt, status])
+  @@index([metaPsid])
+  @@index([metaLeadId])
+  @@index([metaPlatform])
+}
+
+model LeadActivity {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type    ActivityType
+  summary String
+  details String?
+
+  callOutcome CallOutcome?
+
+  createdById String
+  createdBy   User   @relation("UserLeadActivities", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([callOutcome])
+  @@index([type, createdAt])
+}
+
+model LeadStageHistory {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fromStatus LeadStatus
+  toStatus   LeadStatus
+
+  changedById String
+  changedBy   User   @relation("UserStageChanges", fields: [changedById], references: [id])
+
+  changedAt DateTime @default(now())
+
+  @@index([leadId, changedAt])
+}
+
+model AuditLog {
+  id      String  @id @default(cuid())
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  action     String
+  entityType String
+  entityId   String
+  metaJson   Json?
+  ip         String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model RefreshToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+
+  @@index([userId, expiresAt])
+}
+
+model Task {
+  id String @id @default(cuid())
+
+  title       String
+  description String?
+  type        TaskType     @default(FOLLOW_UP)
+  status      TaskStatus   @default(OPEN)
+  priority    TaskPriority @default(MEDIUM)
+
+  dueAt      DateTime
+  doneAt     DateTime?
+  canceledAt DateTime?
+
+  leadId String?
+  lead   Lead?   @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User   @relation("TasksCreatedBy", fields: [createdById], references: [id])
+
+  assignedToId String
+  assignedTo   User   @relation("TasksAssignedTo", fields: [assignedToId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId, status, dueAt])
+  @@index([leadId, status, dueAt])
+}
+
+model TrustedDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceIdHash String
+  tokenHash    String
+
+  userAgent String?
+  ip        String?
+
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, deviceIdHash])
+  @@index([userId, expiresAt])
+}
+
+model LoginOtp {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   String // "DEVICE_TRUST"
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  deviceIdHash String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose, expiresAt])
+}
