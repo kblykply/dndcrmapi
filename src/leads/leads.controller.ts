@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  Req,
+} from "@nestjs/common";
 import { LeadsService } from "./leads.service";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { RolesGuard } from "../common/roles.guard";
@@ -12,17 +23,29 @@ export class LeadsController {
 
   @Post()
   @Roles("CALLCENTER", "ADMIN")
-  create(@Req() req: any, @Body() body: { fullName: string; phone: string; email?: string; source?: string }) {
+  create(
+    @Req() req: any,
+    @Body() body: { fullName: string; phone: string; email?: string; source?: string },
+  ) {
     return this.leads.createLead(req.user, body);
   }
 
   @Get()
-  list(@Req() req: any, @Query("status") status?: LeadStatus) {
-    return this.leads.listLeads(req.user, status);
+  list(
+    @Req() req: any,
+    @Query("status") status?: LeadStatus,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("q") q?: string,
+  ) {
+    return this.leads.listLeads(req.user, {
+      status,
+      page: page ? Number(page) : 1,
+      pageSize: pageSize ? Number(pageSize) : 25,
+      q: q || "",
+    });
   }
 
-  // ✅ Follow-up dashboard endpoint
-  // IMPORTANT: must be before @Get(":id")
   @Get("followups")
   followups(@Req() req: any, @Query("range") range?: string) {
     return this.leads.listFollowups(req.user, range);
@@ -47,7 +70,7 @@ export class LeadsController {
       type: ActivityType;
       summary: string;
       details?: string;
-      callOutcome?: string; // ✅ NEW
+      callOutcome?: string;
       lastContactAt?: string;
       nextFollowUpAt?: string;
     },
@@ -56,18 +79,36 @@ export class LeadsController {
   }
 
   @Post(":id/status")
-  changeStatus(@Req() req: any, @Param("id") id: string, @Body() body: { to: LeadStatus }) {
+  changeStatus(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { to: LeadStatus },
+  ) {
     return this.leads.changeStatus(req.user, id, body.to);
   }
 
   @Post(":id/send-to-manager")
-  sendToManager(@Req() req: any, @Param("id") id: string, @Body() body: { managerId: string }) {
+  sendToManager(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { managerId: string },
+  ) {
     return this.leads.sendToManager(req.user, id, body.managerId);
   }
 
   @Post(":id/assign-to-sales")
   @Roles("MANAGER", "ADMIN")
-  assignToSales(@Req() req: any, @Param("id") id: string, @Body() body: { salesId: string }) {
+  assignToSales(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { salesId: string },
+  ) {
     return this.leads.assignToSales(req.user, id, body.salesId);
+  }
+
+  @Delete("bulk")
+  @Roles("ADMIN")
+  bulkDelete(@Req() req: any, @Body() body: { ids: string[] }) {
+    return this.leads.bulkDelete(req.user, body);
   }
 }

@@ -42,12 +42,10 @@ export class LeadsService {
     throw new ForbiddenException("No access");
   }
 
-  // ✅ Follow-up dashboard (no Tasks table)
   async listFollowups(user: ReqUser, range?: string) {
     const now = new Date();
     const where: any = { archivedAt: null };
 
-    // Role-based visibility (same idea as listLeads)
     if (user.role === "ADMIN") {
       // no extra filter
     } else if (user.role === "CALLCENTER") {
@@ -62,7 +60,6 @@ export class LeadsService {
       ];
     }
 
-    // range: today | overdue | week | missing | (default = due now)
     if (range === "today") {
       const start = new Date(now);
       start.setHours(0, 0, 0, 0);
@@ -76,10 +73,8 @@ export class LeadsService {
       where.nextFollowUpAt = { gte: now, lte: end };
     } else if (range === "missing") {
       where.nextFollowUpAt = null;
-      // only active leads matter here
       where.status = { in: ["NEW", "WORKING", "SALES_READY", "MANAGER_REVIEW", "ASSIGNED"] };
     } else {
-      // default: due up to now
       where.nextFollowUpAt = { lte: now };
     }
 
@@ -133,9 +128,23 @@ export class LeadsService {
     return lead;
   }
 
-  async listLeads(user: ReqUser, status?: LeadStatus) {
+  async listLeads(
+    user: ReqUser,
+    opts?: {
+      status?: LeadStatus;
+      page?: number;
+      pageSize?: number;
+      q?: string;
+    }
+  ) {
+    const page = Math.max(1, Number(opts?.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(opts?.pageSize || 25)));
+    const skip = (page - 1) * pageSize;
+    const q = (opts?.q || "").trim();
+
     const where: any = { archivedAt: null };
-    if (status) where.status = status as any;
+
+    if (opts?.status) where.status = opts.status as any;
 
     if (user.role === "ADMIN") {
       // no filter
@@ -151,15 +160,45 @@ export class LeadsService {
       where.assignedSalesId = user.id;
     }
 
-    return this.prisma.lead.findMany({
-      where,
-      orderBy: [
-        { nextFollowUpAt: "asc" },
-        { lastActivityAt: "desc" },
-        { createdAt: "desc" },
-      ],
-      take: 50,
-    });
+    if (q) {
+      const searchBlock = {
+        OR: [
+          { fullName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { source: { contains: q, mode: "insensitive" } },
+        ],
+      };
+
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, searchBlock];
+        delete where.OR;
+      } else {
+        where.OR = searchBlock.OR;
+      }
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.lead.findMany({
+        where,
+        orderBy: [
+          { nextFollowUpAt: "asc" },
+          { lastActivityAt: "desc" },
+          { createdAt: "desc" },
+        ],
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.lead.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   }
 
   async getLead(user: ReqUser, leadId: string) {
@@ -192,76 +231,75 @@ export class LeadsService {
     return updated;
   }
 
-async addActivity(
-  user: ReqUser,
-  leadId: string,
-  input: {
-    type: ActivityType;
-    summary: string;
-    details?: string;
-    callOutcome?: string; // ✅ NEW
-    lastContactAt?: string;
-    nextFollowUpAt?: string;
-  }
-) {
-  await this.getAccessibleLeadOrThrow(user, leadId);
-
-  const lastContactAt = input.lastContactAt ? new Date(input.lastContactAt) : undefined;
-  const nextFollowUpAt = input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : undefined;
-
-  // ✅ Validate callOutcome only when type is CALL
-  const allowedOutcomes = new Set([
-    "OPENED",
-    "NO_ANSWER",
-    "BUSY",
-    "UNREACHABLE",
-    "CALL_AGAIN",
-    "INTERESTED",
-    "NOT_INTERESTED",
-    "QUALIFIED",
-    "WON",
-    "LOST",
-    "WRONG_NUMBER",
-  ]);
-
-  let callOutcome: string | undefined = undefined;
-
-  if (input.type === "CALL" && input.callOutcome) {
-    if (!allowedOutcomes.has(input.callOutcome)) {
-      throw new BadRequestException("Invalid callOutcome");
+  async addActivity(
+    user: ReqUser,
+    leadId: string,
+    input: {
+      type: ActivityType;
+      summary: string;
+      details?: string;
+      callOutcome?: string;
+      lastContactAt?: string;
+      nextFollowUpAt?: string;
     }
-    callOutcome = input.callOutcome;
-  }
+  ) {
+    await this.getAccessibleLeadOrThrow(user, leadId);
 
-  const act = await this.prisma.leadActivity.create({
-    data: {
-      leadId,
-      type: input.type as any,
+    const lastContactAt = input.lastContactAt ? new Date(input.lastContactAt) : undefined;
+    const nextFollowUpAt = input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : undefined;
+
+    const allowedOutcomes = new Set([
+      "OPENED",
+      "NO_ANSWER",
+      "BUSY",
+      "UNREACHABLE",
+      "CALL_AGAIN",
+      "INTERESTED",
+      "NOT_INTERESTED",
+      "QUALIFIED",
+      "WON",
+      "LOST",
+      "WRONG_NUMBER",
+    ]);
+
+    let callOutcome: string | undefined = undefined;
+
+    if (input.type === "CALL" && input.callOutcome) {
+      if (!allowedOutcomes.has(input.callOutcome)) {
+        throw new BadRequestException("Invalid callOutcome");
+      }
+      callOutcome = input.callOutcome;
+    }
+
+    const act = await this.prisma.leadActivity.create({
+      data: {
+        leadId,
+        type: input.type as any,
+        summary: input.summary,
+        details: input.details,
+        callOutcome: callOutcome as any,
+        createdById: user.id,
+      },
+    });
+
+    await this.prisma.lead.update({
+      where: { id: leadId },
+      data: {
+        lastActivityAt: new Date(),
+        ...(lastContactAt ? { lastContactAt } : {}),
+        ...(nextFollowUpAt ? { nextFollowUpAt } : {}),
+      },
+    });
+
+    await this.audit.log(user, "LEAD_ACTIVITY_ADD", "Lead", leadId, {
+      type: input.type,
       summary: input.summary,
-      details: input.details,
-      callOutcome: callOutcome as any, // ✅ NEW column
-      createdById: user.id,
-    },
-  });
+      callOutcome: callOutcome ?? null,
+      nextFollowUpAt: nextFollowUpAt ? nextFollowUpAt.toISOString() : null,
+    });
 
-  await this.prisma.lead.update({
-    where: { id: leadId },
-    data: {
-      lastActivityAt: new Date(),
-      ...(lastContactAt ? { lastContactAt } : {}),
-      ...(nextFollowUpAt ? { nextFollowUpAt } : {}),
-    },
-  });
-
-  await this.audit.log(user, "LEAD_ACTIVITY_ADD", "Lead", leadId, {
-    type: input.type,
-    summary: input.summary,
-    callOutcome: callOutcome ?? null, // ✅ log for audits
-    nextFollowUpAt: nextFollowUpAt ? nextFollowUpAt.toISOString() : null,
-  });
-
-  return act;
-}
+    return act;
+  }
 
   async changeStatus(user: ReqUser, leadId: string, to: LeadStatus) {
     const lead = await this.getAccessibleLeadOrThrow(user, leadId);
@@ -270,7 +308,6 @@ async addActivity(
       throw new BadRequestException("Invalid status transition");
     }
 
-    // role-based rules
     if (to === "MANAGER_REVIEW" && user.role !== "CALLCENTER" && user.role !== "ADMIN") {
       throw new ForbiddenException("Only callcenter can submit to manager");
     }
@@ -437,5 +474,53 @@ async addActivity(
     );
 
     return updated;
+  }
+
+  async bulkDelete(user: ReqUser, body: { ids: string[] }) {
+    if (user.role !== "ADMIN") {
+      throw new ForbiddenException("Only admin can bulk delete leads");
+    }
+
+    const ids = Array.isArray(body?.ids) ? body.ids.filter(Boolean) : [];
+
+    if (ids.length === 0) {
+      throw new BadRequestException("Silinecek lead seçilmedi.");
+    }
+
+    const existing = await this.prisma.lead.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, fullName: true },
+    });
+
+    if (existing.length === 0) {
+      throw new BadRequestException("Seçilen leadler bulunamadı.");
+    }
+
+    const existingIds = existing.map((x) => x.id);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.task.deleteMany({
+        where: {
+          leadId: { in: existingIds },
+        },
+      });
+
+      await tx.lead.deleteMany({
+        where: {
+          id: { in: existingIds },
+        },
+      });
+    });
+
+    await this.audit.log(user, "LEAD_BULK_DELETE", "Lead", "bulk", {
+      count: existingIds.length,
+      ids: existingIds,
+      names: existing.map((x) => x.fullName),
+    });
+
+    return {
+      deletedCount: existingIds.length,
+      ids: existingIds,
+    };
   }
 }
