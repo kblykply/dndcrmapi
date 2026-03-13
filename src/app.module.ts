@@ -9,7 +9,7 @@ import { LeadsModule } from "./leads/leads.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { MetaModule } from "./integrations/meta/meta.module";
 import { HealthController } from "./health.controller";
-
+import { AdminModule } from "./admin/admin.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +22,7 @@ import { HealthController } from "./health.controller";
     LeadsModule,
     TasksModule,
     MetaModule,
+    AdminModule,
   ],
   controllers: [HealthController],
 })
