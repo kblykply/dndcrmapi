@@ -10,6 +10,9 @@ import { TasksModule } from "./tasks/tasks.module";
 import { MetaModule } from "./integrations/meta/meta.module";
 import { HealthController } from "./health.controller";
 import { AdminModule } from "./admin/admin.module";
+
+import { AgenciesModule } from "./agencies/agencies.module";
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +26,7 @@ import { AdminModule } from "./admin/admin.module";
     TasksModule,
     MetaModule,
     AdminModule,
+     AgenciesModule,
   ],
   controllers: [HealthController],
 })

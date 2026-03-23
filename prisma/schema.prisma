@@ -112,6 +112,17 @@ model User {
 
   @@index([role])
   @@index([isActive])
+
+
+
+
+    agenciesManaged        Agency[]        @relation("AgencyManager")
+  agenciesAssigned       Agency[]        @relation("AgencySales")
+
+  agencyNotesAuthored    AgencyNote[]    @relation("AgencyNoteAuthor")
+  agencyMeetingsAuthored AgencyMeeting[] @relation("AgencyMeetingAuthor")
+  agencyTasksCreated     AgencyTask[]    @relation("AgencyTaskCreator")
+  agencyTasksAssigned    AgencyTask[]    @relation("AgencyTaskAssignee")
 }
 
 model Lead {
@@ -304,4 +315,97 @@ model LoginOtp {
   createdAt DateTime @default(now())
 
   @@index([userId, purpose, expiresAt])
+}
+
+
+model Agency {
+  id               String           @id @default(cuid())
+  name             String
+  contactName      String?
+  phone            String?
+  email            String?
+  city             String?
+  country          String?
+  address          String?
+  website          String?
+  source           String?
+  status           AgencyStatus     @default(ACTIVE)
+  notesSummary     String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  managerId        String
+  assignedSalesId  String?
+
+  manager          User             @relation("AgencyManager", fields: [managerId], references: [id])
+  assignedSales    User?            @relation("AgencySales", fields: [assignedSalesId], references: [id])
+
+  notes            AgencyNote[]
+  meetings         AgencyMeeting[]
+  tasks            AgencyTask[]
+}
+
+model AgencyNote {
+  id          String     @id @default(cuid())
+  agencyId     String
+  createdById  String
+  note         String
+  createdAt    DateTime   @default(now())
+
+  agency       Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdBy    User       @relation("AgencyNoteAuthor", fields: [createdById], references: [id])
+}
+
+model AgencyMeeting {
+  id             String      @id @default(cuid())
+  agencyId        String
+  createdById     String
+  title           String
+  notes           String?
+  meetingAt       DateTime
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  agency          Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdBy       User        @relation("AgencyMeetingAuthor", fields: [createdById], references: [id])
+}
+
+model AgencyTask {
+  id              String         @id @default(cuid())
+  agencyId         String
+  createdById      String
+  assignedToId     String?
+  title            String
+  description      String?
+  dueAt            DateTime?
+  status           AgencyTaskStatus @default(TODO)
+  priority         AgencyTaskPriority @default(MEDIUM)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  completedAt      DateTime?
+
+  agency           Agency         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdBy        User           @relation("AgencyTaskCreator", fields: [createdById], references: [id])
+  assignedTo       User?          @relation("AgencyTaskAssignee", fields: [assignedToId], references: [id])
+}
+
+enum AgencyStatus {
+  ACTIVE
+  PASSIVE
+  PROSPECT
+  DEALING
+  CLOSED
+}
+
+enum AgencyTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum AgencyTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
 }
