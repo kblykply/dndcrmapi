@@ -13,6 +13,8 @@ import { AdminModule } from "./admin/admin.module";
 
 import { AgenciesModule } from "./agencies/agencies.module";
 
+import { CustomersModule } from "./customers/customers.module";
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -27,6 +29,8 @@ import { AgenciesModule } from "./agencies/agencies.module";
     MetaModule,
     AdminModule,
      AgenciesModule,
+       CustomersModule,
+
   ],
   controllers: [HealthController],
 })
