@@ -35,7 +35,10 @@ export class CustomersService {
       include: { agency: true },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
     return customer;
   }
 
@@ -50,55 +53,98 @@ export class CustomersService {
       });
     }
 
-    if (this.isSales(user)) {
-      return this.prisma.customer.findMany({
-        where: {
+if (this.isSales(user)) {
+  return this.prisma.customer.findMany({
+    where: {
+      OR: [
+        { ownerId: user.id },
+        {
           presentations: {
             some: { assignedSalesId: user.id },
           },
         },
-        include: {
-          agency: true,
-          _count: { select: { presentations: true } },
-        },
-      });
-    }
+      ],
+    },
+    include: {
+      agency: true,
+      _count: { select: { presentations: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
     throw new ForbiddenException("No access");
   }
 
   async createCustomer(user: ReqUser, dto: any) {
-    if (!this.isManager(user) && !this.isAdmin(user)) {
-      throw new ForbiddenException("Only manager can create customer");
+    if (
+      user.role !== "ADMIN" &&
+      user.role !== "MANAGER" &&
+      user.role !== "SALES"
+    ) {
+      throw new ForbiddenException("No access to create customer");
     }
 
-    if (!dto.fullName) {
+    const fullName = dto.fullName?.trim();
+    if (!fullName) {
       throw new BadRequestException("Customer name required");
+    }
+
+    let agencyId: string | null = dto.agencyId || null;
+
+    if (agencyId) {
+      const agency = await this.prisma.agency.findUnique({
+        where: { id: agencyId },
+        select: { id: true },
+      });
+
+      if (!agency) {
+        throw new BadRequestException("Selected agency not found");
+      }
     }
 
     return this.prisma.customer.create({
       data: {
-        fullName: dto.fullName,
-        phone: dto.phone,
-        email: dto.email,
-        city: dto.city,
-        country: dto.country,
-        agencyId: dto.agencyId || null,
-        ownerId: user.id,
+        fullName,
+        companyName: dto.companyName?.trim() || null,
+        phone: dto.phone?.trim() || null,
+        email: dto.email?.trim() || null,
+        city: dto.city?.trim() || null,
+        country: dto.country?.trim() || null,
+        address: dto.address?.trim() || null,
+        source: dto.source?.trim() || null,
+        notesSummary: dto.notesSummary?.trim() || null,
+        type: dto.type || "POTENTIAL",
+        agencyId,
+        ownerId: dto.ownerId || user.id,
+      },
+      include: {
+        agency: true,
+        _count: { select: { presentations: true } },
       },
     });
   }
 
   async createPresentation(user: ReqUser, customerId: string, dto: any) {
-    const customer = await this.getCustomerOrThrow(customerId);
+    await this.getCustomerOrThrow(customerId);
 
-    if (!dto.title) throw new BadRequestException("Title required");
-    if (!dto.presentationAt) throw new BadRequestException("Date required");
+    const title = dto.title?.trim();
+    if (!title) {
+      throw new BadRequestException("Title required");
+    }
+
+    if (!dto.presentationAt) {
+      throw new BadRequestException("Date required");
+    }
+
+    const presentationAt = new Date(dto.presentationAt);
+    if (Number.isNaN(presentationAt.getTime())) {
+      throw new BadRequestException("Invalid presentationAt");
+    }
 
     let assignedSalesId = dto.assignedSalesId;
 
     if (this.isSales(user)) {
-      // sales can only assign themselves
       assignedSalesId = user.id;
     }
 
@@ -106,14 +152,23 @@ export class CustomersService {
       throw new BadRequestException("Sales must be assigned");
     }
 
+    const salesUser = await this.prisma.user.findUnique({
+      where: { id: assignedSalesId },
+      select: { id: true, role: true, isActive: true },
+    });
+
+    if (!salesUser || !salesUser.isActive || salesUser.role !== "SALES") {
+      throw new BadRequestException("Assigned sales user is invalid");
+    }
+
     return this.prisma.presentation.create({
       data: {
         customerId,
-        title: dto.title,
-        projectName: dto.projectName,
-        presentationAt: new Date(dto.presentationAt),
-        location: dto.location,
-        notesSummary: dto.notesSummary,
+        title,
+        projectName: dto.projectName?.trim() || null,
+        presentationAt,
+        location: dto.location?.trim() || null,
+        notesSummary: dto.notesSummary?.trim() || null,
         createdById: user.id,
         assignedSalesId,
       },
@@ -124,33 +179,83 @@ export class CustomersService {
     });
   }
 
-  async getCustomerDetail(user: ReqUser, customerId: string) {
-    return this.prisma.customer.findUnique({
-      where: { id: customerId },
-      include: {
-        agency: true,
-        presentations: {
-          orderBy: { presentationAt: "desc" },
-          include: {
-            assignedSales: true,
-            createdBy: true,
-            notes: {
-              include: { createdBy: true },
-            },
+async getCustomerDetail(user: ReqUser, customerId: string) {
+  const customer = await this.prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      agency: true,
+      presentations: {
+        orderBy: { presentationAt: "desc" },
+        include: {
+          assignedSales: true,
+          createdBy: true,
+          notes: {
+            include: { createdBy: true },
+            orderBy: { createdAt: "desc" },
           },
         },
       },
-    });
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException("Customer not found");
   }
 
+  if (this.isAdmin(user) || this.isManager(user)) {
+    return customer;
+  }
+
+  if (this.isSales(user)) {
+    const hasAccess =
+      customer.ownerId === user.id ||
+      customer.presentations.some((p) => p.assignedSalesId === user.id);
+
+    if (!hasAccess) {
+      throw new ForbiddenException("No access");
+    }
+
+    return customer;
+  }
+
+  throw new ForbiddenException("No access");
+}
+
   async addPresentationNote(user: ReqUser, presentationId: string, dto: any) {
-    if (!dto.note) throw new BadRequestException("Note required");
+    const note = dto.note?.trim();
+    if (!note) {
+      throw new BadRequestException("Note required");
+    }
+
+    const presentation = await this.prisma.presentation.findUnique({
+      where: { id: presentationId },
+      select: {
+        id: true,
+        assignedSalesId: true,
+      },
+    });
+
+    if (!presentation) {
+      throw new NotFoundException("Presentation not found");
+    }
+
+    const canEdit =
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      presentation.assignedSalesId === user.id;
+
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
 
     return this.prisma.presentationNote.create({
       data: {
         presentationId,
         createdById: user.id,
-        note: dto.note,
+        note,
+      },
+      include: {
+        createdBy: true,
       },
     });
   }
@@ -160,26 +265,63 @@ export class CustomersService {
       where: { id },
     });
 
-    if (!presentation) throw new NotFoundException("Presentation not found");
+    if (!presentation) {
+      throw new NotFoundException("Presentation not found");
+    }
 
     const canEdit =
       this.isAdmin(user) ||
       this.isManager(user) ||
       presentation.assignedSalesId === user.id;
 
-    if (!canEdit) throw new ForbiddenException("No access");
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
+
+    const data: any = {};
+
+    if (dto.title !== undefined) {
+      const title = dto.title?.trim();
+      if (!title) {
+        throw new BadRequestException("Title required");
+      }
+      data.title = title;
+    }
+
+    if (dto.projectName !== undefined) {
+      data.projectName = dto.projectName?.trim() || null;
+    }
+
+    if (dto.presentationAt !== undefined) {
+      const presentationAt = new Date(dto.presentationAt);
+      if (Number.isNaN(presentationAt.getTime())) {
+        throw new BadRequestException("Invalid presentationAt");
+      }
+      data.presentationAt = presentationAt;
+    }
+
+    if (dto.location !== undefined) {
+      data.location = dto.location?.trim() || null;
+    }
+
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+    }
+
+    if (dto.outcome !== undefined) {
+      data.outcome = dto.outcome || null;
+    }
+
+    if (dto.notesSummary !== undefined) {
+      data.notesSummary = dto.notesSummary?.trim() || null;
+    }
 
     return this.prisma.presentation.update({
       where: { id },
-      data: {
-        title: dto.title,
-        projectName: dto.projectName,
-        presentationAt: dto.presentationAt
-          ? new Date(dto.presentationAt)
-          : undefined,
-        status: dto.status,
-        outcome: dto.outcome,
-        notesSummary: dto.notesSummary,
+      data,
+      include: {
+        assignedSales: true,
+        createdBy: true,
       },
     });
   }

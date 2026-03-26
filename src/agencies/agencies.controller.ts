@@ -44,8 +44,9 @@ export class AgenciesController {
     return this.agencies.getAgency(req.user, id);
   }
 
+  // 🔥 FIX: SALES CAN CREATE AGENCY
   @Post()
-  @Roles("ADMIN", "MANAGER")
+  @Roles("ADMIN", "MANAGER", "SALES")
   create(
     @Req() req: any,
     @Body()
@@ -66,8 +67,9 @@ export class AgenciesController {
     return this.agencies.createAgency(req.user, body);
   }
 
+  // 🔥 OPTIONAL: allow SALES to update too (if you want)
   @Patch(":id")
-  @Roles("ADMIN", "MANAGER")
+  @Roles("ADMIN", "MANAGER", "SALES")
   update(
     @Req() req: any,
     @Param("id") id: string,
@@ -139,8 +141,9 @@ export class AgenciesController {
     return this.agencies.updateMeeting(req.user, meetingId, body);
   }
 
+  // 🔥 OPTIONAL: allow SALES to create tasks if you want
   @Post(":id/tasks")
-  @Roles("ADMIN", "MANAGER")
+  @Roles("ADMIN", "MANAGER", "SALES")
   createTask(
     @Req() req: any,
     @Param("id") id: string,

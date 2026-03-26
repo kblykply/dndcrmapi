@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  Patch,
   Post,
   Req,
   UseGuards,
@@ -31,7 +30,7 @@ export class CustomersController {
   }
 
   @Post()
-  @Roles("ADMIN", "MANAGER")
+  @Roles("ADMIN", "MANAGER", "SALES")
   create(
     @Req() req: any,
     @Body()
