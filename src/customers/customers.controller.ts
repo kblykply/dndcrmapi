@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -50,6 +51,12 @@ export class CustomersController {
     },
   ) {
     return this.customers.createCustomer(req.user, body);
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "MANAGER")
+  delete(@Req() req: any, @Param("id") id: string) {
+    return this.customers.deleteCustomer(req.user, id);
   }
 
   @Post(":id/presentations")

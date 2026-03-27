@@ -53,25 +53,25 @@ export class CustomersService {
       });
     }
 
-if (this.isSales(user)) {
-  return this.prisma.customer.findMany({
-    where: {
-      OR: [
-        { ownerId: user.id },
-        {
-          presentations: {
-            some: { assignedSalesId: user.id },
-          },
+    if (this.isSales(user)) {
+      return this.prisma.customer.findMany({
+        where: {
+          OR: [
+            { ownerId: user.id },
+            {
+              presentations: {
+                some: { assignedSalesId: user.id },
+              },
+            },
+          ],
         },
-      ],
-    },
-    include: {
-      agency: true,
-      _count: { select: { presentations: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-}
+        include: {
+          agency: true,
+          _count: { select: { presentations: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     throw new ForbiddenException("No access");
   }
@@ -123,6 +123,48 @@ if (this.isSales(user)) {
         _count: { select: { presentations: true } },
       },
     });
+  }
+
+  async deleteCustomer(user: ReqUser, customerId: string) {
+    if (!this.isAdmin(user) && !this.isManager(user)) {
+      throw new ForbiddenException("No access to delete customer");
+    }
+
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const presentations = await tx.presentation.findMany({
+        where: { customerId },
+        select: { id: true },
+      });
+
+      const presentationIds = presentations.map((p) => p.id);
+
+      if (presentationIds.length > 0) {
+        await tx.presentationNote.deleteMany({
+          where: {
+            presentationId: { in: presentationIds },
+          },
+        });
+      }
+
+      await tx.presentation.deleteMany({
+        where: { customerId },
+      });
+
+      await tx.customer.delete({
+        where: { id: customerId },
+      });
+    });
+
+    return { success: true };
   }
 
   async createPresentation(user: ReqUser, customerId: string, dto: any) {
@@ -179,47 +221,47 @@ if (this.isSales(user)) {
     });
   }
 
-async getCustomerDetail(user: ReqUser, customerId: string) {
-  const customer = await this.prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      agency: true,
-      presentations: {
-        orderBy: { presentationAt: "desc" },
-        include: {
-          assignedSales: true,
-          createdBy: true,
-          notes: {
-            include: { createdBy: true },
-            orderBy: { createdAt: "desc" },
+  async getCustomerDetail(user: ReqUser, customerId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        agency: true,
+        presentations: {
+          orderBy: { presentationAt: "desc" },
+          include: {
+            assignedSales: true,
+            createdBy: true,
+            notes: {
+              include: { createdBy: true },
+              orderBy: { createdAt: "desc" },
+            },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!customer) {
-    throw new NotFoundException("Customer not found");
-  }
-
-  if (this.isAdmin(user) || this.isManager(user)) {
-    return customer;
-  }
-
-  if (this.isSales(user)) {
-    const hasAccess =
-      customer.ownerId === user.id ||
-      customer.presentations.some((p) => p.assignedSalesId === user.id);
-
-    if (!hasAccess) {
-      throw new ForbiddenException("No access");
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
     }
 
-    return customer;
-  }
+    if (this.isAdmin(user) || this.isManager(user)) {
+      return customer;
+    }
 
-  throw new ForbiddenException("No access");
-}
+    if (this.isSales(user)) {
+      const hasAccess =
+        customer.ownerId === user.id ||
+        customer.presentations.some((p) => p.assignedSalesId === user.id);
+
+      if (!hasAccess) {
+        throw new ForbiddenException("No access");
+      }
+
+      return customer;
+    }
+
+    throw new ForbiddenException("No access");
+  }
 
   async addPresentationNote(user: ReqUser, presentationId: string, dto: any) {
     const note = dto.note?.trim();

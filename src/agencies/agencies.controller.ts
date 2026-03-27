@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -44,7 +45,6 @@ export class AgenciesController {
     return this.agencies.getAgency(req.user, id);
   }
 
-  // 🔥 FIX: SALES CAN CREATE AGENCY
   @Post()
   @Roles("ADMIN", "MANAGER", "SALES")
   create(
@@ -67,7 +67,6 @@ export class AgenciesController {
     return this.agencies.createAgency(req.user, body);
   }
 
-  // 🔥 OPTIONAL: allow SALES to update too (if you want)
   @Patch(":id")
   @Roles("ADMIN", "MANAGER", "SALES")
   update(
@@ -89,6 +88,12 @@ export class AgenciesController {
     },
   ) {
     return this.agencies.updateAgency(req.user, id, body);
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "MANAGER")
+  delete(@Req() req: any, @Param("id") id: string) {
+    return this.agencies.deleteAgency(req.user, id);
   }
 
   @Post(":id/assign-sales")
@@ -141,7 +146,6 @@ export class AgenciesController {
     return this.agencies.updateMeeting(req.user, meetingId, body);
   }
 
-  // 🔥 OPTIONAL: allow SALES to create tasks if you want
   @Post(":id/tasks")
   @Roles("ADMIN", "MANAGER", "SALES")
   createTask(

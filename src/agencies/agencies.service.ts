@@ -103,16 +103,18 @@ export class AgenciesService {
     const agency = await this.prisma.agency.findUnique({
       where: { id: agencyId },
       include: {
-        manager: { select: { id: true, name: true, email: true, role: true } },
-        assignedSales: { select: { id: true, name: true, email: true, role: true } },
+        manager: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
 
     if (!agency) throw new NotFoundException("Agency not found");
 
-    if (user.role === "ADMIN") return agency;
-
-    if (user.role === "MANAGER" && agency.managerId === user.id) {
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
       return agency;
     }
 
@@ -131,10 +133,6 @@ export class AgenciesService {
 
     if (!this.isManager(user)) {
       throw new ForbiddenException("Only manager or admin can manage agencies");
-    }
-
-    if (!this.isAdmin(user) && agency.managerId !== user.id) {
-      throw new ForbiddenException("You can only manage your own agencies");
     }
 
     return agency;
@@ -160,14 +158,12 @@ export class AgenciesService {
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || 20)));
     const skip = (page - 1) * pageSize;
 
-    if (user.role === "ADMIN") {
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
       // full access
-    } else if (user.role === "MANAGER") {
-      where.managerId = user.id;
     } else if (user.role === "SALES") {
       where.OR = [
         { assignedSalesId: user.id },
-        { managerId: user.id }, // agencies created by sales
+        { managerId: user.id },
       ];
     } else {
       throw new ForbiddenException("No access");
@@ -297,7 +293,7 @@ export class AgenciesService {
         website: this.cleanStr(dto.website),
         source: this.cleanStr(dto.source),
         notesSummary: this.cleanStr(dto.notesSummary),
-        managerId: user.id, // creator / owner
+        managerId: user.id,
         assignedSalesId,
       },
       include: {
@@ -310,9 +306,7 @@ export class AgenciesService {
   async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const managerCanEdit =
-      this.isAdmin(user) || (user.role === "MANAGER" && agency.managerId === user.id);
-
+    const managerCanEdit = user.role === "ADMIN" || user.role === "MANAGER";
     const salesCanEditOwn =
       user.role === "SALES" && agency.managerId === user.id;
 
@@ -349,6 +343,46 @@ export class AgenciesService {
         assignedSales: { select: { id: true, name: true, email: true } },
       },
     });
+  }
+
+  async deleteAgency(user: ReqUser, agencyId: string) {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+      throw new ForbiddenException("No access to delete agency");
+    }
+
+    const agency = await this.prisma.agency.findUnique({
+      where: { id: agencyId },
+      select: { id: true },
+    });
+
+    if (!agency) {
+      throw new NotFoundException("Agency not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.agencyTask.deleteMany({
+        where: { agencyId },
+      });
+
+      await tx.agencyMeeting.deleteMany({
+        where: { agencyId },
+      });
+
+      await tx.agencyNote.deleteMany({
+        where: { agencyId },
+      });
+
+      await tx.customer.updateMany({
+        where: { agencyId },
+        data: { agencyId: null },
+      });
+
+      await tx.agency.delete({
+        where: { id: agencyId },
+      });
+    });
+
+    return { success: true };
   }
 
   async assignSales(user: ReqUser, agencyId: string, dto: AssignSalesDto) {
@@ -467,9 +501,7 @@ export class AgenciesService {
   async createTask(user: ReqUser, agencyId: string, dto: CreateAgencyTaskDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const managerCanCreate =
-      this.isAdmin(user) || (user.role === "MANAGER" && agency.managerId === user.id);
-
+    const managerCanCreate = user.role === "ADMIN" || user.role === "MANAGER";
     const salesCanCreate =
       user.role === "SALES" && agency.managerId === user.id;
 
@@ -534,9 +566,7 @@ export class AgenciesService {
 
     const agency = await this.getAccessibleAgencyOrThrow(user, task.agencyId);
 
-    const managerCanEdit =
-      this.isAdmin(user) || (user.role === "MANAGER" && agency.managerId === user.id);
-
+    const managerCanEdit = user.role === "ADMIN" || user.role === "MANAGER";
     const salesCanEditOwn =
       user.role === "SALES" && task.assignedToId === user.id;
 
