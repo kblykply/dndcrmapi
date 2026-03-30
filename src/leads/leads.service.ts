@@ -19,16 +19,8 @@ export class LeadsService {
     const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
     if (!lead) throw new NotFoundException("Lead not found");
 
-    if (user.role === "ADMIN") return lead;
-
-    if (user.role === "MANAGER") {
-      if (
-        lead.assignedManagerId === user.id ||
-        lead.status === "MANAGER_REVIEW" ||
-        lead.status === "SALES_READY"
-      ) {
-        return lead;
-      }
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
+      return lead;
     }
 
     if (user.role === "CALLCENTER") {
@@ -46,18 +38,14 @@ export class LeadsService {
     const now = new Date();
     const where: any = { archivedAt: null };
 
-    if (user.role === "ADMIN") {
-      // no extra filter
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
+      // full access
     } else if (user.role === "CALLCENTER") {
       where.ownerCallCenterId = user.id;
     } else if (user.role === "SALES") {
       where.assignedSalesId = user.id;
-    } else if (user.role === "MANAGER") {
-      where.OR = [
-        { assignedManagerId: user.id },
-        { status: "MANAGER_REVIEW" },
-        { status: "SALES_READY" },
-      ];
+    } else {
+      throw new ForbiddenException("No access");
     }
 
     if (range === "today") {
@@ -73,7 +61,9 @@ export class LeadsService {
       where.nextFollowUpAt = { gte: now, lte: end };
     } else if (range === "missing") {
       where.nextFollowUpAt = null;
-      where.status = { in: ["NEW", "WORKING", "SALES_READY", "MANAGER_REVIEW", "ASSIGNED"] };
+      where.status = {
+        in: ["NEW", "WORKING", "SALES_READY", "MANAGER_REVIEW", "ASSIGNED"],
+      };
     } else {
       where.nextFollowUpAt = { lte: now };
     }
@@ -91,6 +81,16 @@ export class LeadsService {
         lastActivityAt: true,
         assignedManagerId: true,
         assignedSalesId: true,
+        ownerCallCenterId: true,
+        ownerCallCenter: {
+          select: { id: true, name: true, email: true },
+        },
+        assignedManager: {
+          select: { id: true, name: true, email: true },
+        },
+        assignedSales: {
+          select: { id: true, name: true, email: true },
+        },
       },
       orderBy: [
         { nextFollowUpAt: "asc" },
@@ -146,18 +146,14 @@ export class LeadsService {
 
     if (opts?.status) where.status = opts.status as any;
 
-    if (user.role === "ADMIN") {
-      // no filter
+    if (user.role === "ADMIN" || user.role === "MANAGER") {
+      // full access
     } else if (user.role === "CALLCENTER") {
       where.ownerCallCenterId = user.id;
-    } else if (user.role === "MANAGER") {
-      where.OR = [
-        { assignedManagerId: user.id },
-        { status: "MANAGER_REVIEW" },
-        { status: "SALES_READY" },
-      ];
     } else if (user.role === "SALES") {
       where.assignedSalesId = user.id;
+    } else {
+      throw new ForbiddenException("No access");
     }
 
     if (q) {
@@ -181,6 +177,17 @@ export class LeadsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.lead.findMany({
         where,
+        include: {
+          ownerCallCenter: {
+            select: { id: true, name: true, email: true },
+          },
+          assignedManager: {
+            select: { id: true, name: true, email: true },
+          },
+          assignedSales: {
+            select: { id: true, name: true, email: true },
+          },
+        },
         orderBy: [
           { nextFollowUpAt: "asc" },
           { lastActivityAt: "desc" },
@@ -477,8 +484,8 @@ export class LeadsService {
   }
 
   async bulkDelete(user: ReqUser, body: { ids: string[] }) {
-    if (user.role !== "ADMIN") {
-      throw new ForbiddenException("Only admin can bulk delete leads");
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+      throw new ForbiddenException("Only admin or manager can bulk delete leads");
     }
 
     const ids = Array.isArray(body?.ids) ? body.ids.filter(Boolean) : [];

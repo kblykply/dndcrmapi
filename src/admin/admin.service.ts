@@ -98,7 +98,15 @@ export class AdminService {
         where: {
           archivedAt: null,
           nextFollowUpAt: { lt: now },
-          status: { in: ["NEW", "WORKING", "SALES_READY", "MANAGER_REVIEW", "ASSIGNED"] as any },
+          status: {
+            in: [
+              "NEW",
+              "WORKING",
+              "SALES_READY",
+              "MANAGER_REVIEW",
+              "ASSIGNED",
+            ] as any,
+          },
         },
       }),
       this.prisma.lead.count({
@@ -222,11 +230,17 @@ export class AdminService {
     }));
 
     const answeredCalls = allRecentCalls.filter(
-      (x) => x.callOutcome === "OPENED" || x.callOutcome === "INTERESTED" || x.callOutcome === "QUALIFIED"
+      (x) =>
+        x.callOutcome === "OPENED" ||
+        x.callOutcome === "INTERESTED" ||
+        x.callOutcome === "QUALIFIED",
     ).length;
 
     const noAnswerCalls = allRecentCalls.filter(
-      (x) => x.callOutcome === "NO_ANSWER" || x.callOutcome === "BUSY" || x.callOutcome === "UNREACHABLE"
+      (x) =>
+        x.callOutcome === "NO_ANSWER" ||
+        x.callOutcome === "BUSY" ||
+        x.callOutcome === "UNREACHABLE",
     ).length;
 
     return {

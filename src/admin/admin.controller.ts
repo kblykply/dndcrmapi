@@ -10,7 +10,7 @@ export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("overview")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "MANAGER")
   overview() {
     return this.admin.getOverview();
   }

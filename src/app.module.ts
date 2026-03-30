@@ -15,6 +15,11 @@ import { AgenciesModule } from "./agencies/agencies.module";
 
 import { CustomersModule } from "./customers/customers.module";
 
+import { CalendarModule } from "./calendar/calendar.module";
+
+
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -30,6 +35,7 @@ import { CustomersModule } from "./customers/customers.module";
     AdminModule,
      AgenciesModule,
        CustomersModule,
+       CalendarModule,
 
   ],
   controllers: [HealthController],

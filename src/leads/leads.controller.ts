@@ -25,12 +25,19 @@ export class LeadsController {
   @Roles("CALLCENTER", "ADMIN")
   create(
     @Req() req: any,
-    @Body() body: { fullName: string; phone: string; email?: string; source?: string },
+    @Body()
+    body: {
+      fullName: string;
+      phone: string;
+      email?: string;
+      source?: string;
+    },
   ) {
     return this.leads.createLead(req.user, body);
   }
 
   @Get()
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   list(
     @Req() req: any,
     @Query("status") status?: LeadStatus,
@@ -47,21 +54,25 @@ export class LeadsController {
   }
 
   @Get("followups")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   followups(@Req() req: any, @Query("range") range?: string) {
     return this.leads.listFollowups(req.user, range);
   }
 
   @Get(":id")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   getOne(@Req() req: any, @Param("id") id: string) {
     return this.leads.getLead(req.user, id);
   }
 
   @Patch(":id/core")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   updateCore(@Req() req: any, @Param("id") id: string, @Body() patch: any) {
     return this.leads.updateLeadCore(req.user, id, patch);
   }
 
   @Post(":id/activity")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   addActivity(
     @Req() req: any,
     @Param("id") id: string,
@@ -79,6 +90,7 @@ export class LeadsController {
   }
 
   @Post(":id/status")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   changeStatus(
     @Req() req: any,
     @Param("id") id: string,
@@ -88,6 +100,7 @@ export class LeadsController {
   }
 
   @Post(":id/send-to-manager")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN")
   sendToManager(
     @Req() req: any,
     @Param("id") id: string,
@@ -107,7 +120,7 @@ export class LeadsController {
   }
 
   @Delete("bulk")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "MANAGER")
   bulkDelete(@Req() req: any, @Body() body: { ids: string[] }) {
     return this.leads.bulkDelete(req.user, body);
   }
