@@ -1,11 +1,14 @@
 import "dotenv/config";
 import * as argon2 from "argon2";
 
-// ✅ works even if TS can’t resolve named exports
 const prismaPkg: any = require("@prisma/client");
+
 const prisma = new prismaPkg.PrismaClient({
-  // ✅ Prisma 7: must pass connection explicitly
-  datasourceUrl: process.env.DATABASE_URL,
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
 });
 
 async function main() {
@@ -43,3 +46,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+  

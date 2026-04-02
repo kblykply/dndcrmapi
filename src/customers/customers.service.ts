@@ -29,6 +29,11 @@ export class CustomersService {
     return user.role === "SALES";
   }
 
+  private cleanStr(v?: string | null) {
+    const x = (v ?? "").trim();
+    return x || null;
+  }
+
   private async getCustomerOrThrow(id: string) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
@@ -42,34 +47,84 @@ export class CustomersService {
     return customer;
   }
 
+  private salesOwnsCustomer(
+    user: ReqUser,
+    customer: {
+      ownerId?: string | null;
+      presentations?: Array<{ assignedSalesId?: string | null }>;
+    },
+  ) {
+    if (!this.isSales(user)) return false;
+
+    return (
+      customer.ownerId === user.id ||
+      (customer.presentations || []).some(
+        (p) => p.assignedSalesId === user.id,
+      )
+    );
+  }
+
+  private canEditCustomer(
+    user: ReqUser,
+    customer: {
+      ownerId?: string | null;
+      presentations?: Array<{ assignedSalesId?: string | null }>;
+    },
+  ) {
+    if (this.isAdmin(user) || this.isManager(user)) return true;
+    if (this.isSales(user)) return this.salesOwnsCustomer(user, customer);
+    return false;
+  }
+
+  private maskCustomerForSales(customer: any, canSeeContact: boolean) {
+    if (canSeeContact) {
+      return {
+        ...customer,
+        canSeeContactDetails: true,
+        canEdit: true,
+      };
+    }
+
+    return {
+      ...customer,
+      phone: null,
+      email: null,
+      address: null,
+      notesSummary: null,
+      canSeeContactDetails: false,
+      canEdit: false,
+    };
+  }
+
   async listCustomers(user: ReqUser) {
-    if (this.isAdmin(user) || this.isManager(user)) {
-      return this.prisma.customer.findMany({
-        include: {
-          agency: true,
-          _count: { select: { presentations: true } },
+    const customers = await this.prisma.customer.findMany({
+      include: {
+        agency: true,
+        owner: {
+          select: { id: true, name: true, email: true },
         },
-        orderBy: { createdAt: "desc" },
-      });
+        presentations: {
+          select: {
+            assignedSalesId: true,
+          },
+        },
+        _count: { select: { presentations: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (this.isAdmin(user) || this.isManager(user)) {
+      return customers.map((customer) => ({
+        ...customer,
+        canSeeContactDetails: true,
+        canEdit: true,
+      }));
     }
 
     if (this.isSales(user)) {
-      return this.prisma.customer.findMany({
-        where: {
-          OR: [
-            { ownerId: user.id },
-            {
-              presentations: {
-                some: { assignedSalesId: user.id },
-              },
-            },
-          ],
-        },
-        include: {
-          agency: true,
-          _count: { select: { presentations: true } },
-        },
-        orderBy: { createdAt: "desc" },
+      return customers.map((customer) => {
+        const canSeeContact = this.salesOwnsCustomer(user, customer);
+        return this.maskCustomerForSales(customer, canSeeContact);
       });
     }
 
@@ -103,26 +158,197 @@ export class CustomersService {
       }
     }
 
+    let ownerId: string;
+
+    if (this.isSales(user)) {
+      ownerId = user.id;
+    } else {
+      ownerId = dto.ownerId || user.id;
+
+      if (dto.ownerId) {
+        const ownerUser = await this.prisma.user.findUnique({
+          where: { id: dto.ownerId },
+          select: { id: true, role: true, isActive: true },
+        });
+
+        if (!ownerUser || !ownerUser.isActive) {
+          throw new BadRequestException("Selected owner user not found");
+        }
+
+        if (ownerUser.role !== "SALES") {
+          throw new BadRequestException(
+            "Selected owner must be an active SALES user",
+          );
+        }
+      }
+    }
+
     return this.prisma.customer.create({
       data: {
         fullName,
-        companyName: dto.companyName?.trim() || null,
-        phone: dto.phone?.trim() || null,
-        email: dto.email?.trim() || null,
-        city: dto.city?.trim() || null,
-        country: dto.country?.trim() || null,
-        address: dto.address?.trim() || null,
-        source: dto.source?.trim() || null,
-        notesSummary: dto.notesSummary?.trim() || null,
+        companyName: this.cleanStr(dto.companyName),
+        phone: this.cleanStr(dto.phone),
+        email: this.cleanStr(dto.email),
+        city: this.cleanStr(dto.city),
+        country: this.cleanStr(dto.country),
+        address: this.cleanStr(dto.address),
+        source: this.cleanStr(dto.source),
+        notesSummary: this.cleanStr(dto.notesSummary),
         type: dto.type || "POTENTIAL",
         agencyId,
-        ownerId: dto.ownerId || user.id,
+        ownerId,
       },
       include: {
         agency: true,
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
         _count: { select: { presentations: true } },
       },
     });
+  }
+
+  async updateCustomer(user: ReqUser, customerId: string, dto: any) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: {
+            assignedSalesId: true,
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    if (!this.canEditCustomer(user, customer)) {
+      throw new ForbiddenException("No access to update customer");
+    }
+
+    const data: any = {};
+
+    if (dto.fullName !== undefined) {
+      const fullName = dto.fullName?.trim();
+      if (!fullName) {
+        throw new BadRequestException("Customer name required");
+      }
+      data.fullName = fullName;
+    }
+
+    if (dto.companyName !== undefined) {
+      data.companyName = this.cleanStr(dto.companyName);
+    }
+
+    if (dto.phone !== undefined) {
+      data.phone = this.cleanStr(dto.phone);
+    }
+
+    if (dto.email !== undefined) {
+      data.email = this.cleanStr(dto.email);
+    }
+
+    if (dto.city !== undefined) {
+      data.city = this.cleanStr(dto.city);
+    }
+
+    if (dto.country !== undefined) {
+      data.country = this.cleanStr(dto.country);
+    }
+
+    if (dto.address !== undefined) {
+      data.address = this.cleanStr(dto.address);
+    }
+
+    if (dto.source !== undefined) {
+      data.source = this.cleanStr(dto.source);
+    }
+
+    if (dto.notesSummary !== undefined) {
+      data.notesSummary = this.cleanStr(dto.notesSummary);
+    }
+
+    if (dto.type !== undefined) {
+      data.type = dto.type;
+    }
+
+    if (dto.agencyId !== undefined) {
+      const agencyId = dto.agencyId || null;
+
+      if (agencyId) {
+        const agency = await this.prisma.agency.findUnique({
+          where: { id: agencyId },
+          select: { id: true },
+        });
+
+        if (!agency) {
+          throw new BadRequestException("Selected agency not found");
+        }
+      }
+
+      data.agencyId = agencyId;
+    }
+
+    if (dto.ownerId !== undefined) {
+      if (!this.isAdmin(user) && !this.isManager(user)) {
+        throw new ForbiddenException("Only manager or admin can change owner");
+      }
+
+      const ownerId = dto.ownerId || null;
+
+      if (ownerId) {
+        const ownerUser = await this.prisma.user.findUnique({
+          where: { id: ownerId },
+          select: { id: true, role: true, isActive: true },
+        });
+
+        if (!ownerUser || !ownerUser.isActive) {
+          throw new BadRequestException("Selected owner user not found");
+        }
+
+        if (ownerUser.role !== "SALES") {
+          throw new BadRequestException(
+            "Selected owner must be an active SALES user",
+          );
+        }
+      }
+
+      data.ownerId = ownerId;
+    }
+
+    const updated = await this.prisma.customer.update({
+      where: { id: customerId },
+      data,
+      include: {
+        agency: true,
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        presentations: {
+          select: {
+            assignedSalesId: true,
+          },
+        },
+        _count: { select: { presentations: true } },
+      },
+    });
+
+    if (this.isAdmin(user) || this.isManager(user)) {
+      return {
+        ...updated,
+        canSeeContactDetails: true,
+        canEdit: true,
+      };
+    }
+
+    if (this.isSales(user)) {
+      const canSeeContact = this.salesOwnsCustomer(user, updated);
+      return this.maskCustomerForSales(updated, canSeeContact);
+    }
+
+    throw new ForbiddenException("No access");
   }
 
   async deleteCustomer(user: ReqUser, customerId: string) {
@@ -168,7 +394,29 @@ export class CustomersService {
   }
 
   async createPresentation(user: ReqUser, customerId: string, dto: any) {
-    await this.getCustomerOrThrow(customerId);
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: {
+            assignedSalesId: true,
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException("Customer not found");
+    }
+
+    const canEdit =
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      this.salesOwnsCustomer(user, customer);
+
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
 
     const title = dto.title?.trim();
     if (!title) {
@@ -207,10 +455,10 @@ export class CustomersService {
       data: {
         customerId,
         title,
-        projectName: dto.projectName?.trim() || null,
+        projectName: this.cleanStr(dto.projectName),
         presentationAt,
-        location: dto.location?.trim() || null,
-        notesSummary: dto.notesSummary?.trim() || null,
+        location: this.cleanStr(dto.location),
+        notesSummary: this.cleanStr(dto.notesSummary),
         createdById: user.id,
         assignedSalesId,
       },
@@ -226,6 +474,9 @@ export class CustomersService {
       where: { id: customerId },
       include: {
         agency: true,
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
         presentations: {
           orderBy: { presentationAt: "desc" },
           include: {
@@ -245,19 +496,16 @@ export class CustomersService {
     }
 
     if (this.isAdmin(user) || this.isManager(user)) {
-      return customer;
+      return {
+        ...customer,
+        canSeeContactDetails: true,
+        canEdit: true,
+      };
     }
 
     if (this.isSales(user)) {
-      const hasAccess =
-        customer.ownerId === user.id ||
-        customer.presentations.some((p) => p.assignedSalesId === user.id);
-
-      if (!hasAccess) {
-        throw new ForbiddenException("No access");
-      }
-
-      return customer;
+      const canSeeContact = this.salesOwnsCustomer(user, customer);
+      return this.maskCustomerForSales(customer, canSeeContact);
     }
 
     throw new ForbiddenException("No access");
@@ -331,7 +579,7 @@ export class CustomersService {
     }
 
     if (dto.projectName !== undefined) {
-      data.projectName = dto.projectName?.trim() || null;
+      data.projectName = this.cleanStr(dto.projectName);
     }
 
     if (dto.presentationAt !== undefined) {
@@ -343,7 +591,7 @@ export class CustomersService {
     }
 
     if (dto.location !== undefined) {
-      data.location = dto.location?.trim() || null;
+      data.location = this.cleanStr(dto.location);
     }
 
     if (dto.status !== undefined) {
@@ -355,7 +603,7 @@ export class CustomersService {
     }
 
     if (dto.notesSummary !== undefined) {
-      data.notesSummary = dto.notesSummary?.trim() || null;
+      data.notesSummary = this.cleanStr(dto.notesSummary);
     }
 
     return this.prisma.presentation.update({

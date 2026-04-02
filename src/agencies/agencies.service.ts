@@ -99,6 +99,55 @@ export class AgenciesService {
     return x || undefined;
   }
 
+  private salesOwnsAgency(
+    user: ReqUser,
+    agency: {
+      assignedSalesId?: string | null;
+    },
+  ) {
+    return this.isSales(user) && agency.assignedSalesId === user.id;
+  }
+
+  private canEditAgency(
+    user: ReqUser,
+    agency: {
+      assignedSalesId?: string | null;
+    },
+  ) {
+    return this.isAdmin(user) || this.isManager(user) || this.salesOwnsAgency(user, agency);
+  }
+
+  private maskAgencyForSales(agency: any, canSeeContact: boolean, canEdit: boolean) {
+    if (canSeeContact) {
+      return {
+        ...agency,
+        canSeeContactDetails: true,
+        canEdit,
+      };
+    }
+
+    return {
+      ...agency,
+      contactName: null,
+      phone: null,
+      email: null,
+      address: null,
+      website: null,
+      source: null,
+      notesSummary: null,
+      canSeeContactDetails: false,
+      canEdit,
+    };
+  }
+
+  private withManagerAccessFlags(agency: any, canEdit = true) {
+    return {
+      ...agency,
+      canSeeContactDetails: true,
+      canEdit,
+    };
+  }
+
   private async getAccessibleAgencyOrThrow(user: ReqUser, agencyId: string) {
     const agency = await this.prisma.agency.findUnique({
       where: { id: agencyId },
@@ -114,14 +163,7 @@ export class AgenciesService {
 
     if (!agency) throw new NotFoundException("Agency not found");
 
-    if (user.role === "ADMIN" || user.role === "MANAGER") {
-      return agency;
-    }
-
-    if (
-      user.role === "SALES" &&
-      (agency.assignedSalesId === user.id || agency.managerId === user.id)
-    ) {
+    if (this.isAdmin(user) || this.isManager(user) || this.isSales(user)) {
       return agency;
     }
 
@@ -158,14 +200,7 @@ export class AgenciesService {
     const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || 20)));
     const skip = (page - 1) * pageSize;
 
-    if (user.role === "ADMIN" || user.role === "MANAGER") {
-      // full access
-    } else if (user.role === "SALES") {
-      where.OR = [
-        { assignedSalesId: user.id },
-        { managerId: user.id },
-      ];
-    } else {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
       throw new ForbiddenException("No access");
     }
 
@@ -212,8 +247,18 @@ export class AgenciesService {
       this.prisma.agency.count({ where }),
     ]);
 
+    const normalizedItems = items.map((agency) => {
+      if (this.isSales(user)) {
+        const canSeeContact = this.salesOwnsAgency(user, agency);
+        const canEdit = this.canEditAgency(user, agency);
+        return this.maskAgencyForSales(agency, canSeeContact, canEdit);
+      }
+
+      return this.withManagerAccessFlags(agency, true);
+    });
+
     return {
-      items,
+      items: normalizedItems,
       total,
       page,
       pageSize,
@@ -222,9 +267,7 @@ export class AgenciesService {
   }
 
   async getAgency(user: ReqUser, agencyId: string) {
-    await this.getAccessibleAgencyOrThrow(user, agencyId);
-
-    return this.prisma.agency.findUnique({
+    const agency = await this.prisma.agency.findUnique({
       where: { id: agencyId },
       include: {
         manager: { select: { id: true, name: true, email: true } },
@@ -250,14 +293,26 @@ export class AgenciesService {
         },
       },
     });
+
+    if (!agency) {
+      throw new NotFoundException("Agency not found");
+    }
+
+    if (this.isAdmin(user) || this.isManager(user)) {
+      return this.withManagerAccessFlags(agency, true);
+    }
+
+    if (this.isSales(user)) {
+      const canSeeContact = this.salesOwnsAgency(user, agency);
+      const canEdit = this.canEditAgency(user, agency);
+      return this.maskAgencyForSales(agency, canSeeContact, canEdit);
+    }
+
+    throw new ForbiddenException("No access");
   }
 
   async createAgency(user: ReqUser, dto: CreateAgencyDto) {
-    if (
-      user.role !== "ADMIN" &&
-      user.role !== "MANAGER" &&
-      user.role !== "SALES"
-    ) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
       throw new ForbiddenException("No access to create agencies");
     }
 
@@ -293,7 +348,7 @@ export class AgenciesService {
         website: this.cleanStr(dto.website),
         source: this.cleanStr(dto.source),
         notesSummary: this.cleanStr(dto.notesSummary),
-        managerId: user.id,
+        managerId: this.isManager(user) || this.isAdmin(user) ? user.id : null,
         assignedSalesId,
       },
       include: {
@@ -304,11 +359,20 @@ export class AgenciesService {
   }
 
   async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
-    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
+    const agency = await this.prisma.agency.findUnique({
+      where: { id: agencyId },
+      select: {
+        id: true,
+        assignedSalesId: true,
+      },
+    });
 
-    const managerCanEdit = user.role === "ADMIN" || user.role === "MANAGER";
-    const salesCanEditOwn =
-      user.role === "SALES" && agency.managerId === user.id;
+    if (!agency) {
+      throw new NotFoundException("Agency not found");
+    }
+
+    const managerCanEdit = this.isAdmin(user) || this.isManager(user);
+    const salesCanEditOwn = this.isSales(user) && agency.assignedSalesId === user.id;
 
     if (!managerCanEdit && !salesCanEditOwn) {
       throw new ForbiddenException("No access to update this agency");
@@ -316,7 +380,14 @@ export class AgenciesService {
 
     const data: any = {};
 
-    if (dto.name !== undefined) data.name = this.cleanStr(dto.name);
+    if (dto.name !== undefined) {
+      const name = this.cleanStr(dto.name);
+      if (!name) {
+        throw new BadRequestException("Agency name is required");
+      }
+      data.name = name;
+    }
+
     if (dto.contactName !== undefined) data.contactName = this.cleanStr(dto.contactName) ?? null;
     if (dto.phone !== undefined) data.phone = this.cleanStr(dto.phone) ?? null;
     if (dto.email !== undefined) data.email = this.cleanStr(dto.email) ?? null;
@@ -331,10 +402,6 @@ export class AgenciesService {
       data.status = dto.status;
     }
 
-    if (dto.name !== undefined && !data.name) {
-      throw new BadRequestException("Agency name is required");
-    }
-
     return this.prisma.agency.update({
       where: { id: agencyId },
       data,
@@ -346,7 +413,7 @@ export class AgenciesService {
   }
 
   async deleteAgency(user: ReqUser, agencyId: string) {
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    if (!this.isAdmin(user) && !this.isManager(user)) {
       throw new ForbiddenException("No access to delete agency");
     }
 
@@ -388,7 +455,7 @@ export class AgenciesService {
   async assignSales(user: ReqUser, agencyId: string, dto: AssignSalesDto) {
     await this.assertManagerCanManageAgency(user, agencyId);
 
-    let salesId = dto.salesId || null;
+    const salesId = dto.salesId || null;
 
     if (salesId) {
       const sales = await this.prisma.user.findUnique({
@@ -414,7 +481,16 @@ export class AgenciesService {
   }
 
   async addNote(user: ReqUser, agencyId: string, dto: CreateAgencyNoteDto) {
-    await this.getAccessibleAgencyOrThrow(user, agencyId);
+    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
+
+    const canEdit =
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      this.salesOwnsAgency(user, agency);
+
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
 
     const note = this.cleanStr(dto.note);
     if (!note) throw new BadRequestException("Note is required");
@@ -432,7 +508,16 @@ export class AgenciesService {
   }
 
   async createMeeting(user: ReqUser, agencyId: string, dto: CreateAgencyMeetingDto) {
-    await this.getAccessibleAgencyOrThrow(user, agencyId);
+    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
+
+    const canEdit =
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      this.salesOwnsAgency(user, agency);
+
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
 
     const title = this.cleanStr(dto.title);
     if (!title) throw new BadRequestException("Meeting title is required");
@@ -467,7 +552,14 @@ export class AgenciesService {
 
     if (!meeting) throw new NotFoundException("Meeting not found");
 
-    await this.getAccessibleAgencyOrThrow(user, meeting.agencyId);
+    const canEdit =
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      meeting.agency.assignedSalesId === user.id;
+
+    if (!canEdit) {
+      throw new ForbiddenException("No access");
+    }
 
     const data: any = {};
 
@@ -501,9 +593,9 @@ export class AgenciesService {
   async createTask(user: ReqUser, agencyId: string, dto: CreateAgencyTaskDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const managerCanCreate = user.role === "ADMIN" || user.role === "MANAGER";
+    const managerCanCreate = this.isAdmin(user) || this.isManager(user);
     const salesCanCreate =
-      user.role === "SALES" && agency.managerId === user.id;
+      this.isSales(user) && agency.assignedSalesId === user.id;
 
     if (!managerCanCreate && !salesCanCreate) {
       throw new ForbiddenException("No access to create this task");
@@ -564,11 +656,9 @@ export class AgenciesService {
 
     if (!task) throw new NotFoundException("Task not found");
 
-    const agency = await this.getAccessibleAgencyOrThrow(user, task.agencyId);
-
-    const managerCanEdit = user.role === "ADMIN" || user.role === "MANAGER";
+    const managerCanEdit = this.isAdmin(user) || this.isManager(user);
     const salesCanEditOwn =
-      user.role === "SALES" && task.assignedToId === user.id;
+      this.isSales(user) && task.assignedToId === user.id;
 
     if (!managerCanEdit && !salesCanEditOwn) {
       throw new ForbiddenException("No access to update this task");

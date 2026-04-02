@@ -125,6 +125,8 @@ model User {
 
   @@index([role])
   @@index([isActive])
+    crmTasksAssigned CrmTask[] @relation("CrmTaskAssignedTo")
+  crmTasksCreated  CrmTask[] @relation("CrmTaskCreatedBy")
 }
 
 model Lead {
@@ -183,6 +185,12 @@ model Lead {
   @@index([metaPsid])
   @@index([metaLeadId])
   @@index([metaPlatform])
+
+
+  crmTasks CrmTask[]
+
+
+  
 }
 
 model LeadActivity {
@@ -346,6 +354,10 @@ model Agency {
   tasks    AgencyTask[]
 
   customers Customer[]
+
+    crmTasks CrmTask[]
+
+
 }
 
 model AgencyNote {
@@ -435,6 +447,10 @@ model Customer {
   owner   User?   @relation("CustomerOwner", fields: [ownerId], references: [id])
 
   presentations Presentation[]
+
+    crmTasks CrmTask[]
+
+
 }
 
 model Presentation {
@@ -491,4 +507,54 @@ enum PresentationOutcome {
   NO_DECISION
   WON
   LOST
+}
+
+model CrmTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+
+  status   CrmTaskStatus   @default(TODO)
+  priority CrmTaskPriority @default(MEDIUM)
+
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  // 🔥 MULTI-RELATION SUPPORT
+  leadId     String?
+  agencyId   String?
+  customerId String?
+
+  assignedToId String?
+  createdById  String
+
+  // 🔥 RELATIONS
+  lead     Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  agency   Agency?   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  assignedTo User? @relation("CrmTaskAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy  User  @relation("CrmTaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([agencyId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([dueAt])
+}
+enum CrmTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum CrmTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
 }

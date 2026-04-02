@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -51,6 +52,30 @@ export class CustomersController {
     },
   ) {
     return this.customers.createCustomer(req.user, body);
+  }
+
+  @Patch(":id")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  update(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      fullName?: string;
+      companyName?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      city?: string | null;
+      country?: string | null;
+      address?: string | null;
+      source?: string | null;
+      notesSummary?: string | null;
+      type?: "POTENTIAL" | "EXISTING";
+      agencyId?: string | null;
+      ownerId?: string | null;
+    },
+  ) {
+    return this.customers.updateCustomer(req.user, id, body);
   }
 
   @Delete(":id")
