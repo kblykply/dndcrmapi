@@ -6,13 +6,18 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Role } from "../common/types";
 
 type ReqUser = { id: string; role: Role; email: string };
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+    private notifications: NotificationsService,
+  ) {}
 
   private ensureAuth(user: ReqUser) {
     if (!user?.id) throw new ForbiddenException("Unauthorized");
@@ -157,6 +162,25 @@ export class TasksService {
     await this.validateAssignedUser(body.assignedToId);
   }
 
+  private buildTaskLink(task: { id: string }) {
+    return `/tasks/${task.id}`;
+  }
+
+  private buildTaskMessage(task: {
+    title: string;
+    lead?: { fullName?: string | null } | null;
+    agency?: { name?: string | null } | null;
+    customer?: { fullName?: string | null } | null;
+  }) {
+    const related = [
+      task.lead?.fullName,
+      task.customer?.fullName,
+      task.agency?.name,
+    ].filter(Boolean);
+
+    return related.length ? `${task.title} • ${related.join(" • ")}` : task.title;
+  }
+
   async listMy(
     user: ReqUser,
     q: { status?: string; range?: string; search?: string },
@@ -281,6 +305,7 @@ export class TasksService {
       }
     }
 
+    const assignedUser = await this.validateAssignedUser(body.assignedToId);
     await this.validateRelations(body);
 
     const task = await this.prisma.crmTask.create({
@@ -306,6 +331,27 @@ export class TasksService {
       customerId: task.customerId,
     });
 
+    if (task.assignedToId) {
+      await this.notifications.createForUser({
+        userId: task.assignedToId,
+        type: "TASK_ASSIGNED",
+        title: "Yeni görev atandı",
+        message: this.buildTaskMessage(task),
+        entityType: "CrmTask",
+        entityId: task.id,
+        link: this.buildTaskLink(task),
+        metaJson: {
+          taskId: task.id,
+          title: task.title,
+          leadId: task.leadId,
+          agencyId: task.agencyId,
+          customerId: task.customerId,
+          createdById: task.createdById,
+          assignedToName: assignedUser?.name ?? null,
+        },
+      });
+    }
+
     return task;
   }
 
@@ -314,6 +360,7 @@ export class TasksService {
 
     const task = await this.prisma.crmTask.findUnique({
       where: { id },
+      include: this.includeTaskRelations(),
     });
 
     if (!task) {
@@ -327,6 +374,9 @@ export class TasksService {
     if (!managerCanEdit && !assigneeCanEdit && !creatorCanEdit) {
       throw new ForbiddenException("No access");
     }
+
+    const previousAssignedToId = task.assignedToId;
+    const previousStatus = task.status;
 
     const data: any = {};
 
@@ -449,13 +499,65 @@ export class TasksService {
       customerId: updated.customerId,
     });
 
+    if (
+      updated.assignedToId &&
+      updated.assignedToId !== previousAssignedToId
+    ) {
+      await this.notifications.createForUser({
+        userId: updated.assignedToId,
+        type: "TASK_ASSIGNED",
+        title: "Size görev atandı",
+        message: this.buildTaskMessage(updated),
+        entityType: "CrmTask",
+        entityId: updated.id,
+        link: this.buildTaskLink(updated),
+        metaJson: {
+          taskId: updated.id,
+          title: updated.title,
+          assignedToId: updated.assignedToId,
+          createdById: updated.createdById,
+        },
+      });
+    }
+
+    if (
+      updated.assignedToId &&
+      updated.assignedToId === previousAssignedToId &&
+      (
+        previousStatus !== updated.status ||
+        task.title !== updated.title ||
+        task.description !== updated.description ||
+        task.priority !== updated.priority ||
+        String(task.dueAt ?? "") !== String(updated.dueAt ?? "")
+      )
+    ) {
+      await this.notifications.createForUser({
+        userId: updated.assignedToId,
+        type: "TASK_UPDATED",
+        title: "Görev güncellendi",
+        message: this.buildTaskMessage(updated),
+        entityType: "CrmTask",
+        entityId: updated.id,
+        link: this.buildTaskLink(updated),
+        metaJson: {
+          taskId: updated.id,
+          status: updated.status,
+          previousStatus,
+        },
+      });
+    }
+
     return updated;
   }
 
   async markDone(user: ReqUser, id: string) {
     this.ensureAuth(user);
 
-    const task = await this.prisma.crmTask.findUnique({ where: { id } });
+    const task = await this.prisma.crmTask.findUnique({
+      where: { id },
+      include: this.includeTaskRelations(),
+    });
+
     if (!task) {
       throw new BadRequestException("Task not found");
     }
@@ -472,13 +574,35 @@ export class TasksService {
     });
 
     await this.audit.log(user, "CRM_TASK_DONE", "CrmTask", id, {});
+
+    if (updated.createdById && updated.createdById !== user.id) {
+      await this.notifications.createForUser({
+        userId: updated.createdById,
+        type: "TASK_UPDATED",
+        title: "Görev tamamlandı",
+        message: this.buildTaskMessage(updated),
+        entityType: "CrmTask",
+        entityId: updated.id,
+        link: this.buildTaskLink(updated),
+        metaJson: {
+          taskId: updated.id,
+          completedById: user.id,
+          status: updated.status,
+        },
+      });
+    }
+
     return updated;
   }
 
   async cancel(user: ReqUser, id: string) {
     this.ensureAuth(user);
 
-    const task = await this.prisma.crmTask.findUnique({ where: { id } });
+    const task = await this.prisma.crmTask.findUnique({
+      where: { id },
+      include: this.includeTaskRelations(),
+    });
+
     if (!task) {
       throw new BadRequestException("Task not found");
     }
@@ -495,6 +619,24 @@ export class TasksService {
     });
 
     await this.audit.log(user, "CRM_TASK_CANCEL", "CrmTask", id, {});
+
+    if (updated.assignedToId && updated.assignedToId !== user.id) {
+      await this.notifications.createForUser({
+        userId: updated.assignedToId,
+        type: "TASK_UPDATED",
+        title: "Görev iptal edildi",
+        message: this.buildTaskMessage(updated),
+        entityType: "CrmTask",
+        entityId: updated.id,
+        link: this.buildTaskLink(updated),
+        metaJson: {
+          taskId: updated.id,
+          cancelledById: user.id,
+          status: updated.status,
+        },
+      });
+    }
+
     return updated;
   }
 

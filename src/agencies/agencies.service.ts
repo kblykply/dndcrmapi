@@ -311,52 +311,59 @@ export class AgenciesService {
     throw new ForbiddenException("No access");
   }
 
-  async createAgency(user: ReqUser, dto: CreateAgencyDto) {
-    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
-      throw new ForbiddenException("No access to create agencies");
-    }
-
-    const name = this.cleanStr(dto.name);
-    if (!name) throw new BadRequestException("Agency name is required");
-
-    let assignedSalesId: string | null = dto.assignedSalesId || null;
-
-    if (this.isSales(user)) {
-      assignedSalesId = user.id;
-    }
-
-    if (assignedSalesId) {
-      const sales = await this.prisma.user.findUnique({
-        where: { id: assignedSalesId },
-        select: { id: true, role: true, isActive: true },
-      });
-
-      if (!sales || !sales.isActive || sales.role !== "SALES") {
-        throw new BadRequestException("Assigned sales user is invalid");
-      }
-    }
-
-    return this.prisma.agency.create({
-      data: {
-        name,
-        contactName: this.cleanStr(dto.contactName),
-        phone: this.cleanStr(dto.phone),
-        email: this.cleanStr(dto.email),
-        city: this.cleanStr(dto.city),
-        country: this.cleanStr(dto.country),
-        address: this.cleanStr(dto.address),
-        website: this.cleanStr(dto.website),
-        source: this.cleanStr(dto.source),
-        notesSummary: this.cleanStr(dto.notesSummary),
-        managerId: this.isManager(user) || this.isAdmin(user) ? user.id : null,
-        assignedSalesId,
-      },
-      include: {
-        manager: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true } },
-      },
-    });
+ async createAgency(user: ReqUser, dto: CreateAgencyDto) {
+  if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
+    throw new ForbiddenException("No access to create agencies");
   }
+
+  const name = this.cleanStr(dto.name);
+  if (!name) throw new BadRequestException("Agency name is required");
+
+  let assignedSalesId: string | null = dto.assignedSalesId || null;
+
+  if (this.isSales(user)) {
+    assignedSalesId = user.id;
+  }
+
+  if (assignedSalesId) {
+    const sales = await this.prisma.user.findUnique({
+      where: { id: assignedSalesId },
+      select: { id: true, role: true, isActive: true },
+    });
+
+    if (!sales || !sales.isActive || sales.role !== "SALES") {
+      throw new BadRequestException("Assigned sales user is invalid");
+    }
+  }
+
+  // 🔥 CRITICAL FIX
+  const data: any = {
+    name,
+    contactName: this.cleanStr(dto.contactName) ?? null,
+    phone: this.cleanStr(dto.phone) ?? null,
+    email: this.cleanStr(dto.email) ?? null,
+    city: this.cleanStr(dto.city) ?? null,
+    country: this.cleanStr(dto.country) ?? null,
+    address: this.cleanStr(dto.address) ?? null,
+    website: this.cleanStr(dto.website) ?? null,
+    source: this.cleanStr(dto.source) ?? null,
+    notesSummary: this.cleanStr(dto.notesSummary) ?? null,
+    assignedSalesId,
+  };
+
+  // 🔥 IMPORTANT: manager sadece varsa set et
+  if (this.isManager(user) || this.isAdmin(user)) {
+    data.managerId = user.id;
+  }
+
+  return this.prisma.agency.create({
+    data,
+    include: {
+      manager: { select: { id: true, name: true, email: true } },
+      assignedSales: { select: { id: true, name: true, email: true } },
+    },
+  });
+}
 
   async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
     const agency = await this.prisma.agency.findUnique({

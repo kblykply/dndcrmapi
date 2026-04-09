@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,8 +8,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
   Req,
+  UseGuards,
 } from "@nestjs/common";
 import { LeadsService } from "./leads.service";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
@@ -20,6 +21,20 @@ import type { ActivityType, LeadStatus } from "../common/types";
 @Controller("leads")
 export class LeadsController {
   constructor(private leads: LeadsService) {}
+
+  private toPositiveNumber(value: string | undefined, fallback: number) {
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+
+    const num = Number(value);
+
+    if (!Number.isFinite(num) || num <= 0) {
+      throw new BadRequestException("Invalid numeric query parameter");
+    }
+
+    return Math.floor(num);
+  }
 
   @Post()
   @Roles("CALLCENTER", "ADMIN")
@@ -47,8 +62,8 @@ export class LeadsController {
   ) {
     return this.leads.listLeads(req.user, {
       status,
-      page: page ? Number(page) : 1,
-      pageSize: pageSize ? Number(pageSize) : 25,
+      page: this.toPositiveNumber(page, 1),
+      pageSize: this.toPositiveNumber(pageSize, 25),
       q: q || "",
     });
   }
@@ -62,12 +77,20 @@ export class LeadsController {
   @Get(":id")
   @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   getOne(@Req() req: any, @Param("id") id: string) {
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
     return this.leads.getLead(req.user, id);
   }
 
   @Patch(":id/core")
   @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
   updateCore(@Req() req: any, @Param("id") id: string, @Body() patch: any) {
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
     return this.leads.updateLeadCore(req.user, id, patch);
   }
 
@@ -86,6 +109,10 @@ export class LeadsController {
       nextFollowUpAt?: string;
     },
   ) {
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
     return this.leads.addActivity(req.user, id, body);
   }
 
@@ -96,17 +123,33 @@ export class LeadsController {
     @Param("id") id: string,
     @Body() body: { to: LeadStatus },
   ) {
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
+    if (!body?.to) {
+      throw new BadRequestException("Target status is required");
+    }
+
     return this.leads.changeStatus(req.user, id, body.to);
   }
 
   @Post(":id/send-to-manager")
-  @Roles("CALLCENTER", "MANAGER", "ADMIN")
+  @Roles("CALLCENTER", "ADMIN")
   sendToManager(
     @Req() req: any,
     @Param("id") id: string,
     @Body() body: { managerId: string },
   ) {
-    return this.leads.sendToManager(req.user, id, body.managerId);
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
+    if (!body?.managerId?.trim()) {
+      throw new BadRequestException("managerId is required");
+    }
+
+    return this.leads.sendToManager(req.user, id, body.managerId.trim());
   }
 
   @Post(":id/assign-to-sales")
@@ -116,12 +159,24 @@ export class LeadsController {
     @Param("id") id: string,
     @Body() body: { salesId: string },
   ) {
-    return this.leads.assignToSales(req.user, id, body.salesId);
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
+    if (!body?.salesId?.trim()) {
+      throw new BadRequestException("salesId is required");
+    }
+
+    return this.leads.assignToSales(req.user, id, body.salesId.trim());
   }
 
   @Delete("bulk")
   @Roles("ADMIN", "MANAGER")
   bulkDelete(@Req() req: any, @Body() body: { ids: string[] }) {
+    if (!Array.isArray(body?.ids)) {
+      throw new BadRequestException("ids must be an array");
+    }
+
     return this.leads.bulkDelete(req.user, body);
   }
 }

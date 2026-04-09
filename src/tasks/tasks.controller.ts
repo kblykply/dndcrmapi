@@ -14,6 +14,9 @@ import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { RolesGuard } from "../common/roles.guard";
 import { Roles } from "../common/roles.decorator";
 
+type CrmTaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+type CrmTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("tasks")
 export class TasksController {
@@ -23,7 +26,7 @@ export class TasksController {
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   listMy(
     @Req() req: any,
-    @Query("status") status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED",
+    @Query("status") status?: CrmTaskStatus,
     @Query("range") range?: string,
     @Query("search") search?: string,
   ) {
@@ -38,7 +41,7 @@ export class TasksController {
   @Roles("ADMIN", "MANAGER")
   listTeam(
     @Req() req: any,
-    @Query("status") status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED",
+    @Query("status") status?: CrmTaskStatus,
     @Query("range") range?: string,
     @Query("search") search?: string,
   ) {
@@ -53,7 +56,7 @@ export class TasksController {
   @Roles("ADMIN", "MANAGER")
   listAll(
     @Req() req: any,
-    @Query("status") status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED",
+    @Query("status") status?: CrmTaskStatus,
     @Query("range") range?: string,
     @Query("search") search?: string,
     @Query("assignedToId") assignedToId?: string,
@@ -79,9 +82,9 @@ export class TasksController {
     @Body()
     body: {
       title: string;
-      description?: string;
-      status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED";
-      priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+      description?: string | null;
+      status?: CrmTaskStatus;
+      priority?: CrmTaskPriority;
       dueAt?: string | null;
       assignedToId?: string | null;
       leadId?: string | null;
@@ -100,9 +103,9 @@ export class TasksController {
     @Body()
     body: {
       title?: string;
-      description?: string;
-      priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-      status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+      description?: string | null;
+      priority?: CrmTaskPriority;
+      status?: CrmTaskStatus;
       dueAt?: string | null;
       assignedToId?: string | null;
       leadId?: string | null;

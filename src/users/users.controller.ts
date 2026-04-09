@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -232,7 +231,7 @@ export class UsersController {
   @Delete(":id")
   @Roles("ADMIN")
   async deleteUser(@Req() req: any, @Param("id") id: string) {
-    const currentUserId = req.user?.sub as string | undefined;
+    const currentUserId = (req.user?.sub || req.user?.id) as string | undefined;
 
     if (!id) throw new BadRequestException("User id is required");
     if (currentUserId && currentUserId === id) {
@@ -244,15 +243,38 @@ export class UsersController {
       select: {
         id: true,
         email: true,
+
         callcenterLeads: { select: { id: true } },
         managedLeads: { select: { id: true } },
         salesLeads: { select: { id: true } },
+
         activities: { select: { id: true } },
-        tasksCreated: { select: { id: true } },
-        tasksAssigned: { select: { id: true } },
+        stageChanges: { select: { id: true } },
         audits: { select: { id: true } },
         refreshTokens: { select: { id: true } },
-        stageChanges: { select: { id: true } },
+        trustedDevices: { select: { id: true } },
+        loginOtps: { select: { id: true } },
+
+        tasksCreated: { select: { id: true } },
+        tasksAssigned: { select: { id: true } },
+
+        crmTasksCreated: { select: { id: true } },
+        crmTasksAssigned: { select: { id: true } },
+
+        agenciesManaged: { select: { id: true } },
+        agenciesAssigned: { select: { id: true } },
+        agencyNotesAuthored: { select: { id: true } },
+        agencyMeetingsAuthored: { select: { id: true } },
+        agencyTasksCreated: { select: { id: true } },
+        agencyTasksAssigned: { select: { id: true } },
+
+        ownedCustomers: { select: { id: true } },
+        presentationsCreated: { select: { id: true } },
+        presentationsAssigned: { select: { id: true } },
+        presentationNotes: { select: { id: true } },
+
+        notifications: { select: { id: true } },
+
         reps: { select: { id: true } },
       },
     });
@@ -265,11 +287,29 @@ export class UsersController {
       callcenterLeads: user.callcenterLeads.length,
       managedLeads: user.managedLeads.length,
       salesLeads: user.salesLeads.length,
+
       activities: user.activities.length,
+      stageChanges: user.stageChanges.length,
+      audits: user.audits.length,
+
       tasksCreated: user.tasksCreated.length,
       tasksAssigned: user.tasksAssigned.length,
-      audits: user.audits.length,
-      stageChanges: user.stageChanges.length,
+
+      crmTasksCreated: user.crmTasksCreated.length,
+      crmTasksAssigned: user.crmTasksAssigned.length,
+
+      agenciesManaged: user.agenciesManaged.length,
+      agenciesAssigned: user.agenciesAssigned.length,
+      agencyNotesAuthored: user.agencyNotesAuthored.length,
+      agencyMeetingsAuthored: user.agencyMeetingsAuthored.length,
+      agencyTasksCreated: user.agencyTasksCreated.length,
+      agencyTasksAssigned: user.agencyTasksAssigned.length,
+
+      ownedCustomers: user.ownedCustomers.length,
+      presentationsCreated: user.presentationsCreated.length,
+      presentationsAssigned: user.presentationsAssigned.length,
+      presentationNotes: user.presentationNotes.length,
+
       reps: user.reps.length,
     };
 
@@ -283,6 +323,18 @@ export class UsersController {
     }
 
     await this.prisma.refreshToken.deleteMany({
+      where: { userId: id },
+    });
+
+    await this.prisma.trustedDevice.deleteMany({
+      where: { userId: id },
+    });
+
+    await this.prisma.loginOtp.deleteMany({
+      where: { userId: id },
+    });
+
+    await this.prisma.notification.deleteMany({
       where: { userId: id },
     });
 
@@ -300,7 +352,7 @@ export class UsersController {
   @Delete(":id/force")
   @Roles("ADMIN")
   async forceDeleteUser(@Req() req: any, @Param("id") id: string) {
-    const currentUserId = req.user?.sub as string | undefined;
+    const currentUserId = (req.user?.sub || req.user?.id) as string | undefined;
 
     if (!id) throw new BadRequestException("User id is required");
     if (currentUserId && currentUserId === id) {
@@ -325,46 +377,16 @@ export class UsersController {
       user.email.includes("test") ||
       user.email.includes("demo");
 
-    // İstersen bunu aç:
     // if (!isLikelyTestUser) {
     //   throw new ForbiddenException("Force delete is only allowed for test users");
     // }
 
     await this.prisma.$transaction(async (tx) => {
-      // Alt kullanıcı bağlantılarını kopar
       await tx.user.updateMany({
         where: { managerId: id },
         data: { managerId: null },
       });
 
-      // Görevleri temizle
-      await tx.task.deleteMany({
-        where: {
-          OR: [{ createdById: id }, { assignedToId: id }],
-        },
-      });
-
-      // Kullanıcının oluşturduğu lead aktiviteleri
-      await tx.leadActivity.deleteMany({
-        where: { createdById: id },
-      });
-
-      // Kullanıcının yaptığı stage değişimleri
-      await tx.leadStageHistory.deleteMany({
-        where: { changedById: id },
-      });
-
-      // Audit loglar
-      await tx.auditLog.deleteMany({
-        where: { actorId: id },
-      });
-
-      // Refresh tokenlar
-      await tx.refreshToken.deleteMany({
-        where: { userId: id },
-      });
-
-      // Lead bağlantılarını null yap
       await tx.lead.updateMany({
         where: { ownerCallCenterId: id },
         data: { ownerCallCenterId: null },
@@ -380,7 +402,91 @@ export class UsersController {
         data: { assignedSalesId: null },
       });
 
-      // Son olarak kullanıcıyı sil
+      await tx.agency.updateMany({
+        where: { managerId: id },
+        data: { managerId: currentUserId || id },
+      });
+
+      await tx.agency.updateMany({
+        where: { assignedSalesId: id },
+        data: { assignedSalesId: null },
+      });
+
+      await tx.customer.updateMany({
+        where: { ownerId: id },
+        data: { ownerId: null },
+      });
+
+      if (currentUserId) {
+        await tx.presentation.updateMany({
+          where: { assignedSalesId: id },
+          data: { assignedSalesId: currentUserId },
+        });
+
+        await tx.presentation.updateMany({
+          where: { createdById: id },
+          data: { createdById: currentUserId },
+        });
+      }
+
+      await tx.crmTask.deleteMany({
+        where: {
+          OR: [{ createdById: id }, { assignedToId: id }],
+        },
+      });
+
+      await tx.task.deleteMany({
+        where: {
+          OR: [{ createdById: id }, { assignedToId: id }],
+        },
+      });
+
+      await tx.agencyTask.deleteMany({
+        where: {
+          OR: [{ createdById: id }, { assignedToId: id }],
+        },
+      });
+
+      await tx.agencyNote.deleteMany({
+        where: { createdById: id },
+      });
+
+      await tx.agencyMeeting.deleteMany({
+        where: { createdById: id },
+      });
+
+      await tx.presentationNote.deleteMany({
+        where: { createdById: id },
+      });
+
+      await tx.leadActivity.deleteMany({
+        where: { createdById: id },
+      });
+
+      await tx.leadStageHistory.deleteMany({
+        where: { changedById: id },
+      });
+
+      await tx.auditLog.deleteMany({
+        where: { actorId: id },
+      });
+
+      await tx.refreshToken.deleteMany({
+        where: { userId: id },
+      });
+
+      await tx.trustedDevice.deleteMany({
+        where: { userId: id },
+      });
+
+      await tx.loginOtp.deleteMany({
+        where: { userId: id },
+      });
+
+      await tx.notification.deleteMany({
+        where: { userId: id },
+      });
+
       await tx.user.delete({
         where: { id },
       });

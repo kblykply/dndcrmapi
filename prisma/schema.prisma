@@ -127,6 +127,12 @@ model User {
   @@index([isActive])
     crmTasksAssigned CrmTask[] @relation("CrmTaskAssignedTo")
   crmTasksCreated  CrmTask[] @relation("CrmTaskCreatedBy")
+
+
+  notifications Notification[]
+
+
+  
 }
 
 model Lead {
@@ -190,7 +196,7 @@ model Lead {
   crmTasks CrmTask[]
 
 
-  
+
 }
 
 model LeadActivity {
@@ -343,21 +349,17 @@ model Agency {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  managerId       String
+  managerId       String?
   assignedSalesId String?
 
-  manager       User  @relation("AgencyManager", fields: [managerId], references: [id])
+  manager       User? @relation("AgencyManager", fields: [managerId], references: [id])
   assignedSales User? @relation("AgencySales", fields: [assignedSalesId], references: [id])
 
-  notes    AgencyNote[]
-  meetings AgencyMeeting[]
-  tasks    AgencyTask[]
-
+  notes     AgencyNote[]
+  meetings  AgencyMeeting[]
+  tasks     AgencyTask[]
   customers Customer[]
-
-    crmTasks CrmTask[]
-
-
+  crmTasks  CrmTask[]
 }
 
 model AgencyNote {
@@ -558,3 +560,43 @@ enum CrmTaskPriority {
   MEDIUM
   HIGH
 }
+
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_DUE
+  TASK_OVERDUE
+  LEAD_ASSIGNED
+  LEAD_STATUS_CHANGED
+  LEAD_SENT_TO_MANAGER
+  AGENCY_UPDATED
+  CUSTOMER_UPDATED
+  PRESENTATION_CREATED
+  PRESENTATION_NOTE_ADDED
+  SYSTEM
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  message     String?
+  isRead      Boolean          @default(false)
+
+  entityType  String?
+  entityId    String?
+  link        String?
+
+  metaJson    Json?
+
+  createdAt   DateTime         @default(now())
+  readAt      DateTime?
+
+  @@index([userId, isRead, createdAt])
+}
+
+
