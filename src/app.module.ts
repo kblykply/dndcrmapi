@@ -14,6 +14,10 @@ import { AgenciesModule } from "./agencies/agencies.module";
 import { CustomersModule } from "./customers/customers.module";
 import { CalendarModule } from "./calendar/calendar.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { MeetingsModule } from "./meetings/meetings.module";
+
+
+
 
 @Module({
   imports: [
@@ -32,6 +36,10 @@ import { NotificationsModule } from "./notifications/notifications.module";
     CustomersModule,
     CalendarModule,
     NotificationsModule,
+        MeetingsModule,
+
+        
+
   ],
   controllers: [HealthController],
 })
