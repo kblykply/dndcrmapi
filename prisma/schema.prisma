@@ -122,17 +122,13 @@ model User {
   presentationsCreated  Presentation[]     @relation("PresentationCreator")
   presentationsAssigned Presentation[]     @relation("PresentationSales")
   presentationNotes     PresentationNote[] @relation("PresentationNoteAuthor")
-
-  @@index([role])
-  @@index([isActive])
-    crmTasksAssigned CrmTask[] @relation("CrmTaskAssignedTo")
-  crmTasksCreated  CrmTask[] @relation("CrmTaskCreatedBy")
-
+  crmTasksAssigned      CrmTask[]          @relation("CrmTaskAssignedTo")
+  crmTasksCreated       CrmTask[]          @relation("CrmTaskCreatedBy")
 
   notifications Notification[]
 
-
-  
+  @@index([role])
+  @@index([isActive])
 }
 
 model Lead {
@@ -179,6 +175,8 @@ model Lead {
   // Opposite side of Task.lead
   tasks Task[] @relation("LeadTasks")
 
+  crmTasks CrmTask[]
+
   @@unique([metaLeadId])
   @@index([status])
   @@index([nextFollowUpAt])
@@ -191,12 +189,6 @@ model Lead {
   @@index([metaPsid])
   @@index([metaLeadId])
   @@index([metaPlatform])
-
-
-  crmTasks CrmTask[]
-
-
-
 }
 
 model LeadActivity {
@@ -271,16 +263,22 @@ model Task {
 
   title       String
   description String?
-  type        TaskType     @default(FOLLOW_UP)
-  status      TaskStatus   @default(OPEN)
-  priority    TaskPriority @default(MEDIUM)
+  type        TaskType      @default(FOLLOW_UP)
+  status      CrmTaskStatus @default(TODO)
+  priority    TaskPriority  @default(MEDIUM)
 
-  dueAt      DateTime
+  dueAt      DateTime?
   doneAt     DateTime?
   canceledAt DateTime?
 
   leadId String?
   lead   Lead?   @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
+
+  agencyId String?
+  agency   Agency? @relation("AgencyTasks", fields: [agencyId], references: [id], onDelete: SetNull)
+
+  customerId String?
+  customer   Customer? @relation("CustomerTasks", fields: [customerId], references: [id], onDelete: SetNull)
 
   createdById String
   createdBy   User   @relation("TasksCreatedBy", fields: [createdById], references: [id])
@@ -293,6 +291,8 @@ model Task {
 
   @@index([assignedToId, status, dueAt])
   @@index([leadId, status, dueAt])
+  @@index([agencyId, status, dueAt])
+  @@index([customerId, status, dueAt])
 }
 
 model TrustedDevice {
@@ -355,11 +355,12 @@ model Agency {
   manager       User? @relation("AgencyManager", fields: [managerId], references: [id])
   assignedSales User? @relation("AgencySales", fields: [assignedSalesId], references: [id])
 
-  notes     AgencyNote[]
-  meetings  AgencyMeeting[]
-  tasks     AgencyTask[]
-  customers Customer[]
-  crmTasks  CrmTask[]
+  notes       AgencyNote[]
+  meetings    AgencyMeeting[]
+  tasks       Task[]          @relation("AgencyTasks")
+  customers   Customer[]
+  crmTasks    CrmTask[]
+  agencyTasks AgencyTask[]
 }
 
 model AgencyNote {
@@ -450,9 +451,9 @@ model Customer {
 
   presentations Presentation[]
 
-    crmTasks CrmTask[]
+  crmTasks CrmTask[]
 
-
+  tasks Task[] @relation("CustomerTasks")
 }
 
 model Presentation {
@@ -512,7 +513,7 @@ enum PresentationOutcome {
 }
 
 model CrmTask {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
 
@@ -548,6 +549,7 @@ model CrmTask {
   @@index([leadId])
   @@index([dueAt])
 }
+
 enum CrmTaskStatus {
   TODO
   IN_PROGRESS
@@ -560,7 +562,6 @@ enum CrmTaskPriority {
   MEDIUM
   HIGH
 }
-
 
 enum NotificationType {
   TASK_ASSIGNED
@@ -578,25 +579,23 @@ enum NotificationType {
 }
 
 model Notification {
-  id          String           @id @default(cuid())
-  userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type        NotificationType
-  title       String
-  message     String?
-  isRead      Boolean          @default(false)
+  type    NotificationType
+  title   String
+  message String?
+  isRead  Boolean          @default(false)
 
-  entityType  String?
-  entityId    String?
-  link        String?
+  entityType String?
+  entityId   String?
+  link       String?
 
-  metaJson    Json?
+  metaJson Json?
 
-  createdAt   DateTime         @default(now())
-  readAt      DateTime?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
 
   @@index([userId, isRead, createdAt])
 }
-
-

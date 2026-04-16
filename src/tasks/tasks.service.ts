@@ -119,48 +119,42 @@ export class TasksService {
     return user;
   }
 
-  private async validateRelations(body: any) {
-    if (!body.leadId && !body.customerId && !body.agencyId) {
-      throw new BadRequestException(
-        "Task must be related to at least one entity",
-      );
+private async validateRelations(body: any) {
+  if (body.leadId) {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id: body.leadId },
+      select: { id: true },
+    });
+
+    if (!lead) {
+      throw new BadRequestException("Lead not found");
     }
-
-    if (body.leadId) {
-      const lead = await this.prisma.lead.findUnique({
-        where: { id: body.leadId },
-        select: { id: true },
-      });
-
-      if (!lead) {
-        throw new BadRequestException("Lead not found");
-      }
-    }
-
-    if (body.agencyId) {
-      const agency = await this.prisma.agency.findUnique({
-        where: { id: body.agencyId },
-        select: { id: true },
-      });
-
-      if (!agency) {
-        throw new BadRequestException("Agency not found");
-      }
-    }
-
-    if (body.customerId) {
-      const customer = await this.prisma.customer.findUnique({
-        where: { id: body.customerId },
-        select: { id: true },
-      });
-
-      if (!customer) {
-        throw new BadRequestException("Customer not found");
-      }
-    }
-
-    await this.validateAssignedUser(body.assignedToId);
   }
+
+  if (body.agencyId) {
+    const agency = await this.prisma.agency.findUnique({
+      where: { id: body.agencyId },
+      select: { id: true },
+    });
+
+    if (!agency) {
+      throw new BadRequestException("Agency not found");
+    }
+  }
+
+  if (body.customerId) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: body.customerId },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      throw new BadRequestException("Customer not found");
+    }
+  }
+
+  await this.validateAssignedUser(body.assignedToId);
+}
 
   private buildTaskLink(task: { id: string }) {
     return `/tasks/${task.id}`;
@@ -283,77 +277,95 @@ export class TasksService {
       throw new ForbiddenException("No access");
     }
 
+
+    console.log("TASK ACCESS CHECK", {
+  taskId: task.id,
+  userId: user.id,
+  userRole: user.role,
+  assignedToId: task.assignedToId,
+  createdById: task.createdById,
+});
+
     return task;
   }
 
-  async create(user: ReqUser, body: any) {
-    this.ensureAuth(user);
+async create(user: ReqUser, body: any) {
+  this.ensureAuth(user);
 
-    if (!this.isManager(user)) {
-      throw new ForbiddenException("Only manager or admin can create task");
+  const canCreate =
+    this.isManager(user) ||
+    this.isSales(user) ||
+    user.role === "CALLCENTER";
+
+  if (!canCreate) {
+    throw new ForbiddenException("No access to create task");
+  }
+
+  if (this.isSales(user) || user.role === "CALLCENTER") {
+    body.assignedToId = user.id;
+  }
+
+  if (!body?.title || !body?.assignedToId) {
+    throw new BadRequestException("Missing fields: title, assignedToId");
+  }
+
+  let dueAt: Date | null = null;
+  if (body?.dueAt) {
+    dueAt = new Date(body.dueAt);
+    if (Number.isNaN(dueAt.getTime())) {
+      throw new BadRequestException("Invalid dueAt");
     }
+  }
 
-    if (!body?.title || !body?.assignedToId) {
-      throw new BadRequestException("Missing fields: title, assignedToId");
-    }
+  const assignedUser = await this.validateAssignedUser(body.assignedToId);
+  await this.validateRelations(body);
 
-    let dueAt: Date | null = null;
-    if (body?.dueAt) {
-      dueAt = new Date(body.dueAt);
-      if (Number.isNaN(dueAt.getTime())) {
-        throw new BadRequestException("Invalid dueAt");
-      }
-    }
+  const task = await this.prisma.crmTask.create({
+    data: {
+      title: body.title.trim(),
+      description: this.cleanStr(body.description),
+      status: body.status ?? "TODO",
+      priority: body.priority ?? "MEDIUM",
+      dueAt,
+      leadId: body.leadId ?? null,
+      agencyId: body.agencyId ?? null,
+      customerId: body.customerId ?? null,
+      createdById: user.id,
+      assignedToId: body.assignedToId ?? null,
+    },
+    include: this.includeTaskRelations(),
+  });
 
-    const assignedUser = await this.validateAssignedUser(body.assignedToId);
-    await this.validateRelations(body);
+  await this.audit.log(user, "CRM_TASK_CREATE", "CrmTask", task.id, {
+    assignedToId: task.assignedToId,
+    leadId: task.leadId,
+    agencyId: task.agencyId,
+    customerId: task.customerId,
+  });
 
-    const task = await this.prisma.crmTask.create({
-      data: {
-        title: body.title.trim(),
-        description: this.cleanStr(body.description),
-        status: body.status ?? "TODO",
-        priority: body.priority ?? "MEDIUM",
-        dueAt,
-        leadId: body.leadId ?? null,
-        agencyId: body.agencyId ?? null,
-        customerId: body.customerId ?? null,
-        createdById: user.id,
-        assignedToId: body.assignedToId ?? null,
+  if (task.assignedToId) {
+    await this.notifications.createForUser({
+      userId: task.assignedToId,
+      type: "TASK_ASSIGNED",
+      title: "Yeni görev atandı",
+      message: this.buildTaskMessage(task),
+      entityType: "CrmTask",
+      entityId: task.id,
+      link: this.buildTaskLink(task),
+      metaJson: {
+        taskId: task.id,
+        title: task.title,
+        leadId: task.leadId,
+        agencyId: task.agencyId,
+        customerId: task.customerId,
+        createdById: task.createdById,
+        assignedToName: assignedUser?.name ?? null,
       },
-      include: this.includeTaskRelations(),
     });
-
-    await this.audit.log(user, "CRM_TASK_CREATE", "CrmTask", task.id, {
-      assignedToId: task.assignedToId,
-      leadId: task.leadId,
-      agencyId: task.agencyId,
-      customerId: task.customerId,
-    });
-
-    if (task.assignedToId) {
-      await this.notifications.createForUser({
-        userId: task.assignedToId,
-        type: "TASK_ASSIGNED",
-        title: "Yeni görev atandı",
-        message: this.buildTaskMessage(task),
-        entityType: "CrmTask",
-        entityId: task.id,
-        link: this.buildTaskLink(task),
-        metaJson: {
-          taskId: task.id,
-          title: task.title,
-          leadId: task.leadId,
-          agencyId: task.agencyId,
-          customerId: task.customerId,
-          createdById: task.createdById,
-          assignedToName: assignedUser?.name ?? null,
-        },
-      });
-    }
-
-    return task;
   }
+
+  return task;
+}
 
   async update(user: ReqUser, id: string, body: any) {
     this.ensureAuth(user);
@@ -478,11 +490,7 @@ export class TasksService {
           ? data.customerId ?? null
           : task.customerId ?? null;
 
-      if (!nextLeadId && !nextAgencyId && !nextCustomerId) {
-        throw new BadRequestException(
-          "Task must be related to at least one entity",
-        );
-      }
+    
     }
 
     const updated = await this.prisma.crmTask.update({

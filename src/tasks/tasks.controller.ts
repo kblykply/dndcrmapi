@@ -76,7 +76,7 @@ export class TasksController {
   }
 
   @Post()
-  @Roles("ADMIN", "MANAGER")
+@Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   create(
     @Req() req: any,
     @Body()
