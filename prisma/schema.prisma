@@ -125,6 +125,11 @@ model User {
   crmTasksAssigned      CrmTask[]          @relation("CrmTaskAssignedTo")
   crmTasksCreated       CrmTask[]          @relation("CrmTaskCreatedBy")
 
+
+  pdcaOwnedCases      PdcaCase[] @relation("PdcaOwner")
+  pdcaAssignedCases   PdcaCase[] @relation("PdcaAssignedTo")
+  pdcaCreatedCases    PdcaCase[] @relation("PdcaCreatedBy")
+  pdcaLogsAuthored    PdcaLog[]  @relation("PdcaLogAuthor")
   notifications Notification[]
 
   @@index([role])
@@ -454,7 +459,85 @@ model Customer {
   crmTasks CrmTask[]
 
   tasks Task[] @relation("CustomerTasks")
+
+
+
+
+  language      String?
+  nationality   String?
+  gender        Gender?
+  birthday      DateTime? 
+  job           String?
+  project       ProjectType?
+  idDocumentUrl String?
+  idDocumentName String?
+
+
+
+  unitSelections CustomerUnitSelection[]
+  documents CustomerDocument[]
+
+
+
+
 }
+
+
+
+
+model CustomerUnitSelection {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  project    ProjectType
+  unitNumber String
+
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@unique([customerId, project, unitNumber])
+}
+
+model CustomerDocument {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  type        CustomerDocumentType
+  fileName    String
+  storagePath String
+  mimeType    String?
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+  @@index([customerId, type])
+}
+
+
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ProjectType {
+  LA_JOYA
+  LA_JOYA_PERLA
+  LA_JOYA_PERLA_II
+  LAGOON_VERDE
+}
+
+
+
+enum CustomerDocumentType {
+  ID
+  PASSPORT
+  OTHER
+}
+
+
 
 model Presentation {
   id              String @id @default(cuid())
@@ -598,4 +681,125 @@ model Notification {
   readAt    DateTime?
 
   @@index([userId, isRead, createdAt])
+}
+
+
+
+model OrgChartNode {
+  id        String   @id @default(cuid())
+
+  name      String   // "Director", "Marketing Department" etc.
+  type      String?  // "DEPARTMENT", "ROLE", "GROUP" (optional for styling)
+  color     String?  // for UI (like your yellow/green boxes)
+
+  parentId  String?
+  parent    OrgChartNode? @relation("OrgTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  OrgChartNode[] @relation("OrgTree")
+
+  order     Int      @default(0) // for sorting inside same level
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+}
+
+
+
+model PdcaCase {
+  id String @id @default(cuid())
+
+  title          String
+  problemSummary String
+  department     String?
+  issueCategory  PdcaIssueCategory?
+  problemType    String?
+  impactLevel    PdcaImpactLevel?
+  priority       TaskPriority @default(MEDIUM)
+
+  phase          PdcaPhase @default(PLAN)
+  status         PdcaStatus @default(OPEN)
+
+  ownerId        String?
+  owner          User? @relation("PdcaOwner", fields: [ownerId], references: [id])
+
+  assignedToId   String?
+  assignedTo     User? @relation("PdcaAssignedTo", fields: [assignedToId], references: [id])
+
+  createdById    String
+  createdBy      User @relation("PdcaCreatedBy", fields: [createdById], references: [id])
+
+  rootCause        String?
+  targetResult     String?
+  actionPlan       String?
+  doNotes          String?
+  checkResult      String?
+  correctiveAction String?
+  preventiveAction String?
+  finalDecision    String?
+
+  dueAt            DateTime?
+  closedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs PdcaLog[]
+
+  @@index([phase])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([ownerId])
+  @@index([createdById])
+  @@index([dueAt])
+}
+
+model PdcaLog {
+  id String @id @default(cuid())
+
+  pdcaCaseId String
+  pdcaCase   PdcaCase @relation(fields: [pdcaCaseId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User @relation("PdcaLogAuthor", fields: [createdById], references: [id])
+
+  phase     PdcaPhase?
+  note      String
+  createdAt DateTime @default(now())
+
+  @@index([pdcaCaseId, createdAt])
+  @@index([createdById])
+}
+
+enum PdcaPhase {
+  PLAN
+  DO
+  CHECK
+  ACT
+}
+
+enum PdcaStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum PdcaImpactLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PdcaIssueCategory {
+  SALES
+  MARKETING
+  OPERATIONS
+  CUSTOMER_SERVICE
+  FINANCE
+  HR
+  PROJECT
+  OTHER
 }

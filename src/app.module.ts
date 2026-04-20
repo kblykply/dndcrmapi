@@ -16,6 +16,9 @@ import { CalendarModule } from "./calendar/calendar.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { MeetingsModule } from "./meetings/meetings.module";
 
+import { PdcaModule } from "./pdca/pdca.module";
+
+import { OrgChartModule } from "./org-chart/org-chart.module";
 
 
 
@@ -37,7 +40,8 @@ import { MeetingsModule } from "./meetings/meetings.module";
     CalendarModule,
     NotificationsModule,
         MeetingsModule,
-
+        OrgChartModule,
+PdcaModule,
         
 
   ],

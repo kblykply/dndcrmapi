@@ -19,6 +19,7 @@ type MeetingKind = "AGENCY" | "PRESENTATION";
 type ListMeetingsQuery = {
   q?: string;
   kind?: "ALL" | MeetingKind;
+  agencyId?: string;
   from?: string;
   to?: string;
   page?: string | number;
@@ -156,16 +157,24 @@ export class MeetingsService {
       throw new ForbiddenException("No access");
     }
 
-    const q = this.cleanStr(query?.q);
-    const kind = query?.kind || "ALL";
-    const from = this.parseDateOrThrow(query?.from);
-    const to = this.parseDateOrThrow(query?.to);
+   const q = this.cleanStr(query?.q);
+const kind = query?.kind || "ALL";
+const agencyId = this.cleanStr(query?.agencyId);
+const from = this.parseDateOrThrow(query?.from);
+const to = this.parseDateOrThrow(query?.to);
 
     const page = this.toPositiveNumber(query?.page, 1);
     const pageSize = Math.min(100, this.toPositiveNumber(query?.pageSize, 20));
 
     const agencyWhere: Prisma.AgencyMeetingWhereInput = {};
     const presentationWhere: Prisma.PresentationWhereInput = {};
+
+
+    if (agencyId) {
+  agencyWhere.agencyId = agencyId;
+}
+
+
 
     if (user.role === "SALES") {
       agencyWhere.agency = {

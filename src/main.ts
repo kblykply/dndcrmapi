@@ -2,11 +2,12 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import bodyParser from "body-parser";
 import { ValidationPipe } from "@nestjs/common";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { join } from "path";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Global validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -14,7 +15,6 @@ async function bootstrap() {
     }),
   );
 
-  // CORS for local + Vercel frontend
   app.enableCors({
     origin: [
       "http://localhost:3000",
@@ -25,7 +25,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Keep raw body for future Meta signature verification
   app.use(
     bodyParser.json({
       verify: (req: any, _res, buf) => {
@@ -34,14 +33,17 @@ async function bootstrap() {
     }),
   );
 
-  // Health endpoint
+  app.useStaticAssets(join(process.cwd(), "uploads"), {
+    prefix: "/uploads/",
+  });
+
+  // ✅ FIX (TypeScript issue solved)
   app.getHttpAdapter().get("/health", (_req, res) => {
-    res.send({ ok: true });
+    (res as any).json({ ok: true });
   });
 
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
-  // Debug env (fine for now)
   console.log("JWT_ACCESS_SECRET present:", !!process.env.JWT_ACCESS_SECRET);
   console.log("JWT_REFRESH_SECRET present:", !!process.env.JWT_REFRESH_SECRET);
   console.log("DATABASE_URL present:", !!process.env.DATABASE_URL);
@@ -50,6 +52,7 @@ async function bootstrap() {
 
   console.log(`🚀 API running on port ${port}`);
   console.log(`✅ Health: /health`);
+  console.log(`📁 Uploads served at: /uploads`);
 }
 
 bootstrap();

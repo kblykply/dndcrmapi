@@ -210,20 +210,22 @@ private async validateRelations(body: any) {
   }
 
   async listAll(
-    user: ReqUser,
-    q: {
-      status?: string;
-      range?: string;
-      search?: string;
-      assignedToId?: string;
-    },
-  ) {
+  user: ReqUser,
+  q: {
+    status?: string;
+    range?: string;
+    search?: string;
+    assignedToId?: string;
+    agencyId?: string;
+  },
+) {
     this.ensureAuth(user);
 
     if (!this.isManager(user)) {
       throw new ForbiddenException("No access");
     }
 
+    
     const where: any = {
       ...this.buildRangeWhere(q?.range, q?.status),
     };
@@ -231,6 +233,14 @@ private async validateRelations(body: any) {
     if (q?.assignedToId) {
       where.assignedToId = q.assignedToId;
     }
+
+
+    if (q?.agencyId) {
+  where.agencyId = q.agencyId;
+}
+
+
+
 
     const search = this.cleanStr(q?.search);
     if (search) {

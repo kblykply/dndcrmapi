@@ -19,26 +19,28 @@ import { Roles } from "../common/roles.decorator";
 export class MeetingsController {
   constructor(private meetings: MeetingsService) {}
 
-  @Get()
-  @Roles("ADMIN", "MANAGER", "SALES")
-  list(
-    @Req() req: any,
-    @Query("q") q?: string,
-    @Query("kind") kind?: "ALL" | "AGENCY" | "PRESENTATION",
-    @Query("from") from?: string,
-    @Query("to") to?: string,
-    @Query("page") page?: string,
-    @Query("pageSize") pageSize?: string,
-  ) {
-    return this.meetings.listMeetings(req.user, {
-      q,
-      kind,
-      from,
-      to,
-      page,
-      pageSize,
-    });
-  }
+ @Get()
+@Roles("ADMIN", "MANAGER", "SALES")
+list(
+  @Req() req: any,
+  @Query("q") q?: string,
+  @Query("kind") kind?: "ALL" | "AGENCY" | "PRESENTATION",
+  @Query("agencyId") agencyId?: string,
+  @Query("from") from?: string,
+  @Query("to") to?: string,
+  @Query("page") page?: string,
+  @Query("pageSize") pageSize?: string,
+) {
+  return this.meetings.listMeetings(req.user, {
+    q,
+    kind,
+    agencyId,
+    from,
+    to,
+    page,
+    pageSize,
+  });
+}
 
   @Get(":kind/:id")
   @Roles("ADMIN", "MANAGER", "SALES")

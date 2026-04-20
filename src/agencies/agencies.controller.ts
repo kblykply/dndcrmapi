@@ -51,18 +51,19 @@ export class AgenciesController {
     @Req() req: any,
     @Body()
     body: {
-      name: string;
-      contactName?: string;
-      phone?: string;
-      email?: string;
-      city?: string;
-      country?: string;
-      address?: string;
-      website?: string;
-      source?: string;
-      notesSummary?: string;
-      assignedSalesId?: string | null;
-    },
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  website?: string;
+  source?: string;
+  notesSummary?: string;
+  status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+  assignedSalesId?: string | null;
+},
   ) {
     return this.agencies.createAgency(req.user, body);
   }

@@ -7,11 +7,24 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import type { Role } from "../common/types";
 
+
+
+
+
 type ReqUser = {
   id: string;
   role: Role;
   email: string;
 };
+
+type Gender = "MALE" | "FEMALE" | "OTHER";
+type ProjectType =
+  | "LA_JOYA"
+  | "LA_JOYA_PERLA"
+  | "LA_JOYA_PERLA_II"
+  | "LAGOON_VERDE";
+
+type CustomerDocumentType = "ID" | "PASSPORT" | "OTHER";
 
 @Injectable()
 export class CustomersService {
@@ -34,10 +47,175 @@ export class CustomersService {
     return x || null;
   }
 
+  private parseDateOrNull(v?: string | null) {
+    if (!v) return null;
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) {
+      throw new BadRequestException("Invalid date");
+    }
+    return d;
+  }
+
+  private normalizeGender(v?: string | null): Gender | null {
+    if (!v) return null;
+    const value = String(v).trim().toUpperCase();
+    if (value !== "MALE" && value !== "FEMALE" && value !== "OTHER") {
+      throw new BadRequestException("Invalid gender");
+    }
+    return value as Gender;
+  }
+
+  private normalizeProject(v?: string | null): ProjectType | null {
+    if (!v) return null;
+    const value = String(v).trim().toUpperCase();
+    const allowed: ProjectType[] = [
+      "LA_JOYA",
+      "LA_JOYA_PERLA",
+      "LA_JOYA_PERLA_II",
+      "LAGOON_VERDE",
+    ];
+
+    if (!allowed.includes(value as ProjectType)) {
+      throw new BadRequestException("Invalid project");
+    }
+
+    return value as ProjectType;
+  }
+
+  private normalizeDocumentType(v?: string | null): CustomerDocumentType {
+    if (!v) return "OTHER";
+    const value = String(v).trim().toUpperCase();
+    if (value !== "ID" && value !== "PASSPORT" && value !== "OTHER") {
+      throw new BadRequestException("Invalid document type");
+    }
+    return value as CustomerDocumentType;
+  }
+
+  private normalizeUnitSelections(input: any): Array<{
+    project: ProjectType;
+    unitNumber: string;
+  }> {
+    if (!Array.isArray(input)) return [];
+
+    const normalized = input
+      .map((row) => ({
+        project: this.normalizeProject(row?.project),
+        unitNumber: this.cleanStr(row?.unitNumber),
+      }))
+      .filter((row) => row.project && row.unitNumber) as Array<{
+      project: ProjectType;
+      unitNumber: string;
+    }>;
+
+    const seen = new Set<string>();
+    const deduped: Array<{ project: ProjectType; unitNumber: string }> = [];
+
+    for (const row of normalized) {
+      const key = `${row.project}__${row.unitNumber.toUpperCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(row);
+    }
+
+    return deduped;
+  }
+
+
+
+async uploadCustomerDocument(
+  user: ReqUser,
+  customerId: string,
+  file: Express.Multer.File,
+  body: { type?: "ID" | "PASSPORT" | "OTHER" },
+) {
+  const customer = await this.prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      presentations: {
+        select: {
+          assignedSalesId: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException("Customer not found");
+  }
+
+  if (!this.canEditCustomer(user, customer)) {
+    throw new ForbiddenException("No access to upload customer document");
+  }
+
+  if (!file?.buffer) {
+    throw new BadRequestException("Uploaded file buffer is missing");
+  }
+
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+  if (!bucket) {
+    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+  }
+
+  const ext =
+    file.originalname.includes(".")
+      ? file.originalname.substring(file.originalname.lastIndexOf("."))
+      : "";
+
+  const safeBaseName = file.originalname
+    .replace(ext, "")
+    .replace(/[^a-zA-Z0-9-_]/g, "_");
+
+  const storagePath = `customers/${customerId}/${Date.now()}-${safeBaseName}${ext}`;
+
+const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+
+  const { error } = await supabaseAdmin.storage
+    .from(bucket)
+    .upload(storagePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new BadRequestException(error.message);
+  }
+
+  return this.prisma.customerDocument.create({
+    data: {
+      customerId,
+type: this.normalizeDocumentType(body?.type),
+      fileName: file.originalname,
+      storagePath,
+      mimeType: file.mimetype || null,
+    },
+  });
+}
+
+
+
+
+
+
   private async getCustomerOrThrow(id: string) {
     const customer = await this.prisma.customer.findUnique({
       where: { id },
-      include: { agency: true },
+      include: {
+        agency: true,
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        presentations: {
+          select: {
+            assignedSalesId: true,
+          },
+        },
+        unitSelections: {
+          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+        },
+        documents: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
     });
 
     if (!customer) {
@@ -58,9 +236,7 @@ export class CustomersService {
 
     return (
       customer.ownerId === user.id ||
-      (customer.presentations || []).some(
-        (p) => p.assignedSalesId === user.id,
-      )
+      (customer.presentations || []).some((p) => p.assignedSalesId === user.id)
     );
   }
 
@@ -91,6 +267,13 @@ export class CustomersService {
       email: null,
       address: null,
       notesSummary: null,
+      birthday: null,
+      nationality: null,
+      language: null,
+      job: null,
+      idDocumentUrl: null,
+      idDocumentName: null,
+      documents: [],
       canSeeContactDetails: false,
       canEdit: false,
     };
@@ -108,7 +291,19 @@ export class CustomersService {
             assignedSalesId: true,
           },
         },
-        _count: { select: { presentations: true } },
+        unitSelections: {
+          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+        },
+        documents: {
+          orderBy: { createdAt: "desc" },
+        },
+        _count: {
+          select: {
+            presentations: true,
+            documents: true,
+            unitSelections: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -140,7 +335,7 @@ export class CustomersService {
       throw new ForbiddenException("No access to create customer");
     }
 
-    const fullName = dto.fullName?.trim();
+    const fullName = this.cleanStr(dto.fullName);
     if (!fullName) {
       throw new BadRequestException("Customer name required");
     }
@@ -183,6 +378,11 @@ export class CustomersService {
       }
     }
 
+    const birthday = this.parseDateOrNull(dto.birthday);
+    const gender = this.normalizeGender(dto.gender);
+    const project = this.normalizeProject(dto.project);
+    const unitSelections = this.normalizeUnitSelections(dto.unitSelections);
+
     return this.prisma.customer.create({
       data: {
         fullName,
@@ -197,13 +397,44 @@ export class CustomersService {
         type: dto.type || "POTENTIAL",
         agencyId,
         ownerId,
+
+        language: this.cleanStr(dto.language),
+        nationality: this.cleanStr(dto.nationality),
+        gender,
+        birthday,
+        job: this.cleanStr(dto.job),
+        project,
+        idDocumentUrl: this.cleanStr(dto.idDocumentUrl),
+        idDocumentName: this.cleanStr(dto.idDocumentName),
+
+        unitSelections:
+          unitSelections.length > 0
+            ? {
+                create: unitSelections.map((row) => ({
+                  project: row.project,
+                  unitNumber: row.unitNumber,
+                })),
+              }
+            : undefined,
       },
       include: {
         agency: true,
         owner: {
           select: { id: true, name: true, email: true },
         },
-        _count: { select: { presentations: true } },
+        unitSelections: {
+          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+        },
+        documents: {
+          orderBy: { createdAt: "desc" },
+        },
+        _count: {
+          select: {
+            presentations: true,
+            documents: true,
+            unitSelections: true,
+          },
+        },
       },
     });
   }
@@ -231,48 +462,31 @@ export class CustomersService {
     const data: any = {};
 
     if (dto.fullName !== undefined) {
-      const fullName = dto.fullName?.trim();
+      const fullName = this.cleanStr(dto.fullName);
       if (!fullName) {
         throw new BadRequestException("Customer name required");
       }
       data.fullName = fullName;
     }
 
-    if (dto.companyName !== undefined) {
-      data.companyName = this.cleanStr(dto.companyName);
-    }
+    if (dto.companyName !== undefined) data.companyName = this.cleanStr(dto.companyName);
+    if (dto.phone !== undefined) data.phone = this.cleanStr(dto.phone);
+    if (dto.email !== undefined) data.email = this.cleanStr(dto.email);
+    if (dto.city !== undefined) data.city = this.cleanStr(dto.city);
+    if (dto.country !== undefined) data.country = this.cleanStr(dto.country);
+    if (dto.address !== undefined) data.address = this.cleanStr(dto.address);
+    if (dto.source !== undefined) data.source = this.cleanStr(dto.source);
+    if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary);
+    if (dto.type !== undefined) data.type = dto.type;
 
-    if (dto.phone !== undefined) {
-      data.phone = this.cleanStr(dto.phone);
-    }
-
-    if (dto.email !== undefined) {
-      data.email = this.cleanStr(dto.email);
-    }
-
-    if (dto.city !== undefined) {
-      data.city = this.cleanStr(dto.city);
-    }
-
-    if (dto.country !== undefined) {
-      data.country = this.cleanStr(dto.country);
-    }
-
-    if (dto.address !== undefined) {
-      data.address = this.cleanStr(dto.address);
-    }
-
-    if (dto.source !== undefined) {
-      data.source = this.cleanStr(dto.source);
-    }
-
-    if (dto.notesSummary !== undefined) {
-      data.notesSummary = this.cleanStr(dto.notesSummary);
-    }
-
-    if (dto.type !== undefined) {
-      data.type = dto.type;
-    }
+    if (dto.language !== undefined) data.language = this.cleanStr(dto.language);
+    if (dto.nationality !== undefined) data.nationality = this.cleanStr(dto.nationality);
+    if (dto.gender !== undefined) data.gender = this.normalizeGender(dto.gender);
+    if (dto.birthday !== undefined) data.birthday = this.parseDateOrNull(dto.birthday);
+    if (dto.job !== undefined) data.job = this.cleanStr(dto.job);
+    if (dto.project !== undefined) data.project = this.normalizeProject(dto.project);
+    if (dto.idDocumentUrl !== undefined) data.idDocumentUrl = this.cleanStr(dto.idDocumentUrl);
+    if (dto.idDocumentName !== undefined) data.idDocumentName = this.cleanStr(dto.idDocumentName);
 
     if (dto.agencyId !== undefined) {
       const agencyId = dto.agencyId || null;
@@ -318,22 +532,35 @@ export class CustomersService {
       data.ownerId = ownerId;
     }
 
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data,
-      include: {
-        agency: true,
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-        presentations: {
-          select: {
-            assignedSalesId: true,
-          },
-        },
-        _count: { select: { presentations: true } },
-      },
+    const nextUnitSelections =
+      dto.unitSelections !== undefined
+        ? this.normalizeUnitSelections(dto.unitSelections)
+        : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.customer.update({
+        where: { id: customerId },
+        data,
+      });
+
+      if (nextUnitSelections !== null) {
+        await tx.customerUnitSelection.deleteMany({
+          where: { customerId },
+        });
+
+        if (nextUnitSelections.length > 0) {
+          await tx.customerUnitSelection.createMany({
+            data: nextUnitSelections.map((row) => ({
+              customerId,
+              project: row.project,
+              unitNumber: row.unitNumber,
+            })),
+          });
+        }
+      }
     });
+
+    const updated = await this.getCustomerOrThrow(customerId);
 
     if (this.isAdmin(user) || this.isManager(user)) {
       return {
@@ -385,6 +612,14 @@ export class CustomersService {
         where: { customerId },
       });
 
+      await tx.customerDocument.deleteMany({
+        where: { customerId },
+      });
+
+      await tx.customerUnitSelection.deleteMany({
+        where: { customerId },
+      });
+
       await tx.customer.delete({
         where: { id: customerId },
       });
@@ -392,6 +627,197 @@ export class CustomersService {
 
     return { success: true };
   }
+
+ async addCustomerDocument(
+  user: ReqUser,
+  customerId: string,
+  body: {
+    type?: CustomerDocumentType;
+    fileName: string;
+    storagePath: string;
+    mimeType?: string | null;
+  },
+) {
+  const customer = await this.prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      presentations: {
+        select: {
+          assignedSalesId: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException("Customer not found");
+  }
+
+  if (!this.canEditCustomer(user, customer)) {
+    throw new ForbiddenException("No access");
+  }
+
+  const fileName = this.cleanStr(body.fileName);
+  const storagePath = this.cleanStr(body.storagePath);
+
+  if (!fileName) {
+    throw new BadRequestException("fileName is required");
+  }
+
+  if (!storagePath) {
+    throw new BadRequestException("storagePath is required");
+  }
+
+  const type = this.normalizeDocumentType(body.type);
+
+  const doc = await this.prisma.customerDocument.create({
+    data: {
+      customerId,
+      type,
+      fileName,
+      storagePath,
+      mimeType: this.cleanStr(body.mimeType),
+    },
+  });
+
+  return doc;
+}
+
+
+async deleteCustomerDocument(
+  user: ReqUser,
+  customerId: string,
+  documentId: string,
+) {
+  const customer = await this.prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      presentations: {
+        select: {
+          assignedSalesId: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException("Customer not found");
+  }
+
+  if (!this.canEditCustomer(user, customer)) {
+    throw new ForbiddenException("No access");
+  }
+
+  const doc = await this.prisma.customerDocument.findFirst({
+    where: {
+      id: documentId,
+      customerId,
+    },
+  });
+
+  if (!doc) {
+    throw new NotFoundException("Document not found");
+  }
+
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+  if (!bucket) {
+    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+  }
+
+  if (doc.storagePath) {
+const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+
+    const { error } = await supabaseAdmin.storage
+      .from(bucket)
+      .remove([doc.storagePath]);
+
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  await this.prisma.customerDocument.delete({
+    where: { id: documentId },
+  });
+
+  if (doc.type === "ID") {
+    await this.prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        idDocumentUrl: null,
+        idDocumentName: null,
+      },
+    });
+  }
+
+  return { success: true };
+}
+
+
+async getCustomerDocumentUrl(
+  user: ReqUser,
+  customerId: string,
+  documentId: string,
+) {
+  const customer = await this.prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      presentations: {
+        select: {
+          assignedSalesId: true,
+        },
+      },
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException("Customer not found");
+  }
+
+  const canAccess =
+    this.isAdmin(user) ||
+    this.isManager(user) ||
+    this.salesOwnsCustomer(user, customer);
+
+  if (!canAccess) {
+    throw new ForbiddenException("No access");
+  }
+
+  const doc = await this.prisma.customerDocument.findFirst({
+    where: {
+      id: documentId,
+      customerId,
+    },
+  });
+
+  if (!doc) {
+    throw new NotFoundException("Document not found");
+  }
+
+  if (!doc.storagePath) {
+    throw new BadRequestException("Document storagePath is missing");
+  }
+
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+  if (!bucket) {
+    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+  }
+
+const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .createSignedUrl(doc.storagePath, 60 * 10);
+
+  if (error || !data?.signedUrl) {
+    throw new BadRequestException(
+      error?.message || "Could not create signed URL",
+    );
+  }
+
+  return { url: data.signedUrl };
+}
+
 
   async createPresentation(user: ReqUser, customerId: string, dto: any) {
     const customer = await this.prisma.customer.findUnique({
@@ -476,6 +902,12 @@ export class CustomersService {
         agency: true,
         owner: {
           select: { id: true, name: true, email: true },
+        },
+        unitSelections: {
+          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+        },
+        documents: {
+          orderBy: { createdAt: "desc" },
         },
         presentations: {
           orderBy: { presentationAt: "desc" },

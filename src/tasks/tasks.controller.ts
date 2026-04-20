@@ -53,21 +53,23 @@ export class TasksController {
   }
 
   @Get()
-  @Roles("ADMIN", "MANAGER")
-  listAll(
-    @Req() req: any,
-    @Query("status") status?: CrmTaskStatus,
-    @Query("range") range?: string,
-    @Query("search") search?: string,
-    @Query("assignedToId") assignedToId?: string,
-  ) {
-    return this.tasks.listAll(req.user, {
-      status,
-      range,
-      search,
-      assignedToId,
-    });
-  }
+@Roles("ADMIN", "MANAGER")
+listAll(
+  @Req() req: any,
+  @Query("status") status?: CrmTaskStatus,
+  @Query("range") range?: string,
+  @Query("search") search?: string,
+  @Query("assignedToId") assignedToId?: string,
+  @Query("agencyId") agencyId?: string,
+) {
+  return this.tasks.listAll(req.user, {
+    status,
+    range,
+    search,
+    assignedToId,
+    agencyId,
+  });
+}
 
   @Get(":id")
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")

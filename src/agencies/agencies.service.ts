@@ -25,6 +25,8 @@ type CreateAgencyDto = {
   source?: string;
   notesSummary?: string;
   assignedSalesId?: string | null;
+  status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+
 };
 
 type UpdateAgencyDto = {
@@ -336,7 +338,6 @@ export class AgenciesService {
     }
   }
 
-  // 🔥 CRITICAL FIX
   const data: any = {
     name,
     contactName: this.cleanStr(dto.contactName) ?? null,
@@ -349,12 +350,8 @@ export class AgenciesService {
     source: this.cleanStr(dto.source) ?? null,
     notesSummary: this.cleanStr(dto.notesSummary) ?? null,
     assignedSalesId,
+    status: dto.status || "ACTIVE",
   };
-
-  // 🔥 IMPORTANT: manager sadece varsa set et
-  if (this.isManager(user) || this.isAdmin(user)) {
-    data.managerId = user.id;
-  }
 
   return this.prisma.agency.create({
     data,
@@ -405,9 +402,9 @@ export class AgenciesService {
     if (dto.source !== undefined) data.source = this.cleanStr(dto.source) ?? null;
     if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary) ?? null;
 
-    if (managerCanEdit && dto.status !== undefined) {
-      data.status = dto.status;
-    }
+    if ((managerCanEdit || salesCanEditOwn) && dto.status !== undefined) {
+  data.status = dto.status;
+}
 
     return this.prisma.agency.update({
       where: { id: agencyId },
