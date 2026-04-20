@@ -13,20 +13,21 @@ type ReqUser = {
   email: string;
 };
 
+type AgencyStatus = "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+
 type CreateAgencyDto = {
   name: string;
-  contactName?: string;
-  phone?: string;
-  email?: string;
-  city?: string;
-  country?: string;
-  address?: string;
-  website?: string;
-  source?: string;
-  notesSummary?: string;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  city?: string | null;
+  country?: string | null;
+  address?: string | null;
+  website?: string | null;
+  source?: string | null;
+  notesSummary?: string | null;
   assignedSalesId?: string | null;
-  status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
-
+  status?: AgencyStatus;
 };
 
 type UpdateAgencyDto = {
@@ -319,7 +320,9 @@ export class AgenciesService {
   }
 
   const name = this.cleanStr(dto.name);
-  if (!name) throw new BadRequestException("Agency name is required");
+  if (!name) {
+    throw new BadRequestException("Agency name is required");
+  }
 
   let assignedSalesId: string | null = dto.assignedSalesId || null;
 
@@ -338,23 +341,34 @@ export class AgenciesService {
     }
   }
 
-  const data: any = {
-    name,
-    contactName: this.cleanStr(dto.contactName) ?? null,
-    phone: this.cleanStr(dto.phone) ?? null,
-    email: this.cleanStr(dto.email) ?? null,
-    city: this.cleanStr(dto.city) ?? null,
-    country: this.cleanStr(dto.country) ?? null,
-    address: this.cleanStr(dto.address) ?? null,
-    website: this.cleanStr(dto.website) ?? null,
-    source: this.cleanStr(dto.source) ?? null,
-    notesSummary: this.cleanStr(dto.notesSummary) ?? null,
-    assignedSalesId,
-    status: dto.status || "ACTIVE",
-  };
+  const allowedStatuses = [
+    "ACTIVE",
+    "PASSIVE",
+    "PROSPECT",
+    "DEALING",
+    "CLOSED",
+  ] as const;
+
+  const status =
+    dto.status && allowedStatuses.includes(dto.status)
+      ? dto.status
+      : "ACTIVE";
 
   return this.prisma.agency.create({
-    data,
+    data: {
+      name,
+      contactName: this.cleanStr(dto.contactName) ?? null,
+      phone: this.cleanStr(dto.phone) ?? null,
+      email: this.cleanStr(dto.email) ?? null,
+      city: this.cleanStr(dto.city) ?? null,
+      country: this.cleanStr(dto.country) ?? null,
+      address: this.cleanStr(dto.address) ?? null,
+      website: this.cleanStr(dto.website) ?? null,
+      source: this.cleanStr(dto.source) ?? null,
+      notesSummary: this.cleanStr(dto.notesSummary) ?? null,
+      assignedSalesId,
+      status,
+    },
     include: {
       manager: { select: { id: true, name: true, email: true } },
       assignedSales: { select: { id: true, name: true, email: true } },

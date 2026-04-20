@@ -34,13 +34,13 @@ export class PrismaService
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl,
-      max: Number(process.env.PG_POOL_MAX || 5),
+      max: Number(process.env.PG_POOL_MAX || 2),
       min: Number(process.env.PG_POOL_MIN || 0),
       idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 10000),
       connectionTimeoutMillis: Number(
         process.env.PG_CONNECTION_TIMEOUT_MS || 5000,
       ),
-      allowExitOnIdle: false,
+      allowExitOnIdle: process.env.NODE_ENV === "development",
     });
 
     pool.on("connect", () => {
@@ -76,6 +76,16 @@ export class PrismaService
     });
 
     this.pool = pool;
+
+    if (process.env.NODE_ENV === "development") {
+      setInterval(() => {
+        console.log("[PG POOL STATUS]", {
+          total: this.pool.totalCount,
+          idle: this.pool.idleCount,
+          waiting: this.pool.waitingCount,
+        });
+      }, 10000);
+    }
   }
 
   async onModuleInit() {

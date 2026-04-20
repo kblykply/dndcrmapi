@@ -209,7 +209,7 @@ private async validateRelations(body: any) {
     });
   }
 
-  async listAll(
+ async listAll(
   user: ReqUser,
   q: {
     status?: string;
@@ -219,52 +219,66 @@ private async validateRelations(body: any) {
     agencyId?: string;
   },
 ) {
-    this.ensureAuth(user);
+  this.ensureAuth(user);
 
-    if (!this.isManager(user)) {
-      throw new ForbiddenException("No access");
-    }
+  const where: any = {
+    ...this.buildRangeWhere(q?.range, q?.status),
+  };
 
-    
-    const where: any = {
-      ...this.buildRangeWhere(q?.range, q?.status),
-    };
-
+  if (this.isManager(user)) {
     if (q?.assignedToId) {
       where.assignedToId = q.assignedToId;
     }
 
+    if (q?.agencyId) {
+      where.agencyId = q.agencyId;
+    }
+  } else if (this.isSales(user)) {
+    where.OR = [
+      { assignedToId: user.id },
+      { createdById: user.id },
+      { agency: { assignedSalesId: user.id } },
+    ];
 
     if (q?.agencyId) {
-  where.agencyId = q.agencyId;
-}
-
-
-
-
-    const search = this.cleanStr(q?.search);
-    if (search) {
-      where.AND = where.AND || [];
-      where.AND.push({
-        OR: [
-          { title: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          { lead: { fullName: { contains: search, mode: "insensitive" } } },
-          { agency: { name: { contains: search, mode: "insensitive" } } },
-          { customer: { fullName: { contains: search, mode: "insensitive" } } },
-          { assignedTo: { name: { contains: search, mode: "insensitive" } } },
-          { createdBy: { name: { contains: search, mode: "insensitive" } } },
-        ],
-      });
+      where.agencyId = q.agencyId;
     }
+  } else if (user.role === "CALLCENTER") {
+    where.OR = [
+      { assignedToId: user.id },
+      { createdById: user.id },
+    ];
 
-    return this.prisma.crmTask.findMany({
-      where,
-      include: this.includeTaskRelations(),
-      orderBy: [{ dueAt: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
-      take: 500,
+    if (q?.agencyId) {
+      where.agencyId = q.agencyId;
+    }
+  } else {
+    throw new ForbiddenException("No access");
+  }
+
+  const search = this.cleanStr(q?.search);
+  if (search) {
+    where.AND = where.AND || [];
+    where.AND.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { lead: { fullName: { contains: search, mode: "insensitive" } } },
+        { agency: { name: { contains: search, mode: "insensitive" } } },
+        { customer: { fullName: { contains: search, mode: "insensitive" } } },
+        { assignedTo: { name: { contains: search, mode: "insensitive" } } },
+        { createdBy: { name: { contains: search, mode: "insensitive" } } },
+      ],
     });
   }
+
+  return this.prisma.crmTask.findMany({
+    where,
+    include: this.includeTaskRelations(),
+    orderBy: [{ dueAt: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
+    take: 500,
+  });
+}
 
   async getOne(user: ReqUser, id: string) {
     this.ensureAuth(user);

@@ -53,7 +53,7 @@ export class TasksController {
   }
 
   @Get()
-@Roles("ADMIN", "MANAGER")
+@Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
 listAll(
   @Req() req: any,
   @Query("status") status?: CrmTaskStatus,
