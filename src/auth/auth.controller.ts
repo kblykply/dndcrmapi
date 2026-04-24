@@ -9,4 +9,9 @@ export class AuthController {
   login(@Body() body: { email: string; password: string }) {
     return this.auth.login(body.email, body.password);
   }
+
+  @Post("refresh")
+  refresh(@Body() body: { refreshToken: string }) {
+    return this.auth.refresh(body.refreshToken);
+  }
 }

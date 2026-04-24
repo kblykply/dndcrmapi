@@ -103,6 +103,8 @@ model User {
 
   audits        AuditLog[]
   refreshTokens RefreshToken[]
+  refreshToken String?
+  
 
   tasksCreated  Task[] @relation("TasksCreatedBy")
   tasksAssigned Task[] @relation("TasksAssignedTo")
