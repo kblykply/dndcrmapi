@@ -19,6 +19,7 @@ import { MeetingsModule } from "./meetings/meetings.module";
 import { PdcaModule } from "./pdca/pdca.module";
 
 import { OrgChartModule } from "./org-chart/org-chart.module";
+import { UserActivityModule } from "./user-activity/user-activity.module";
 
 
 
@@ -42,6 +43,7 @@ import { OrgChartModule } from "./org-chart/org-chart.module";
         MeetingsModule,
         OrgChartModule,
 PdcaModule,
+UserActivityModule,
         
 
   ],
