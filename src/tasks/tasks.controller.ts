@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -30,11 +31,7 @@ export class TasksController {
     @Query("range") range?: string,
     @Query("search") search?: string,
   ) {
-    return this.tasks.listMy(req.user, {
-      status,
-      range,
-      search,
-    });
+    return this.tasks.listMy(req.user, { status, range, search });
   }
 
   @Get("team")
@@ -45,31 +42,27 @@ export class TasksController {
     @Query("range") range?: string,
     @Query("search") search?: string,
   ) {
-    return this.tasks.listTeam(req.user, {
-      status,
-      range,
-      search,
-    });
+    return this.tasks.listTeam(req.user, { status, range, search });
   }
 
   @Get()
-@Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
-listAll(
-  @Req() req: any,
-  @Query("status") status?: CrmTaskStatus,
-  @Query("range") range?: string,
-  @Query("search") search?: string,
-  @Query("assignedToId") assignedToId?: string,
-  @Query("agencyId") agencyId?: string,
-) {
-  return this.tasks.listAll(req.user, {
-    status,
-    range,
-    search,
-    assignedToId,
-    agencyId,
-  });
-}
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
+  listAll(
+    @Req() req: any,
+    @Query("status") status?: CrmTaskStatus,
+    @Query("range") range?: string,
+    @Query("search") search?: string,
+    @Query("assignedToId") assignedToId?: string,
+    @Query("agencyId") agencyId?: string,
+  ) {
+    return this.tasks.listAll(req.user, {
+      status,
+      range,
+      search,
+      assignedToId,
+      agencyId,
+    });
+  }
 
   @Get(":id")
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
@@ -78,7 +71,7 @@ listAll(
   }
 
   @Post()
-@Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   create(
     @Req() req: any,
     @Body()
@@ -128,5 +121,11 @@ listAll(
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   cancel(@Req() req: any, @Param("id") id: string) {
     return this.tasks.cancel(req.user, id);
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN", "MANAGER")
+  delete(@Req() req: any, @Param("id") id: string) {
+    return this.tasks.delete(req.user, id);
   }
 }

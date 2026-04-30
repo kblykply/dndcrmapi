@@ -64,35 +64,28 @@ export class TasksService {
     const where: any = {};
     const now = new Date();
 
-    if (status) {
-      where.status = status;
-    }
+    if (status) where.status = status;
 
     if (range === "today") {
       const start = new Date(now);
       start.setHours(0, 0, 0, 0);
+
       const end = new Date(now);
       end.setHours(23, 59, 59, 999);
 
       where.dueAt = { gte: start, lte: end };
 
-      if (!status) {
-        where.status = { in: ["TODO", "IN_PROGRESS"] };
-      }
+      if (!status) where.status = { in: ["TODO", "IN_PROGRESS"] };
     } else if (range === "overdue") {
       where.dueAt = { lt: now };
 
-      if (!status) {
-        where.status = { in: ["TODO", "IN_PROGRESS"] };
-      }
+      if (!status) where.status = { in: ["TODO", "IN_PROGRESS"] };
     } else if (range === "week") {
       const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
       where.dueAt = { gte: now, lte: end };
 
-      if (!status) {
-        where.status = { in: ["TODO", "IN_PROGRESS"] };
-      }
+      if (!status) where.status = { in: ["TODO", "IN_PROGRESS"] };
     }
 
     return where;
@@ -119,42 +112,36 @@ export class TasksService {
     return user;
   }
 
-private async validateRelations(body: any) {
-  if (body.leadId) {
-    const lead = await this.prisma.lead.findUnique({
-      where: { id: body.leadId },
-      select: { id: true },
-    });
+  private async validateRelations(body: any) {
+    if (body.leadId) {
+      const lead = await this.prisma.lead.findUnique({
+        where: { id: body.leadId },
+        select: { id: true },
+      });
 
-    if (!lead) {
-      throw new BadRequestException("Lead not found");
+      if (!lead) throw new BadRequestException("Lead not found");
     }
-  }
 
-  if (body.agencyId) {
-    const agency = await this.prisma.agency.findUnique({
-      where: { id: body.agencyId },
-      select: { id: true },
-    });
+    if (body.agencyId) {
+      const agency = await this.prisma.agency.findUnique({
+        where: { id: body.agencyId },
+        select: { id: true },
+      });
 
-    if (!agency) {
-      throw new BadRequestException("Agency not found");
+      if (!agency) throw new BadRequestException("Agency not found");
     }
-  }
 
-  if (body.customerId) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id: body.customerId },
-      select: { id: true },
-    });
+    if (body.customerId) {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: body.customerId },
+        select: { id: true },
+      });
 
-    if (!customer) {
-      throw new BadRequestException("Customer not found");
+      if (!customer) throw new BadRequestException("Customer not found");
     }
-  }
 
-  await this.validateAssignedUser(body.assignedToId);
-}
+    await this.validateAssignedUser(body.assignedToId);
+  }
 
   private buildTaskLink(task: { id: string }) {
     return `/tasks/${task.id}`;
@@ -187,6 +174,7 @@ private async validateRelations(body: any) {
     };
 
     const search = this.cleanStr(q?.search);
+
     if (search) {
       where.AND = where.AND || [];
       where.AND.push({
@@ -209,76 +197,65 @@ private async validateRelations(body: any) {
     });
   }
 
- async listAll(
-  user: ReqUser,
-  q: {
-    status?: string;
-    range?: string;
-    search?: string;
-    assignedToId?: string;
-    agencyId?: string;
-  },
-) {
-  this.ensureAuth(user);
+  async listAll(
+    user: ReqUser,
+    q: {
+      status?: string;
+      range?: string;
+      search?: string;
+      assignedToId?: string;
+      agencyId?: string;
+    },
+  ) {
+    this.ensureAuth(user);
 
-  const where: any = {
-    ...this.buildRangeWhere(q?.range, q?.status),
-  };
+    const where: any = {
+      ...this.buildRangeWhere(q?.range, q?.status),
+    };
 
-  if (this.isManager(user)) {
-    if (q?.assignedToId) {
-      where.assignedToId = q.assignedToId;
+    if (this.isManager(user)) {
+      if (q?.assignedToId) where.assignedToId = q.assignedToId;
+      if (q?.agencyId) where.agencyId = q.agencyId;
+    } else if (this.isSales(user)) {
+      where.OR = [
+        { assignedToId: user.id },
+        { createdById: user.id },
+        { agency: { assignedSalesId: user.id } },
+      ];
+
+      if (q?.agencyId) where.agencyId = q.agencyId;
+    } else if (user.role === "CALLCENTER") {
+      where.OR = [{ assignedToId: user.id }, { createdById: user.id }];
+
+      if (q?.agencyId) where.agencyId = q.agencyId;
+    } else {
+      throw new ForbiddenException("No access");
     }
 
-    if (q?.agencyId) {
-      where.agencyId = q.agencyId;
-    }
-  } else if (this.isSales(user)) {
-    where.OR = [
-      { assignedToId: user.id },
-      { createdById: user.id },
-      { agency: { assignedSalesId: user.id } },
-    ];
+    const search = this.cleanStr(q?.search);
 
-    if (q?.agencyId) {
-      where.agencyId = q.agencyId;
+    if (search) {
+      where.AND = where.AND || [];
+      where.AND.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          { lead: { fullName: { contains: search, mode: "insensitive" } } },
+          { agency: { name: { contains: search, mode: "insensitive" } } },
+          { customer: { fullName: { contains: search, mode: "insensitive" } } },
+          { assignedTo: { name: { contains: search, mode: "insensitive" } } },
+          { createdBy: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      });
     }
-  } else if (user.role === "CALLCENTER") {
-    where.OR = [
-      { assignedToId: user.id },
-      { createdById: user.id },
-    ];
 
-    if (q?.agencyId) {
-      where.agencyId = q.agencyId;
-    }
-  } else {
-    throw new ForbiddenException("No access");
-  }
-
-  const search = this.cleanStr(q?.search);
-  if (search) {
-    where.AND = where.AND || [];
-    where.AND.push({
-      OR: [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-        { lead: { fullName: { contains: search, mode: "insensitive" } } },
-        { agency: { name: { contains: search, mode: "insensitive" } } },
-        { customer: { fullName: { contains: search, mode: "insensitive" } } },
-        { assignedTo: { name: { contains: search, mode: "insensitive" } } },
-        { createdBy: { name: { contains: search, mode: "insensitive" } } },
-      ],
+    return this.prisma.crmTask.findMany({
+      where,
+      include: this.includeTaskRelations(),
+      orderBy: [{ dueAt: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
+      take: 500,
     });
   }
-
-  return this.prisma.crmTask.findMany({
-    where,
-    include: this.includeTaskRelations(),
-    orderBy: [{ dueAt: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
-    take: 500,
-  });
-}
 
   async getOne(user: ReqUser, id: string) {
     this.ensureAuth(user);
@@ -288,108 +265,93 @@ private async validateRelations(body: any) {
       include: this.includeTaskRelations(),
     });
 
-    if (!task) {
-      throw new NotFoundException("Task not found");
-    }
+    if (!task) throw new NotFoundException("Task not found");
 
     const canAccess =
       this.isManager(user) ||
       task.assignedToId === user.id ||
       task.createdById === user.id;
 
-    if (!canAccess) {
-      throw new ForbiddenException("No access");
-    }
-
-
-    console.log("TASK ACCESS CHECK", {
-  taskId: task.id,
-  userId: user.id,
-  userRole: user.role,
-  assignedToId: task.assignedToId,
-  createdById: task.createdById,
-});
+    if (!canAccess) throw new ForbiddenException("No access");
 
     return task;
   }
 
-async create(user: ReqUser, body: any) {
-  this.ensureAuth(user);
+  async create(user: ReqUser, body: any) {
+    this.ensureAuth(user);
 
-  const canCreate =
-    this.isManager(user) ||
-    this.isSales(user) ||
-    user.role === "CALLCENTER";
+    const canCreate =
+      this.isManager(user) || this.isSales(user) || user.role === "CALLCENTER";
 
-  if (!canCreate) {
-    throw new ForbiddenException("No access to create task");
-  }
+    if (!canCreate) throw new ForbiddenException("No access to create task");
 
-  if (this.isSales(user) || user.role === "CALLCENTER") {
-    body.assignedToId = user.id;
-  }
-
-  if (!body?.title || !body?.assignedToId) {
-    throw new BadRequestException("Missing fields: title, assignedToId");
-  }
-
-  let dueAt: Date | null = null;
-  if (body?.dueAt) {
-    dueAt = new Date(body.dueAt);
-    if (Number.isNaN(dueAt.getTime())) {
-      throw new BadRequestException("Invalid dueAt");
+    if (this.isSales(user) || user.role === "CALLCENTER") {
+      body.assignedToId = user.id;
     }
-  }
 
-  const assignedUser = await this.validateAssignedUser(body.assignedToId);
-  await this.validateRelations(body);
+    if (!body?.title || !body?.assignedToId) {
+      throw new BadRequestException("Missing fields: title, assignedToId");
+    }
 
-  const task = await this.prisma.crmTask.create({
-    data: {
-      title: body.title.trim(),
-      description: this.cleanStr(body.description),
-      status: body.status ?? "TODO",
-      priority: body.priority ?? "MEDIUM",
-      dueAt,
-      leadId: body.leadId ?? null,
-      agencyId: body.agencyId ?? null,
-      customerId: body.customerId ?? null,
-      createdById: user.id,
-      assignedToId: body.assignedToId ?? null,
-    },
-    include: this.includeTaskRelations(),
-  });
+    let dueAt: Date | null = null;
 
-  await this.audit.log(user, "CRM_TASK_CREATE", "CrmTask", task.id, {
-    assignedToId: task.assignedToId,
-    leadId: task.leadId,
-    agencyId: task.agencyId,
-    customerId: task.customerId,
-  });
+    if (body?.dueAt) {
+      dueAt = new Date(body.dueAt);
 
-  if (task.assignedToId) {
-    await this.notifications.createForUser({
-      userId: task.assignedToId,
-      type: "TASK_ASSIGNED",
-      title: "Yeni görev atandı",
-      message: this.buildTaskMessage(task),
-      entityType: "CrmTask",
-      entityId: task.id,
-      link: this.buildTaskLink(task),
-      metaJson: {
-        taskId: task.id,
-        title: task.title,
-        leadId: task.leadId,
-        agencyId: task.agencyId,
-        customerId: task.customerId,
-        createdById: task.createdById,
-        assignedToName: assignedUser?.name ?? null,
+      if (Number.isNaN(dueAt.getTime())) {
+        throw new BadRequestException("Invalid dueAt");
+      }
+    }
+
+    const assignedUser = await this.validateAssignedUser(body.assignedToId);
+    await this.validateRelations(body);
+
+    const task = await this.prisma.crmTask.create({
+      data: {
+        title: body.title.trim(),
+        description: this.cleanStr(body.description),
+        status: body.status ?? "TODO",
+        priority: body.priority ?? "MEDIUM",
+        dueAt,
+        leadId: body.leadId ?? null,
+        agencyId: body.agencyId ?? null,
+        customerId: body.customerId ?? null,
+        createdById: user.id,
+        assignedToId: body.assignedToId ?? null,
       },
+      include: this.includeTaskRelations(),
     });
-  }
 
-  return task;
-}
+    await this.audit.log(user, "CRM_TASK_CREATE", "CrmTask", task.id, {
+      assignedToId: task.assignedToId,
+      leadId: task.leadId,
+      agencyId: task.agencyId,
+      customerId: task.customerId,
+    });
+
+    if (task.assignedToId) {
+      await this.notifications.createForUser({
+        userId: task.assignedToId,
+        type: "TASK_ASSIGNED",
+        title: "Yeni görev atandı",
+        message: this.buildTaskMessage(task),
+        entityType: "CrmTask",
+        entityId: task.id,
+        link: this.buildTaskLink(task),
+        metaJson: {
+          taskId: task.id,
+          title: task.title,
+          leadId: task.leadId,
+          agencyId: task.agencyId,
+          customerId: task.customerId,
+          createdById: task.createdById,
+          assignedToName: assignedUser?.name ?? null,
+        },
+      });
+    }
+
+    return task;
+  }
 
   async update(user: ReqUser, id: string, body: any) {
     this.ensureAuth(user);
@@ -399,9 +361,7 @@ async create(user: ReqUser, body: any) {
       include: this.includeTaskRelations(),
     });
 
-    if (!task) {
-      throw new NotFoundException("Task not found");
-    }
+    if (!task) throw new NotFoundException("Task not found");
 
     const managerCanEdit = this.isManager(user);
     const assigneeCanEdit = task.assignedToId === user.id;
@@ -418,20 +378,15 @@ async create(user: ReqUser, body: any) {
 
     if (body.status !== undefined) {
       data.status = body.status;
-
-      if (body.status === "DONE") {
-        data.completedAt = new Date();
-      } else {
-        data.completedAt = null;
-      }
+      data.completedAt = body.status === "DONE" ? new Date() : null;
     }
 
     if (managerCanEdit) {
       if (body.title !== undefined) {
         const title = this.cleanStr(body.title);
-        if (!title) {
-          throw new BadRequestException("Task title is required");
-        }
+
+        if (!title) throw new BadRequestException("Task title is required");
+
         data.title = title;
       }
 
@@ -448,9 +403,11 @@ async create(user: ReqUser, body: any) {
           data.dueAt = null;
         } else {
           const dueAt = new Date(body.dueAt);
+
           if (Number.isNaN(dueAt.getTime())) {
             throw new BadRequestException("Invalid dueAt");
           }
+
           data.dueAt = dueAt;
         }
       }
@@ -472,7 +429,9 @@ async create(user: ReqUser, body: any) {
             where: { id: body.leadId },
             select: { id: true },
           });
+
           if (!lead) throw new BadRequestException("Lead not found");
+
           data.leadId = body.leadId;
         }
       }
@@ -485,7 +444,9 @@ async create(user: ReqUser, body: any) {
             where: { id: body.agencyId },
             select: { id: true },
           });
+
           if (!agency) throw new BadRequestException("Agency not found");
+
           data.agencyId = body.agencyId;
         }
       }
@@ -498,23 +459,12 @@ async create(user: ReqUser, body: any) {
             where: { id: body.customerId },
             select: { id: true },
           });
+
           if (!customer) throw new BadRequestException("Customer not found");
+
           data.customerId = body.customerId;
         }
       }
-
-      const nextLeadId =
-        body.leadId !== undefined ? data.leadId ?? null : task.leadId ?? null;
-      const nextAgencyId =
-        body.agencyId !== undefined
-          ? data.agencyId ?? null
-          : task.agencyId ?? null;
-      const nextCustomerId =
-        body.customerId !== undefined
-          ? data.customerId ?? null
-          : task.customerId ?? null;
-
-    
     }
 
     const updated = await this.prisma.crmTask.update({
@@ -531,10 +481,7 @@ async create(user: ReqUser, body: any) {
       customerId: updated.customerId,
     });
 
-    if (
-      updated.assignedToId &&
-      updated.assignedToId !== previousAssignedToId
-    ) {
+    if (updated.assignedToId && updated.assignedToId !== previousAssignedToId) {
       await this.notifications.createForUser({
         userId: updated.assignedToId,
         type: "TASK_ASSIGNED",
@@ -555,13 +502,11 @@ async create(user: ReqUser, body: any) {
     if (
       updated.assignedToId &&
       updated.assignedToId === previousAssignedToId &&
-      (
-        previousStatus !== updated.status ||
+      (previousStatus !== updated.status ||
         task.title !== updated.title ||
         task.description !== updated.description ||
         task.priority !== updated.priority ||
-        String(task.dueAt ?? "") !== String(updated.dueAt ?? "")
-      )
+        String(task.dueAt ?? "") !== String(updated.dueAt ?? ""))
     ) {
       await this.notifications.createForUser({
         userId: updated.assignedToId,
@@ -590,14 +535,11 @@ async create(user: ReqUser, body: any) {
       include: this.includeTaskRelations(),
     });
 
-    if (!task) {
-      throw new BadRequestException("Task not found");
-    }
+    if (!task) throw new BadRequestException("Task not found");
 
     const ok = task.assignedToId === user.id || this.isManager(user);
-    if (!ok) {
-      throw new ForbiddenException("No access");
-    }
+
+    if (!ok) throw new ForbiddenException("No access");
 
     const updated = await this.prisma.crmTask.update({
       where: { id },
@@ -635,14 +577,11 @@ async create(user: ReqUser, body: any) {
       include: this.includeTaskRelations(),
     });
 
-    if (!task) {
-      throw new BadRequestException("Task not found");
-    }
+    if (!task) throw new BadRequestException("Task not found");
 
     const ok = task.createdById === user.id || this.isManager(user);
-    if (!ok) {
-      throw new ForbiddenException("No access");
-    }
+
+    if (!ok) throw new ForbiddenException("No access");
 
     const updated = await this.prisma.crmTask.update({
       where: { id },
@@ -672,6 +611,37 @@ async create(user: ReqUser, body: any) {
     return updated;
   }
 
+  async delete(user: ReqUser, id: string) {
+    this.ensureAuth(user);
+
+    if (!this.isManager(user)) {
+      throw new ForbiddenException("Only admin or manager can delete tasks");
+    }
+
+    const task = await this.prisma.crmTask.findUnique({
+      where: { id },
+      include: this.includeTaskRelations(),
+    });
+
+    if (!task) throw new NotFoundException("Task not found");
+
+    await this.audit.log(user, "CRM_TASK_DELETE", "CrmTask", id, {
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      dueAt: task.dueAt,
+      assignedToId: task.assignedToId,
+      createdById: task.createdById,
+      leadId: task.leadId,
+      agencyId: task.agencyId,
+      customerId: task.customerId,
+    });
+
+    return this.prisma.crmTask.delete({
+      where: { id },
+    });
+  }
+
   async listTeam(
     user: ReqUser,
     q: { status?: string; range?: string; search?: string },
@@ -696,6 +666,7 @@ async create(user: ReqUser, body: any) {
     };
 
     const search = this.cleanStr(q?.search);
+
     if (search) {
       where.AND = where.AND || [];
       where.AND.push({

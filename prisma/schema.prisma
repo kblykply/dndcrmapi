@@ -103,8 +103,7 @@ model User {
 
   audits        AuditLog[]
   refreshTokens RefreshToken[]
-  refreshToken String?
-  
+  refreshToken  String?
 
   tasksCreated  Task[] @relation("TasksCreatedBy")
   tasksAssigned Task[] @relation("TasksAssignedTo")
@@ -127,12 +126,15 @@ model User {
   crmTasksAssigned      CrmTask[]          @relation("CrmTaskAssignedTo")
   crmTasksCreated       CrmTask[]          @relation("CrmTaskCreatedBy")
 
+  pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
+  pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
+  pdcaCreatedCases       PdcaCase[]      @relation("PdcaCreatedBy")
+  pdcaLogsAuthored       PdcaLog[]       @relation("PdcaLogAuthor")
+  notifications          Notification[]
+  agencyMeetingsAssigned AgencyMeeting[] @relation("AgencyMeetingSales")
 
-  pdcaOwnedCases      PdcaCase[] @relation("PdcaOwner")
-  pdcaAssignedCases   PdcaCase[] @relation("PdcaAssignedTo")
-  pdcaCreatedCases    PdcaCase[] @relation("PdcaCreatedBy")
-  pdcaLogsAuthored    PdcaLog[]  @relation("PdcaLogAuthor")
-  notifications Notification[]
+  otherMeetingsCreated  OtherMeeting[] @relation("OtherMeetingCreator")
+  otherMeetingsAssigned OtherMeeting[] @relation("OtherMeetingSales")
 
   @@index([role])
   @@index([isActive])
@@ -362,12 +364,13 @@ model Agency {
   manager       User? @relation("AgencyManager", fields: [managerId], references: [id])
   assignedSales User? @relation("AgencySales", fields: [assignedSalesId], references: [id])
 
-  notes       AgencyNote[]
-  meetings    AgencyMeeting[]
-  tasks       Task[]          @relation("AgencyTasks")
-  customers   Customer[]
-  crmTasks    CrmTask[]
-  agencyTasks AgencyTask[]
+  notes         AgencyNote[]
+  meetings      AgencyMeeting[]
+  tasks         Task[]          @relation("AgencyTasks")
+  customers     Customer[]
+  crmTasks      CrmTask[]
+  agencyTasks   AgencyTask[]
+  presentations Presentation[]
 }
 
 model AgencyNote {
@@ -382,17 +385,31 @@ model AgencyNote {
 }
 
 model AgencyMeeting {
-  id          String   @id @default(cuid())
-  agencyId    String
-  createdById String
-  title       String
-  notes       String?
-  meetingAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  agencyId        String?
+  createdById     String
+  title           String
+  notes           String?
+  meetingAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  assignedSalesId String?
+  customerId      String?
 
-  agency    Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  createdBy User   @relation("AgencyMeetingAuthor", fields: [createdById], references: [id])
+  status  MeetingStatus   @default(SCHEDULED)
+  outcome MeetingOutcome?
+
+  assignedSales User?     @relation("AgencyMeetingSales", fields: [assignedSalesId], references: [id])
+  agency        Agency?   @relation(fields: [agencyId], references: [id])
+  createdBy     User      @relation("AgencyMeetingAuthor", fields: [createdById], references: [id])
+  customer      Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@index([agencyId])
+  @@index([assignedSalesId])
+  @@index([createdById])
+  @@index([meetingAt])
+  @@index([status])
 }
 
 model AgencyTask {
@@ -462,30 +479,19 @@ model Customer {
 
   tasks Task[] @relation("CustomerTasks")
 
-
-
-
-  language      String?
-  nationality   String?
-  gender        Gender?
-  birthday      DateTime? 
-  job           String?
-  project       ProjectType?
-  idDocumentUrl String?
+  language       String?
+  nationality    String?
+  gender         Gender?
+  birthday       DateTime?
+  job            String?
+  project        ProjectType?
+  idDocumentUrl  String?
   idDocumentName String?
 
-
-
   unitSelections CustomerUnitSelection[]
-  documents CustomerDocument[]
-
-
-
-
+  documents      CustomerDocument[]
+  agencyMeetings AgencyMeeting[]
 }
-
-
-
 
 model CustomerUnitSelection {
   id         String   @id @default(cuid())
@@ -495,10 +501,10 @@ model CustomerUnitSelection {
   project    ProjectType
   unitNumber String
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  @@index([customerId])
   @@unique([customerId, project, unitNumber])
+  @@index([customerId])
 }
 
 model CustomerDocument {
@@ -510,13 +516,11 @@ model CustomerDocument {
   fileName    String
   storagePath String
   mimeType    String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime             @default(now())
 
   @@index([customerId])
   @@index([customerId, type])
 }
-
-
 
 enum Gender {
   MALE
@@ -531,21 +535,24 @@ enum ProjectType {
   LAGOON_VERDE
 }
 
-
-
 enum CustomerDocumentType {
   ID
   PASSPORT
   OTHER
 }
 
-
+enum MeetingKind {
+  AGENCY
+  PRESENTATION
+  OTHER
+}
 
 model Presentation {
-  id              String @id @default(cuid())
-  customerId      String
+  id              String  @id @default(cuid())
+  customerId      String?
   createdById     String
-  assignedSalesId String
+  assignedSalesId String?
+  agencyId        String?
 
   title          String
   projectName    String?
@@ -558,11 +565,17 @@ model Presentation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdBy     User     @relation("PresentationCreator", fields: [createdById], references: [id])
-  assignedSales User     @relation("PresentationSales", fields: [assignedSalesId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  agency Agency? @relation(fields: [agencyId], references: [id])
+
+  createdBy User @relation("PresentationCreator", fields: [createdById], references: [id])
+
+  assignedSales User? @relation("PresentationSales", fields: [assignedSalesId], references: [id])
 
   notes PresentationNote[]
+
+  @@index([agencyId])
 }
 
 model PresentationNote {
@@ -586,6 +599,22 @@ enum PresentationStatus {
   COMPLETED
   CANCELLED
   RESCHEDULED
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum MeetingOutcome {
+  POSITIVE
+  NEGATIVE
+  FOLLOW_UP
+  NO_DECISION
+  WON
+  LOST
 }
 
 enum PresentationOutcome {
@@ -685,28 +714,24 @@ model Notification {
   @@index([userId, isRead, createdAt])
 }
 
-
-
 model OrgChartNode {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  name      String   // "Director", "Marketing Department" etc.
-  type      String?  // "DEPARTMENT", "ROLE", "GROUP" (optional for styling)
-  color     String?  // for UI (like your yellow/green boxes)
+  name  String // "Director", "Marketing Department" etc.
+  type  String? // "DEPARTMENT", "ROLE", "GROUP" (optional for styling)
+  color String? // for UI (like your yellow/green boxes)
 
-  parentId  String?
-  parent    OrgChartNode? @relation("OrgTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children  OrgChartNode[] @relation("OrgTree")
+  parentId String?
+  parent   OrgChartNode?  @relation("OrgTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children OrgChartNode[] @relation("OrgTree")
 
-  order     Int      @default(0) // for sorting inside same level
+  order Int @default(0) // for sorting inside same level
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([parentId])
 }
-
-
 
 model PdcaCase {
   id String @id @default(cuid())
@@ -717,19 +742,19 @@ model PdcaCase {
   issueCategory  PdcaIssueCategory?
   problemType    String?
   impactLevel    PdcaImpactLevel?
-  priority       TaskPriority @default(MEDIUM)
+  priority       TaskPriority       @default(MEDIUM)
 
-  phase          PdcaPhase @default(PLAN)
-  status         PdcaStatus @default(OPEN)
+  phase  PdcaPhase  @default(PLAN)
+  status PdcaStatus @default(OPEN)
 
-  ownerId        String?
-  owner          User? @relation("PdcaOwner", fields: [ownerId], references: [id])
+  ownerId String?
+  owner   User?   @relation("PdcaOwner", fields: [ownerId], references: [id])
 
-  assignedToId   String?
-  assignedTo     User? @relation("PdcaAssignedTo", fields: [assignedToId], references: [id])
+  assignedToId String?
+  assignedTo   User?   @relation("PdcaAssignedTo", fields: [assignedToId], references: [id])
 
-  createdById    String
-  createdBy      User @relation("PdcaCreatedBy", fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation("PdcaCreatedBy", fields: [createdById], references: [id])
 
   rootCause        String?
   targetResult     String?
@@ -740,8 +765,8 @@ model PdcaCase {
   preventiveAction String?
   finalDecision    String?
 
-  dueAt            DateTime?
-  closedAt         DateTime?
+  dueAt    DateTime?
+  closedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -764,14 +789,43 @@ model PdcaLog {
   pdcaCase   PdcaCase @relation(fields: [pdcaCaseId], references: [id], onDelete: Cascade)
 
   createdById String
-  createdBy   User @relation("PdcaLogAuthor", fields: [createdById], references: [id])
+  createdBy   User   @relation("PdcaLogAuthor", fields: [createdById], references: [id])
 
   phase     PdcaPhase?
   note      String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 
   @@index([pdcaCaseId, createdAt])
   @@index([createdById])
+}
+
+model OtherMeeting {
+  id              String  @id @default(cuid())
+  createdById     String
+  assignedSalesId String?
+
+  title     String
+  notes     String?
+  meetingAt DateTime
+
+  contactName String?
+  companyName String?
+  phone       String?
+  email       String?
+
+  status  MeetingStatus   @default(SCHEDULED)
+  outcome MeetingOutcome?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy     User  @relation("OtherMeetingCreator", fields: [createdById], references: [id])
+  assignedSales User? @relation("OtherMeetingSales", fields: [assignedSalesId], references: [id])
+
+  @@index([assignedSalesId])
+  @@index([createdById])
+  @@index([meetingAt])
+  @@index([status])
 }
 
 enum PdcaPhase {
