@@ -35,6 +35,10 @@ export class TasksService {
     return user.role === "SALES";
   }
 
+  private isCallcenter(user: ReqUser) {
+    return user.role === "CALLCENTER";
+  }
+
   private cleanStr(v?: string | null) {
     const x = (v ?? "").trim();
     return x || null;
@@ -46,10 +50,10 @@ export class TasksService {
         select: { id: true, fullName: true, phone: true, status: true },
       },
       agency: {
-        select: { id: true, name: true },
+        select: { id: true, name: true, assignedSalesId: true },
       },
       customer: {
-        select: { id: true, fullName: true, companyName: true },
+        select: { id: true, fullName: true, companyName: true, ownerId: true },
       },
       assignedTo: {
         select: { id: true, name: true, email: true, role: true },
@@ -107,6 +111,16 @@ export class TasksService {
 
     if (!user || !user.isActive) {
       throw new BadRequestException("Assigned user not found or inactive");
+    }
+
+    if (
+      user.role !== "SALES" &&
+      user.role !== "MANAGER" &&
+      user.role !== "CALLCENTER"
+    ) {
+      throw new BadRequestException(
+        "Assigned user must be an active SALES, MANAGER, or CALLCENTER",
+      );
     }
 
     return user;
@@ -205,6 +219,7 @@ export class TasksService {
       search?: string;
       assignedToId?: string;
       agencyId?: string;
+      customerId?: string;
     },
   ) {
     this.ensureAuth(user);
@@ -216,18 +231,22 @@ export class TasksService {
     if (this.isManager(user)) {
       if (q?.assignedToId) where.assignedToId = q.assignedToId;
       if (q?.agencyId) where.agencyId = q.agencyId;
+      if (q?.customerId) where.customerId = q.customerId;
     } else if (this.isSales(user)) {
       where.OR = [
         { assignedToId: user.id },
         { createdById: user.id },
         { agency: { assignedSalesId: user.id } },
+        { customer: { ownerId: user.id } },
       ];
 
       if (q?.agencyId) where.agencyId = q.agencyId;
-    } else if (user.role === "CALLCENTER") {
+      if (q?.customerId) where.customerId = q.customerId;
+    } else if (this.isCallcenter(user)) {
       where.OR = [{ assignedToId: user.id }, { createdById: user.id }];
 
       if (q?.agencyId) where.agencyId = q.agencyId;
+      if (q?.customerId) where.customerId = q.customerId;
     } else {
       throw new ForbiddenException("No access");
     }
@@ -281,11 +300,11 @@ export class TasksService {
     this.ensureAuth(user);
 
     const canCreate =
-      this.isManager(user) || this.isSales(user) || user.role === "CALLCENTER";
+      this.isManager(user) || this.isSales(user) || this.isCallcenter(user);
 
     if (!canCreate) throw new ForbiddenException("No access to create task");
 
-    if (this.isSales(user) || user.role === "CALLCENTER") {
+    if (this.isSales(user) || this.isCallcenter(user)) {
       body.assignedToId = user.id;
     }
 
@@ -384,9 +403,7 @@ export class TasksService {
     if (managerCanEdit) {
       if (body.title !== undefined) {
         const title = this.cleanStr(body.title);
-
         if (!title) throw new BadRequestException("Task title is required");
-
         data.title = title;
       }
 
@@ -403,11 +420,9 @@ export class TasksService {
           data.dueAt = null;
         } else {
           const dueAt = new Date(body.dueAt);
-
           if (Number.isNaN(dueAt.getTime())) {
             throw new BadRequestException("Invalid dueAt");
           }
-
           data.dueAt = dueAt;
         }
       }
@@ -652,13 +667,42 @@ export class TasksService {
       throw new ForbiddenException("No access");
     }
 
+    if (this.isAdmin(user)) {
+      const where: any = {
+        ...this.buildRangeWhere(q?.range, q?.status),
+      };
+
+      const search = this.cleanStr(q?.search);
+
+      if (search) {
+        where.AND = where.AND || [];
+        where.AND.push({
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+            { lead: { fullName: { contains: search, mode: "insensitive" } } },
+            { agency: { name: { contains: search, mode: "insensitive" } } },
+            { customer: { fullName: { contains: search, mode: "insensitive" } } },
+            { assignedTo: { name: { contains: search, mode: "insensitive" } } },
+          ],
+        });
+      }
+
+      return this.prisma.crmTask.findMany({
+        where,
+        include: this.includeTaskRelations(),
+        orderBy: [{ dueAt: "asc" }, { priority: "desc" }],
+        take: 500,
+      });
+    }
+
     const reps = await this.prisma.user.findMany({
       where: { managerId: user.id, isActive: true },
       select: { id: true },
     });
 
     const ids = reps.map((r) => r.id);
-    if (ids.length === 0) return [];
+    ids.push(user.id);
 
     const where: any = {
       assignedToId: { in: ids },

@@ -27,6 +27,8 @@ type CreateMeetingBody = {
 
   agencyId?: string;
   customerId?: string;
+
+  // Can be SALES or MANAGER user id
   assignedSalesId?: string;
 
   projectName?: string;
@@ -47,6 +49,8 @@ type UpdateMeetingBody = {
 
   agencyId?: string | null;
   customerId?: string | null;
+
+  // Can be SALES or MANAGER user id
   assignedSalesId?: string | null;
 
   projectName?: string;

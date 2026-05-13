@@ -15,6 +15,8 @@ import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { RolesGuard } from "../common/roles.guard";
 import { Roles } from "../common/roles.decorator";
 
+type AgencyStatus = "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("agencies")
 export class AgenciesController {
@@ -51,19 +53,22 @@ export class AgenciesController {
     @Req() req: any,
     @Body()
     body: {
-  name: string;
-  contactName?: string;
-  phone?: string;
-  email?: string;
-  city?: string;
-  country?: string;
-  address?: string;
-  website?: string;
-  source?: string;
-  notesSummary?: string;
-  status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
-  assignedSalesId?: string | null;
-},
+      name: string;
+      contactName?: string;
+      phone?: string;
+      email?: string;
+      city?: string;
+      country?: string;
+      address?: string;
+      website?: string;
+      source?: string;
+      notesSummary?: string;
+      status?: AgencyStatus;
+
+      // IMPORTANT:
+      // This can now be SALES or MANAGER user id.
+      assignedSalesId?: string | null;
+    },
   ) {
     return this.agencies.createAgency(req.user, body);
   }
@@ -85,7 +90,11 @@ export class AgenciesController {
       website?: string;
       source?: string;
       notesSummary?: string;
-      status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+      status?: AgencyStatus;
+
+      // IMPORTANT:
+      // This can now be SALES or MANAGER user id.
+      assignedSalesId?: string | null;
     },
   ) {
     return this.agencies.updateAgency(req.user, id, body);
@@ -102,7 +111,12 @@ export class AgenciesController {
   assignSales(
     @Req() req: any,
     @Param("id") id: string,
-    @Body() body: { salesId?: string | null },
+    @Body()
+    body: {
+      // IMPORTANT:
+      // This can now be SALES or MANAGER user id.
+      salesId?: string | null;
+    },
   ) {
     return this.agencies.assignSales(req.user, id, body);
   }

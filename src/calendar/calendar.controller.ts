@@ -11,24 +11,34 @@ export class CalendarController {
 
   @Get("feed")
   @Roles("ADMIN", "MANAGER", "CALLCENTER", "SALES")
-  async feed(
+  feed(
     @Req() req: any,
     @Query("from") from?: string,
     @Query("to") to?: string,
+
     @Query("type") type?: string,
     @Query("assignedUserId") assignedUserId?: string,
+
+    @Query("types") types?: string,
+    @Query("assignedUserIds") assignedUserIds?: string,
+    @Query("roles") roles?: string,
+    @Query("search") search?: string,
   ) {
     return this.calendar.getFeed(req.user, {
       from,
       to,
       type,
       assignedUserId,
+      types,
+      assignedUserIds,
+      roles,
+      search,
     });
   }
 
   @Get("summary")
   @Roles("ADMIN", "MANAGER", "CALLCENTER", "SALES")
-  async summary(@Req() req: any) {
+  summary(@Req() req: any) {
     return this.calendar.getTodaySummary(req.user);
   }
 }

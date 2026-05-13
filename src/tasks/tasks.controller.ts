@@ -54,6 +54,7 @@ export class TasksController {
     @Query("search") search?: string,
     @Query("assignedToId") assignedToId?: string,
     @Query("agencyId") agencyId?: string,
+    @Query("customerId") customerId?: string,
   ) {
     return this.tasks.listAll(req.user, {
       status,
@@ -61,6 +62,7 @@ export class TasksController {
       search,
       assignedToId,
       agencyId,
+      customerId,
     });
   }
 
@@ -81,7 +83,14 @@ export class TasksController {
       status?: CrmTaskStatus;
       priority?: CrmTaskPriority;
       dueAt?: string | null;
+
+      /**
+       * Can be active SALES, MANAGER, or CALLCENTER.
+       * Backend service validates this.
+       * SALES and CALLCENTER users are forced to assign tasks to themselves.
+       */
       assignedToId?: string | null;
+
       leadId?: string | null;
       agencyId?: string | null;
       customerId?: string | null;
@@ -102,7 +111,13 @@ export class TasksController {
       priority?: CrmTaskPriority;
       status?: CrmTaskStatus;
       dueAt?: string | null;
+
+      /**
+       * Can be active SALES, MANAGER, or CALLCENTER.
+       * Only ADMIN / MANAGER can change this in service.
+       */
       assignedToId?: string | null;
+
       leadId?: string | null;
       agencyId?: string | null;
       customerId?: string | null;

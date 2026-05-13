@@ -43,7 +43,6 @@ type CreateMeetingDto = {
   assignedSalesId?: string;
   projectName?: string;
   location?: string;
-
   contactName?: string;
   companyName?: string;
   phone?: string;
@@ -61,7 +60,6 @@ type UpdateMeetingDto = {
   agencyId?: string | null;
   customerId?: string | null;
   assignedSalesId?: string | null;
-
   contactName?: string | null;
   companyName?: string | null;
   phone?: string | null;
@@ -118,7 +116,7 @@ export class MeetingsService {
     return row.createdById === user.id;
   }
 
-  private resolveAssignedSalesId(user: ReqUser, value?: string | null) {
+  private resolveAssignedUserId(user: ReqUser, value?: string | null) {
     if (user.role === "SALES") return user.id;
     return this.cleanStr(value) ?? null;
   }
@@ -158,10 +156,10 @@ export class MeetingsService {
     return customer;
   }
 
-  private async validateSalesUser(id?: string | null) {
+  private async validateAssignableUser(id?: string | null) {
     if (!id) return null;
 
-    const sales = await this.prisma.user.findUnique({
+    const assignedUser = await this.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -170,11 +168,15 @@ export class MeetingsService {
       },
     });
 
-    if (!sales || !sales.isActive || sales.role !== "SALES") {
-      throw new BadRequestException("Assigned sales is invalid");
+    if (
+      !assignedUser ||
+      !assignedUser.isActive ||
+      !["SALES", "MANAGER"].includes(assignedUser.role)
+    ) {
+      throw new BadRequestException("Assigned user must be SALES or MANAGER");
     }
 
-    return sales;
+    return assignedUser;
   }
 
   private canSeeAgencyMeeting(user: ReqUser, row: any) {
@@ -490,6 +492,7 @@ export class MeetingsService {
                   id: true,
                   name: true,
                   email: true,
+                  role: true,
                 },
               },
               createdBy: {
@@ -528,6 +531,7 @@ export class MeetingsService {
                   id: true,
                   name: true,
                   email: true,
+                  role: true,
                 },
               },
               createdBy: {
@@ -552,6 +556,7 @@ export class MeetingsService {
                   id: true,
                   name: true,
                   email: true,
+                  role: true,
                 },
               },
               createdBy: {
@@ -627,6 +632,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -640,7 +646,9 @@ export class MeetingsService {
       });
 
       if (!row) throw new NotFoundException("Meeting not found");
-      if (!this.canSeeAgencyMeeting(user, row)) throw new ForbiddenException("No access");
+      if (!this.canSeeAgencyMeeting(user, row)) {
+        throw new ForbiddenException("No access");
+      }
 
       return this.normalizeAgencyMeeting(row);
     }
@@ -668,6 +676,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -681,7 +690,9 @@ export class MeetingsService {
       });
 
       if (!row) throw new NotFoundException("Meeting not found");
-      if (!this.canSeePresentation(user, row)) throw new ForbiddenException("No access");
+      if (!this.canSeePresentation(user, row)) {
+        throw new ForbiddenException("No access");
+      }
 
       return this.normalizePresentation(row);
     }
@@ -694,6 +705,7 @@ export class MeetingsService {
             id: true,
             name: true,
             email: true,
+            role: true,
           },
         },
         createdBy: {
@@ -707,7 +719,9 @@ export class MeetingsService {
     });
 
     if (!row) throw new NotFoundException("Meeting not found");
-    if (!this.canSeeOtherMeeting(user, row)) throw new ForbiddenException("No access");
+    if (!this.canSeeOtherMeeting(user, row)) {
+      throw new ForbiddenException("No access");
+    }
 
     return this.normalizeOtherMeeting(row);
   }
@@ -725,12 +739,13 @@ export class MeetingsService {
 
     const agencyId = this.cleanStr(dto.agencyId) ?? null;
     const customerId = this.cleanStr(dto.customerId) ?? null;
-    const assignedSalesId = this.resolveAssignedSalesId(
+
+    const assignedSalesId = this.resolveAssignedUserId(
       user,
       dto.assignedSalesId,
     );
 
-    await this.validateSalesUser(assignedSalesId);
+    await this.validateAssignableUser(assignedSalesId);
 
     if (dto.kind === "AGENCY") {
       await this.validateAgency(agencyId);
@@ -767,6 +782,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -818,6 +834,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -851,6 +868,7 @@ export class MeetingsService {
             id: true,
             name: true,
             email: true,
+            role: true,
           },
         },
         createdBy: {
@@ -915,7 +933,9 @@ export class MeetingsService {
       if (dto.agencyId !== undefined) {
         const agencyId = this.cleanStr(dto.agencyId) ?? null;
         await this.validateAgency(agencyId);
-        data.agency = agencyId ? { connect: { id: agencyId } } : { disconnect: true };
+        data.agency = agencyId
+          ? { connect: { id: agencyId } }
+          : { disconnect: true };
       }
 
       if (dto.customerId !== undefined) {
@@ -927,11 +947,11 @@ export class MeetingsService {
       }
 
       if (dto.assignedSalesId !== undefined) {
-        const assignedSalesId = this.resolveAssignedSalesId(
+        const assignedSalesId = this.resolveAssignedUserId(
           user,
           dto.assignedSalesId,
         );
-        await this.validateSalesUser(assignedSalesId);
+        await this.validateAssignableUser(assignedSalesId);
         data.assignedSales = assignedSalesId
           ? { connect: { id: assignedSalesId } }
           : { disconnect: true };
@@ -961,6 +981,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -1001,7 +1022,9 @@ export class MeetingsService {
         data.title = title;
       }
 
-      if (dto.notes !== undefined) data.notesSummary = this.cleanStr(dto.notes) ?? null;
+      if (dto.notes !== undefined) {
+        data.notesSummary = this.cleanStr(dto.notes) ?? null;
+      }
 
       if (dto.meetingAt !== undefined) {
         const meetingAt = this.parseDate(dto.meetingAt);
@@ -1022,7 +1045,9 @@ export class MeetingsService {
       if (dto.agencyId !== undefined) {
         const agencyId = this.cleanStr(dto.agencyId) ?? null;
         await this.validateAgency(agencyId);
-        data.agency = agencyId ? { connect: { id: agencyId } } : { disconnect: true };
+        data.agency = agencyId
+          ? { connect: { id: agencyId } }
+          : { disconnect: true };
       }
 
       if (dto.customerId !== undefined) {
@@ -1034,11 +1059,11 @@ export class MeetingsService {
       }
 
       if (dto.assignedSalesId !== undefined) {
-        const assignedSalesId = this.resolveAssignedSalesId(
+        const assignedSalesId = this.resolveAssignedUserId(
           user,
           dto.assignedSalesId,
         );
-        await this.validateSalesUser(assignedSalesId);
+        await this.validateAssignableUser(assignedSalesId);
         data.assignedSales = assignedSalesId
           ? { connect: { id: assignedSalesId } }
           : { disconnect: true };
@@ -1067,6 +1092,7 @@ export class MeetingsService {
               id: true,
               name: true,
               email: true,
+              role: true,
             },
           },
           createdBy: {
@@ -1133,11 +1159,11 @@ export class MeetingsService {
     }
 
     if (dto.assignedSalesId !== undefined) {
-      const assignedSalesId = this.resolveAssignedSalesId(
+      const assignedSalesId = this.resolveAssignedUserId(
         user,
         dto.assignedSalesId,
       );
-      await this.validateSalesUser(assignedSalesId);
+      await this.validateAssignableUser(assignedSalesId);
       data.assignedSales = assignedSalesId
         ? { connect: { id: assignedSalesId } }
         : { disconnect: true };
@@ -1152,6 +1178,7 @@ export class MeetingsService {
             id: true,
             name: true,
             email: true,
+            role: true,
           },
         },
         createdBy: {

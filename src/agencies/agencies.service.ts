@@ -30,19 +30,7 @@ type CreateAgencyDto = {
   status?: AgencyStatus;
 };
 
-type UpdateAgencyDto = {
-  name?: string;
-  contactName?: string;
-  phone?: string;
-  email?: string;
-  city?: string;
-  country?: string;
-  address?: string;
-  website?: string;
-  source?: string;
-  notesSummary?: string;
-  status?: "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
-};
+type UpdateAgencyDto = Partial<CreateAgencyDto>;
 
 type AssignSalesDto = {
   salesId?: string | null;
@@ -90,7 +78,7 @@ export class AgenciesService {
   }
 
   private isManager(user: ReqUser) {
-    return user.role === "MANAGER" || user.role === "ADMIN";
+    return user.role === "MANAGER";
   }
 
   private isSales(user: ReqUser) {
@@ -102,22 +90,58 @@ export class AgenciesService {
     return x || undefined;
   }
 
-  private salesOwnsAgency(
-    user: ReqUser,
-    agency: {
-      assignedSalesId?: string | null;
-    },
-  ) {
-    return this.isSales(user) && agency.assignedSalesId === user.id;
+  private async validateAssignableUser(id?: string | null) {
+    if (!id) return null;
+
+    const found = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, isActive: true },
+    });
+
+    if (
+      !found ||
+      !found.isActive ||
+      (found.role !== "SALES" && found.role !== "MANAGER")
+    ) {
+      throw new BadRequestException(
+        "Selected user must be an active SALES or MANAGER",
+      );
+    }
+
+    return found;
   }
 
-  private canEditAgency(
-    user: ReqUser,
-    agency: {
-      assignedSalesId?: string | null;
-    },
-  ) {
-    return this.isAdmin(user) || this.isManager(user) || this.salesOwnsAgency(user, agency);
+  private async validateSalesUser(id?: string | null) {
+    if (!id) return null;
+
+    const found = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, isActive: true },
+    });
+
+    if (!found || !found.isActive || found.role !== "SALES") {
+      throw new BadRequestException("Selected user is not an active SALES rep");
+    }
+
+    return found;
+  }
+
+  private resolveAssignedSalesId(user: ReqUser, value?: string | null) {
+    if (this.isSales(user)) return user.id;
+    if (this.isManager(user) && !value) return user.id;
+    return this.cleanStr(value) ?? null;
+  }
+
+  private ownsAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
+    return agency.assignedSalesId === user.id;
+  }
+
+  private canSeeAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
+    return this.isAdmin(user) || this.ownsAgency(user, agency);
+  }
+
+  private canEditAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
+    return this.isAdmin(user) || this.ownsAgency(user, agency);
   }
 
   private maskAgencyForSales(agency: any, canSeeContact: boolean, canEdit: boolean) {
@@ -143,7 +167,7 @@ export class AgenciesService {
     };
   }
 
-  private withManagerAccessFlags(agency: any, canEdit = true) {
+  private withAccessFlags(agency: any, canEdit = true) {
     return {
       ...agency,
       canSeeContactDetails: true,
@@ -151,13 +175,39 @@ export class AgenciesService {
     };
   }
 
+  private agencyIncludeForDetail() {
+    return {
+      assignedSales: {
+        select: { id: true, name: true, email: true, role: true },
+      },
+      notes: {
+        orderBy: { createdAt: "desc" as const },
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+        },
+      },
+      meetings: {
+        orderBy: { meetingAt: "asc" as const },
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          assignedSales: { select: { id: true, name: true, email: true, role: true } },
+          customer: { select: { id: true, fullName: true, companyName: true } },
+        },
+      },
+      tasks: {
+        orderBy: [{ status: "asc" as const }, { dueAt: "asc" as const }],
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true } },
+        },
+      },
+    };
+  }
+
   private async getAccessibleAgencyOrThrow(user: ReqUser, agencyId: string) {
     const agency = await this.prisma.agency.findUnique({
       where: { id: agencyId },
       include: {
-        manager: {
-          select: { id: true, name: true, email: true, role: true },
-        },
         assignedSales: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -166,18 +216,16 @@ export class AgenciesService {
 
     if (!agency) throw new NotFoundException("Agency not found");
 
-    if (this.isAdmin(user) || this.isManager(user) || this.isSales(user)) {
-      return agency;
-    }
+    if (this.canSeeAgency(user, agency)) return agency;
 
     throw new ForbiddenException("No access to this agency");
   }
 
-  private async assertManagerCanManageAgency(user: ReqUser, agencyId: string) {
+  private async assertCanManageAgency(user: ReqUser, agencyId: string) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    if (!this.isManager(user)) {
-      throw new ForbiddenException("Only manager or admin can manage agencies");
+    if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
+      throw new ForbiddenException("Only assigned user or admin can manage this agency");
     }
 
     return agency;
@@ -207,12 +255,16 @@ export class AgenciesService {
       throw new ForbiddenException("No access");
     }
 
-    if (status && status !== "ALL") {
-      where.status = status;
+    if (!this.isAdmin(user)) {
+      where.assignedSalesId = user.id;
     }
 
-    if (assignedSalesId) {
+    if (this.isAdmin(user) && assignedSalesId) {
       where.assignedSalesId = assignedSalesId;
+    }
+
+    if (status && status !== "ALL") {
+      where.status = status;
     }
 
     if (q) {
@@ -233,8 +285,9 @@ export class AgenciesService {
       this.prisma.agency.findMany({
         where,
         include: {
-          manager: { select: { id: true, name: true, email: true } },
-          assignedSales: { select: { id: true, name: true, email: true } },
+          assignedSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
           _count: {
             select: {
               notes: true,
@@ -251,13 +304,17 @@ export class AgenciesService {
     ]);
 
     const normalizedItems = items.map((agency) => {
+      const canEdit = this.canEditAgency(user, agency);
+
       if (this.isSales(user)) {
-        const canSeeContact = this.salesOwnsAgency(user, agency);
-        const canEdit = this.canEditAgency(user, agency);
-        return this.maskAgencyForSales(agency, canSeeContact, canEdit);
+        return this.maskAgencyForSales(
+          agency,
+          this.ownsAgency(user, agency),
+          canEdit,
+        );
       }
 
-      return this.withManagerAccessFlags(agency, true);
+      return this.withAccessFlags(agency, canEdit);
     });
 
     return {
@@ -272,127 +329,81 @@ export class AgenciesService {
   async getAgency(user: ReqUser, agencyId: string) {
     const agency = await this.prisma.agency.findUnique({
       where: { id: agencyId },
-      include: {
-        manager: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true } },
-        notes: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            createdBy: { select: { id: true, name: true, email: true } },
-          },
-        },
-        meetings: {
-          orderBy: { meetingAt: "asc" },
-          include: {
-            createdBy: { select: { id: true, name: true, email: true } },
-          },
-        },
-        tasks: {
-          orderBy: [{ status: "asc" }, { dueAt: "asc" }],
-          include: {
-            createdBy: { select: { id: true, name: true, email: true } },
-            assignedTo: { select: { id: true, name: true, email: true } },
-          },
-        },
-      },
+      include: this.agencyIncludeForDetail(),
     });
 
-    if (!agency) {
-      throw new NotFoundException("Agency not found");
+    if (!agency) throw new NotFoundException("Agency not found");
+
+    if (!this.canSeeAgency(user, agency)) {
+      throw new ForbiddenException("No access to this agency");
     }
 
-    if (this.isAdmin(user) || this.isManager(user)) {
-      return this.withManagerAccessFlags(agency, true);
-    }
+    const canEdit = this.canEditAgency(user, agency);
 
     if (this.isSales(user)) {
-      const canSeeContact = this.salesOwnsAgency(user, agency);
-      const canEdit = this.canEditAgency(user, agency);
-      return this.maskAgencyForSales(agency, canSeeContact, canEdit);
+      return this.maskAgencyForSales(
+        agency,
+        this.ownsAgency(user, agency),
+        canEdit,
+      );
     }
 
-    throw new ForbiddenException("No access");
+    return this.withAccessFlags(agency, canEdit);
   }
 
- async createAgency(user: ReqUser, dto: CreateAgencyDto) {
-  if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
-    throw new ForbiddenException("No access to create agencies");
-  }
-
-  const name = this.cleanStr(dto.name);
-  if (!name) {
-    throw new BadRequestException("Agency name is required");
-  }
-
-  let assignedSalesId: string | null = dto.assignedSalesId || null;
-
-  if (this.isSales(user)) {
-    assignedSalesId = user.id;
-  }
-
-  if (assignedSalesId) {
-    const sales = await this.prisma.user.findUnique({
-      where: { id: assignedSalesId },
-      select: { id: true, role: true, isActive: true },
-    });
-
-    if (!sales || !sales.isActive || sales.role !== "SALES") {
-      throw new BadRequestException("Assigned sales user is invalid");
+  async createAgency(user: ReqUser, dto: CreateAgencyDto) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
+      throw new ForbiddenException("No access to create agencies");
     }
-  }
 
-  const allowedStatuses = [
-    "ACTIVE",
-    "PASSIVE",
-    "PROSPECT",
-    "DEALING",
-    "CLOSED",
-  ] as const;
+    const name = this.cleanStr(dto.name);
+    if (!name) throw new BadRequestException("Agency name is required");
 
-  const status =
-    dto.status && allowedStatuses.includes(dto.status)
-      ? dto.status
-      : "ACTIVE";
+    const assignedSalesId = this.resolveAssignedSalesId(
+      user,
+      dto.assignedSalesId,
+    );
 
-  return this.prisma.agency.create({
-    data: {
-      name,
-      contactName: this.cleanStr(dto.contactName) ?? null,
-      phone: this.cleanStr(dto.phone) ?? null,
-      email: this.cleanStr(dto.email) ?? null,
-      city: this.cleanStr(dto.city) ?? null,
-      country: this.cleanStr(dto.country) ?? null,
-      address: this.cleanStr(dto.address) ?? null,
-      website: this.cleanStr(dto.website) ?? null,
-      source: this.cleanStr(dto.source) ?? null,
-      notesSummary: this.cleanStr(dto.notesSummary) ?? null,
-      assignedSalesId,
-      status,
-    },
-    include: {
-      manager: { select: { id: true, name: true, email: true } },
-      assignedSales: { select: { id: true, name: true, email: true } },
-    },
-  });
-}
+    await this.validateAssignableUser(assignedSalesId);
 
-  async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
-    const agency = await this.prisma.agency.findUnique({
-      where: { id: agencyId },
-      select: {
-        id: true,
-        assignedSalesId: true,
+    const allowedStatuses = [
+      "ACTIVE",
+      "PASSIVE",
+      "PROSPECT",
+      "DEALING",
+      "CLOSED",
+    ] as const;
+
+    const status =
+      dto.status && allowedStatuses.includes(dto.status) ? dto.status : "ACTIVE";
+
+    return this.prisma.agency.create({
+      data: {
+        name,
+        contactName: this.cleanStr(dto.contactName) ?? null,
+        phone: this.cleanStr(dto.phone) ?? null,
+        email: this.cleanStr(dto.email) ?? null,
+        city: this.cleanStr(dto.city) ?? null,
+        country: this.cleanStr(dto.country) ?? null,
+        address: this.cleanStr(dto.address) ?? null,
+        website: this.cleanStr(dto.website) ?? null,
+        source: this.cleanStr(dto.source) ?? null,
+        notesSummary: this.cleanStr(dto.notesSummary) ?? null,
+        assignedSalesId,
+        status,
+      },
+      include: {
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
+  }
 
-    if (!agency) {
-      throw new NotFoundException("Agency not found");
-    }
+  async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
+    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const managerCanEdit = this.isAdmin(user) || this.isManager(user);
-    const salesCanEditOwn = this.isSales(user) && agency.assignedSalesId === user.id;
-
-    if (!managerCanEdit && !salesCanEditOwn) {
+    if (!this.canEditAgency(user, agency)) {
       throw new ForbiddenException("No access to update this agency");
     }
 
@@ -400,9 +411,7 @@ export class AgenciesService {
 
     if (dto.name !== undefined) {
       const name = this.cleanStr(dto.name);
-      if (!name) {
-        throw new BadRequestException("Agency name is required");
-      }
+      if (!name) throw new BadRequestException("Agency name is required");
       data.name = name;
     }
 
@@ -416,16 +425,27 @@ export class AgenciesService {
     if (dto.source !== undefined) data.source = this.cleanStr(dto.source) ?? null;
     if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary) ?? null;
 
-    if ((managerCanEdit || salesCanEditOwn) && dto.status !== undefined) {
-  data.status = dto.status;
-}
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+    }
+
+    if (dto.assignedSalesId !== undefined) {
+      if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
+        throw new ForbiddenException("Only assigned user or admin can reassign agency");
+      }
+
+      const assignedSalesId = this.cleanStr(dto.assignedSalesId) ?? null;
+      await this.validateAssignableUser(assignedSalesId);
+      data.assignedSalesId = assignedSalesId;
+    }
 
     return this.prisma.agency.update({
       where: { id: agencyId },
       data,
       include: {
-        manager: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true } },
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
   }
@@ -435,27 +455,16 @@ export class AgenciesService {
       throw new ForbiddenException("No access to delete agency");
     }
 
-    const agency = await this.prisma.agency.findUnique({
-      where: { id: agencyId },
-      select: { id: true },
-    });
+    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    if (!agency) {
-      throw new NotFoundException("Agency not found");
+    if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
+      throw new ForbiddenException("Only assigned manager or admin can delete agency");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.agencyTask.deleteMany({
-        where: { agencyId },
-      });
-
-      await tx.agencyMeeting.deleteMany({
-        where: { agencyId },
-      });
-
-      await tx.agencyNote.deleteMany({
-        where: { agencyId },
-      });
+      await tx.agencyTask.deleteMany({ where: { agencyId } });
+      await tx.agencyMeeting.deleteMany({ where: { agencyId } });
+      await tx.agencyNote.deleteMany({ where: { agencyId } });
 
       await tx.customer.updateMany({
         where: { agencyId },
@@ -471,29 +480,20 @@ export class AgenciesService {
   }
 
   async assignSales(user: ReqUser, agencyId: string, dto: AssignSalesDto) {
-    await this.assertManagerCanManageAgency(user, agencyId);
+    const agency = await this.assertCanManageAgency(user, agencyId);
 
-    const salesId = dto.salesId || null;
-
-    if (salesId) {
-      const sales = await this.prisma.user.findUnique({
-        where: { id: salesId },
-        select: { id: true, role: true, isActive: true },
-      });
-
-      if (!sales || !sales.isActive || sales.role !== "SALES") {
-        throw new BadRequestException("Selected user is not an active SALES rep");
-      }
-    }
+    const salesId = this.cleanStr(dto.salesId) ?? null;
+    await this.validateAssignableUser(salesId);
 
     return this.prisma.agency.update({
-      where: { id: agencyId },
+      where: { id: agency.id },
       data: {
         assignedSalesId: salesId,
       },
       include: {
-        manager: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true } },
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
   }
@@ -501,12 +501,7 @@ export class AgenciesService {
   async addNote(user: ReqUser, agencyId: string, dto: CreateAgencyNoteDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      this.salesOwnsAgency(user, agency);
-
-    if (!canEdit) {
+    if (!this.canEditAgency(user, agency)) {
       throw new ForbiddenException("No access");
     }
 
@@ -528,12 +523,7 @@ export class AgenciesService {
   async createMeeting(user: ReqUser, agencyId: string, dto: CreateAgencyMeetingDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      this.salesOwnsAgency(user, agency);
-
-    if (!canEdit) {
+    if (!this.canEditAgency(user, agency)) {
       throw new ForbiddenException("No access");
     }
 
@@ -553,9 +543,11 @@ export class AgenciesService {
         title,
         notes: this.cleanStr(dto.notes),
         meetingAt,
+        assignedSalesId: agency.assignedSalesId ?? null,
       },
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
+        assignedSales: { select: { id: true, name: true, email: true, role: true } },
       },
     });
   }
@@ -569,13 +561,9 @@ export class AgenciesService {
     });
 
     if (!meeting) throw new NotFoundException("Meeting not found");
+    if (!meeting.agency) throw new NotFoundException("Agency not found");
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      meeting.agency.assignedSalesId === user.id;
-
-    if (!canEdit) {
+    if (!this.canEditAgency(user, meeting.agency)) {
       throw new ForbiddenException("No access");
     }
 
@@ -604,6 +592,7 @@ export class AgenciesService {
       data,
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
+        assignedSales: { select: { id: true, name: true, email: true, role: true } },
       },
     });
   }
@@ -611,11 +600,7 @@ export class AgenciesService {
   async createTask(user: ReqUser, agencyId: string, dto: CreateAgencyTaskDto) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    const managerCanCreate = this.isAdmin(user) || this.isManager(user);
-    const salesCanCreate =
-      this.isSales(user) && agency.assignedSalesId === user.id;
-
-    if (!managerCanCreate && !salesCanCreate) {
+    if (!this.canEditAgency(user, agency)) {
       throw new ForbiddenException("No access to create this task");
     }
 
@@ -629,14 +614,7 @@ export class AgenciesService {
     }
 
     if (assignedToId) {
-      const sales = await this.prisma.user.findUnique({
-        where: { id: assignedToId },
-        select: { id: true, role: true, isActive: true },
-      });
-
-      if (!sales || !sales.isActive || sales.role !== "SALES") {
-        throw new BadRequestException("Assigned user must be an active SALES rep");
-      }
+      await this.validateSalesUser(assignedToId);
     }
 
     let dueAt: Date | undefined;
@@ -674,11 +652,13 @@ export class AgenciesService {
 
     if (!task) throw new NotFoundException("Task not found");
 
-    const managerCanEdit = this.isAdmin(user) || this.isManager(user);
-    const salesCanEditOwn =
-      this.isSales(user) && task.assignedToId === user.id;
+    const ownerCanEdit =
+      this.isAdmin(user) ||
+      (task.agency?.assignedSalesId === user.id && user.role === "MANAGER");
 
-    if (!managerCanEdit && !salesCanEditOwn) {
+    const salesCanEditOwn = this.isSales(user) && task.assignedToId === user.id;
+
+    if (!ownerCanEdit && !salesCanEditOwn) {
       throw new ForbiddenException("No access to update this task");
     }
 
@@ -689,7 +669,7 @@ export class AgenciesService {
       data.completedAt = dto.status === "DONE" ? new Date() : null;
     }
 
-    if (managerCanEdit) {
+    if (ownerCanEdit) {
       if (dto.title !== undefined) {
         const title = this.cleanStr(dto.title);
         if (!title) throw new BadRequestException("Task title is required");
@@ -708,15 +688,7 @@ export class AgenciesService {
         if (!dto.assignedToId) {
           data.assignedToId = null;
         } else {
-          const sales = await this.prisma.user.findUnique({
-            where: { id: dto.assignedToId },
-            select: { id: true, role: true, isActive: true },
-          });
-
-          if (!sales || !sales.isActive || sales.role !== "SALES") {
-            throw new BadRequestException("Assigned user must be an active SALES rep");
-          }
-
+          await this.validateSalesUser(dto.assignedToId);
           data.assignedToId = dto.assignedToId;
         }
       }

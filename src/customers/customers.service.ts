@@ -7,10 +7,6 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import type { Role } from "../common/types";
 
-
-
-
-
 type ReqUser = {
   id: string;
   role: Role;
@@ -26,6 +22,12 @@ type ProjectType =
 
 type CustomerDocumentType = "ID" | "PASSPORT" | "OTHER";
 
+type ListCustomersQuery = {
+  q?: string;
+  ownerId?: string;
+  agencyId?: string;
+};
+
 @Injectable()
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
@@ -35,11 +37,15 @@ export class CustomersService {
   }
 
   private isManager(user: ReqUser) {
-    return user.role === "MANAGER" || user.role === "ADMIN";
+    return user.role === "MANAGER";
   }
 
   private isSales(user: ReqUser) {
     return user.role === "SALES";
+  }
+
+  private isCrmUser(user: ReqUser) {
+    return ["ADMIN", "MANAGER", "SALES"].includes(user.role);
   }
 
   private cleanStr(v?: string | null) {
@@ -50,24 +56,25 @@ export class CustomersService {
   private parseDateOrNull(v?: string | null) {
     if (!v) return null;
     const d = new Date(v);
-    if (Number.isNaN(d.getTime())) {
-      throw new BadRequestException("Invalid date");
-    }
+    if (Number.isNaN(d.getTime())) throw new BadRequestException("Invalid date");
     return d;
   }
 
   private normalizeGender(v?: string | null): Gender | null {
     if (!v) return null;
     const value = String(v).trim().toUpperCase();
+
     if (value !== "MALE" && value !== "FEMALE" && value !== "OTHER") {
       throw new BadRequestException("Invalid gender");
     }
+
     return value as Gender;
   }
 
   private normalizeProject(v?: string | null): ProjectType | null {
     if (!v) return null;
     const value = String(v).trim().toUpperCase();
+
     const allowed: ProjectType[] = [
       "LA_JOYA",
       "LA_JOYA_PERLA",
@@ -85,9 +92,11 @@ export class CustomersService {
   private normalizeDocumentType(v?: string | null): CustomerDocumentType {
     if (!v) return "OTHER";
     const value = String(v).trim().toUpperCase();
+
     if (value !== "ID" && value !== "PASSPORT" && value !== "OTHER") {
       throw new BadRequestException("Invalid document type");
     }
+
     return value as CustomerDocumentType;
   }
 
@@ -120,124 +129,56 @@ export class CustomersService {
     return deduped;
   }
 
+  private async validateAssignableOwner(id?: string | null) {
+    if (!id) return null;
 
-
-async uploadCustomerDocument(
-  user: ReqUser,
-  customerId: string,
-  file: Express.Multer.File,
-  body: { type?: "ID" | "PASSPORT" | "OTHER" },
-) {
-  const customer = await this.prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      presentations: {
-        select: {
-          assignedSalesId: true,
-        },
-      },
-    },
-  });
-
-  if (!customer) {
-    throw new NotFoundException("Customer not found");
-  }
-
-  if (!this.canEditCustomer(user, customer)) {
-    throw new ForbiddenException("No access to upload customer document");
-  }
-
-  if (!file?.buffer) {
-    throw new BadRequestException("Uploaded file buffer is missing");
-  }
-
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
-  if (!bucket) {
-    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
-  }
-
-  const ext =
-    file.originalname.includes(".")
-      ? file.originalname.substring(file.originalname.lastIndexOf("."))
-      : "";
-
-  const safeBaseName = file.originalname
-    .replace(ext, "")
-    .replace(/[^a-zA-Z0-9-_]/g, "_");
-
-  const storagePath = `customers/${customerId}/${Date.now()}-${safeBaseName}${ext}`;
-
-const { supabaseAdmin } = await import("../lib/supabase-admin.js");
-
-  const { error } = await supabaseAdmin.storage
-    .from(bucket)
-    .upload(storagePath, file.buffer, {
-      contentType: file.mimetype,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new BadRequestException(error.message);
-  }
-
-  return this.prisma.customerDocument.create({
-    data: {
-      customerId,
-type: this.normalizeDocumentType(body?.type),
-      fileName: file.originalname,
-      storagePath,
-      mimeType: file.mimetype || null,
-    },
-  });
-}
-
-
-
-
-
-
-  private async getCustomerOrThrow(id: string) {
-    const customer = await this.prisma.customer.findUnique({
+    const owner = await this.prisma.user.findUnique({
       where: { id },
-      include: {
-        agency: true,
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-        presentations: {
-          select: {
-            assignedSalesId: true,
-          },
-        },
-        unitSelections: {
-          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
-        },
-        documents: {
-          orderBy: { createdAt: "desc" },
-        },
-      },
+      select: { id: true, role: true, isActive: true },
     });
 
-    if (!customer) {
-      throw new NotFoundException("Customer not found");
+    if (
+      !owner ||
+      !owner.isActive ||
+      (owner.role !== "SALES" && owner.role !== "MANAGER")
+    ) {
+      throw new BadRequestException(
+        "Selected owner must be an active SALES or MANAGER user",
+      );
     }
 
-    return customer;
+    return owner;
   }
 
-  private salesOwnsCustomer(
+  private resolveOwnerId(user: ReqUser, value?: string | null) {
+    if (this.isSales(user)) return user.id;
+    if (this.isManager(user) && !value) return user.id;
+    return this.cleanStr(value);
+  }
+
+  private ownsCustomer(
     user: ReqUser,
     customer: {
       ownerId?: string | null;
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
-    if (!this.isSales(user)) return false;
-
     return (
       customer.ownerId === user.id ||
       (customer.presentations || []).some((p) => p.assignedSalesId === user.id)
     );
+  }
+
+  private canSeeCustomer(
+    user: ReqUser,
+    customer: {
+      ownerId?: string | null;
+      presentations?: Array<{ assignedSalesId?: string | null }>;
+    },
+  ) {
+    if (this.isAdmin(user)) return true;
+    if (this.isManager(user) || this.isSales(user)) return this.ownsCustomer(user, customer);
+    return false;
   }
 
   private canEditCustomer(
@@ -247,12 +188,10 @@ type: this.normalizeDocumentType(body?.type),
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
-    if (this.isAdmin(user) || this.isManager(user)) return true;
-    if (this.isSales(user)) return this.salesOwnsCustomer(user, customer);
-    return false;
+    return this.canSeeCustomer(user, customer);
   }
 
-  private maskCustomerForSales(customer: any, canSeeContact: boolean) {
+  private maskCustomerForLimitedUser(customer: any, canSeeContact: boolean) {
     if (canSeeContact) {
       return {
         ...customer,
@@ -279,17 +218,84 @@ type: this.normalizeDocumentType(body?.type),
     };
   }
 
-  async listCustomers(user: ReqUser) {
-    const customers = await this.prisma.customer.findMany({
+  private withAccessFlags(customer: any, canEdit = true) {
+    return {
+      ...customer,
+      canSeeContactDetails: true,
+      canEdit,
+    };
+  }
+
+  private async getCustomerOrThrow(id: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id },
       include: {
         agency: true,
         owner: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
         presentations: {
-          select: {
-            assignedSalesId: true,
-          },
+          select: { assignedSalesId: true },
+        },
+        unitSelections: {
+          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+        },
+        documents: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!customer) throw new NotFoundException("Customer not found");
+    return customer;
+  }
+
+  async listCustomers(user: ReqUser, query: ListCustomersQuery = {}) {
+    if (!this.isCrmUser(user)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const where: any = {};
+    const q = this.cleanStr(query.q);
+    const ownerId = this.cleanStr(query.ownerId);
+    const agencyId = this.cleanStr(query.agencyId);
+
+    if (agencyId) {
+      where.agencyId = agencyId;
+    }
+
+    if (this.isAdmin(user)) {
+      if (ownerId) where.ownerId = ownerId;
+    } else {
+      where.OR = [
+        { ownerId: user.id },
+        { presentations: { some: { assignedSalesId: user.id } } },
+      ];
+    }
+
+    if (q) {
+      where.AND = where.AND || [];
+      where.AND.push({
+        OR: [
+          { fullName: { contains: q, mode: "insensitive" } },
+          { companyName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } },
+          { country: { contains: q, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    const customers = await this.prisma.customer.findMany({
+      where,
+      include: {
+        agency: true,
+        owner: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        presentations: {
+          select: { assignedSalesId: true },
         },
         unitSelections: {
           orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
@@ -308,39 +314,24 @@ type: this.normalizeDocumentType(body?.type),
       orderBy: { createdAt: "desc" },
     });
 
-    if (this.isAdmin(user) || this.isManager(user)) {
-      return customers.map((customer) => ({
-        ...customer,
-        canSeeContactDetails: true,
-        canEdit: true,
-      }));
+    if (this.isAdmin(user)) {
+      return customers.map((customer) => this.withAccessFlags(customer, true));
     }
 
-    if (this.isSales(user)) {
-      return customers.map((customer) => {
-        const canSeeContact = this.salesOwnsCustomer(user, customer);
-        return this.maskCustomerForSales(customer, canSeeContact);
-      });
-    }
-
-    throw new ForbiddenException("No access");
+    return customers.map((customer) =>
+      this.maskCustomerForLimitedUser(customer, this.ownsCustomer(user, customer)),
+    );
   }
 
   async createCustomer(user: ReqUser, dto: any) {
-    if (
-      user.role !== "ADMIN" &&
-      user.role !== "MANAGER" &&
-      user.role !== "SALES"
-    ) {
+    if (!this.isCrmUser(user)) {
       throw new ForbiddenException("No access to create customer");
     }
 
     const fullName = this.cleanStr(dto.fullName);
-    if (!fullName) {
-      throw new BadRequestException("Customer name required");
-    }
+    if (!fullName) throw new BadRequestException("Customer name required");
 
-    let agencyId: string | null = dto.agencyId || null;
+    const agencyId = this.cleanStr(dto.agencyId);
 
     if (agencyId) {
       const agency = await this.prisma.agency.findUnique({
@@ -348,35 +339,11 @@ type: this.normalizeDocumentType(body?.type),
         select: { id: true },
       });
 
-      if (!agency) {
-        throw new BadRequestException("Selected agency not found");
-      }
+      if (!agency) throw new BadRequestException("Selected agency not found");
     }
 
-    let ownerId: string;
-
-    if (this.isSales(user)) {
-      ownerId = user.id;
-    } else {
-      ownerId = dto.ownerId || user.id;
-
-      if (dto.ownerId) {
-        const ownerUser = await this.prisma.user.findUnique({
-          where: { id: dto.ownerId },
-          select: { id: true, role: true, isActive: true },
-        });
-
-        if (!ownerUser || !ownerUser.isActive) {
-          throw new BadRequestException("Selected owner user not found");
-        }
-
-        if (ownerUser.role !== "SALES") {
-          throw new BadRequestException(
-            "Selected owner must be an active SALES user",
-          );
-        }
-      }
-    }
+    const ownerId = this.resolveOwnerId(user, dto.ownerId);
+    await this.validateAssignableOwner(ownerId);
 
     const birthday = this.parseDateOrNull(dto.birthday);
     const gender = this.normalizeGender(dto.gender);
@@ -420,7 +387,7 @@ type: this.normalizeDocumentType(body?.type),
       include: {
         agency: true,
         owner: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
         unitSelections: {
           orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
@@ -444,16 +411,12 @@ type: this.normalizeDocumentType(body?.type),
       where: { id: customerId },
       include: {
         presentations: {
-          select: {
-            assignedSalesId: true,
-          },
+          select: { assignedSalesId: true },
         },
       },
     });
 
-    if (!customer) {
-      throw new NotFoundException("Customer not found");
-    }
+    if (!customer) throw new NotFoundException("Customer not found");
 
     if (!this.canEditCustomer(user, customer)) {
       throw new ForbiddenException("No access to update customer");
@@ -463,9 +426,7 @@ type: this.normalizeDocumentType(body?.type),
 
     if (dto.fullName !== undefined) {
       const fullName = this.cleanStr(dto.fullName);
-      if (!fullName) {
-        throw new BadRequestException("Customer name required");
-      }
+      if (!fullName) throw new BadRequestException("Customer name required");
       data.fullName = fullName;
     }
 
@@ -489,7 +450,7 @@ type: this.normalizeDocumentType(body?.type),
     if (dto.idDocumentName !== undefined) data.idDocumentName = this.cleanStr(dto.idDocumentName);
 
     if (dto.agencyId !== undefined) {
-      const agencyId = dto.agencyId || null;
+      const agencyId = this.cleanStr(dto.agencyId);
 
       if (agencyId) {
         const agency = await this.prisma.agency.findUnique({
@@ -497,38 +458,19 @@ type: this.normalizeDocumentType(body?.type),
           select: { id: true },
         });
 
-        if (!agency) {
-          throw new BadRequestException("Selected agency not found");
-        }
+        if (!agency) throw new BadRequestException("Selected agency not found");
       }
 
       data.agencyId = agencyId;
     }
 
     if (dto.ownerId !== undefined) {
-      if (!this.isAdmin(user) && !this.isManager(user)) {
-        throw new ForbiddenException("Only manager or admin can change owner");
+      if (!this.isAdmin(user) && !this.ownsCustomer(user, customer)) {
+        throw new ForbiddenException("Only owner or admin can change owner");
       }
 
-      const ownerId = dto.ownerId || null;
-
-      if (ownerId) {
-        const ownerUser = await this.prisma.user.findUnique({
-          where: { id: ownerId },
-          select: { id: true, role: true, isActive: true },
-        });
-
-        if (!ownerUser || !ownerUser.isActive) {
-          throw new BadRequestException("Selected owner user not found");
-        }
-
-        if (ownerUser.role !== "SALES") {
-          throw new BadRequestException(
-            "Selected owner must be an active SALES user",
-          );
-        }
-      }
-
+      const ownerId = this.cleanStr(dto.ownerId);
+      await this.validateAssignableOwner(ownerId);
       data.ownerId = ownerId;
     }
 
@@ -562,20 +504,11 @@ type: this.normalizeDocumentType(body?.type),
 
     const updated = await this.getCustomerOrThrow(customerId);
 
-    if (this.isAdmin(user) || this.isManager(user)) {
-      return {
-        ...updated,
-        canSeeContactDetails: true,
-        canEdit: true,
-      };
+    if (this.isAdmin(user)) {
+      return this.withAccessFlags(updated, true);
     }
 
-    if (this.isSales(user)) {
-      const canSeeContact = this.salesOwnsCustomer(user, updated);
-      return this.maskCustomerForSales(updated, canSeeContact);
-    }
-
-    throw new ForbiddenException("No access");
+    return this.maskCustomerForLimitedUser(updated, this.ownsCustomer(user, updated));
   }
 
   async deleteCustomer(user: ReqUser, customerId: string) {
@@ -585,11 +518,17 @@ type: this.normalizeDocumentType(body?.type),
 
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true },
+      include: {
+        presentations: {
+          select: { assignedSalesId: true },
+        },
+      },
     });
 
-    if (!customer) {
-      throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException("Customer not found");
+
+    if (!this.isAdmin(user) && !this.ownsCustomer(user, customer)) {
+      throw new ForbiddenException("Only owner manager or admin can delete customer");
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -602,280 +541,261 @@ type: this.normalizeDocumentType(body?.type),
 
       if (presentationIds.length > 0) {
         await tx.presentationNote.deleteMany({
-          where: {
-            presentationId: { in: presentationIds },
-          },
+          where: { presentationId: { in: presentationIds } },
         });
       }
 
-      await tx.presentation.deleteMany({
-        where: { customerId },
-      });
-
-      await tx.customerDocument.deleteMany({
-        where: { customerId },
-      });
-
-      await tx.customerUnitSelection.deleteMany({
-        where: { customerId },
-      });
-
-      await tx.customer.delete({
-        where: { id: customerId },
-      });
+      await tx.presentation.deleteMany({ where: { customerId } });
+      await tx.customerDocument.deleteMany({ where: { customerId } });
+      await tx.customerUnitSelection.deleteMany({ where: { customerId } });
+      await tx.customer.delete({ where: { id: customerId } });
     });
 
     return { success: true };
   }
 
- async addCustomerDocument(
-  user: ReqUser,
-  customerId: string,
-  body: {
-    type?: CustomerDocumentType;
-    fileName: string;
-    storagePath: string;
-    mimeType?: string | null;
-  },
-) {
-  const customer = await this.prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      presentations: {
-        select: {
-          assignedSalesId: true,
+  async uploadCustomerDocument(
+    user: ReqUser,
+    customerId: string,
+    file: Express.Multer.File,
+    body: { type?: "ID" | "PASSPORT" | "OTHER" },
+  ) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: { assignedSalesId: true },
         },
       },
-    },
-  });
+    });
 
-  if (!customer) {
-    throw new NotFoundException("Customer not found");
-  }
+    if (!customer) throw new NotFoundException("Customer not found");
 
-  if (!this.canEditCustomer(user, customer)) {
-    throw new ForbiddenException("No access");
-  }
+    if (!this.canEditCustomer(user, customer)) {
+      throw new ForbiddenException("No access to upload customer document");
+    }
 
-  const fileName = this.cleanStr(body.fileName);
-  const storagePath = this.cleanStr(body.storagePath);
+    if (!file?.buffer) {
+      throw new BadRequestException("Uploaded file buffer is missing");
+    }
 
-  if (!fileName) {
-    throw new BadRequestException("fileName is required");
-  }
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+    if (!bucket) {
+      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+    }
 
-  if (!storagePath) {
-    throw new BadRequestException("storagePath is required");
-  }
+    const ext = file.originalname.includes(".")
+      ? file.originalname.substring(file.originalname.lastIndexOf("."))
+      : "";
 
-  const type = this.normalizeDocumentType(body.type);
+    const safeBaseName = file.originalname
+      .replace(ext, "")
+      .replace(/[^a-zA-Z0-9-_]/g, "_");
 
-  const doc = await this.prisma.customerDocument.create({
-    data: {
-      customerId,
-      type,
-      fileName,
-      storagePath,
-      mimeType: this.cleanStr(body.mimeType),
-    },
-  });
+    const storagePath = `customers/${customerId}/${Date.now()}-${safeBaseName}${ext}`;
 
-  return doc;
-}
-
-
-async deleteCustomerDocument(
-  user: ReqUser,
-  customerId: string,
-  documentId: string,
-) {
-  const customer = await this.prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      presentations: {
-        select: {
-          assignedSalesId: true,
-        },
-      },
-    },
-  });
-
-  if (!customer) {
-    throw new NotFoundException("Customer not found");
-  }
-
-  if (!this.canEditCustomer(user, customer)) {
-    throw new ForbiddenException("No access");
-  }
-
-  const doc = await this.prisma.customerDocument.findFirst({
-    where: {
-      id: documentId,
-      customerId,
-    },
-  });
-
-  if (!doc) {
-    throw new NotFoundException("Document not found");
-  }
-
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
-  if (!bucket) {
-    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
-  }
-
-  if (doc.storagePath) {
-const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+    const { supabaseAdmin } = await import("../lib/supabase-admin.js");
 
     const { error } = await supabaseAdmin.storage
       .from(bucket)
-      .remove([doc.storagePath]);
+      .upload(storagePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
 
-    if (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
+    if (error) throw new BadRequestException(error.message);
 
-  await this.prisma.customerDocument.delete({
-    where: { id: documentId },
-  });
-
-  if (doc.type === "ID") {
-    await this.prisma.customer.update({
-      where: { id: customerId },
+    return this.prisma.customerDocument.create({
       data: {
-        idDocumentUrl: null,
-        idDocumentName: null,
+        customerId,
+        type: this.normalizeDocumentType(body?.type),
+        fileName: file.originalname,
+        storagePath,
+        mimeType: file.mimetype || null,
       },
     });
   }
 
-  return { success: true };
-}
-
-
-async getCustomerDocumentUrl(
-  user: ReqUser,
-  customerId: string,
-  documentId: string,
-) {
-  const customer = await this.prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      presentations: {
-        select: {
-          assignedSalesId: true,
+  async addCustomerDocument(
+    user: ReqUser,
+    customerId: string,
+    body: {
+      type?: CustomerDocumentType;
+      fileName: string;
+      storagePath: string;
+      mimeType?: string | null;
+    },
+  ) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: { assignedSalesId: true },
         },
       },
-    },
-  });
+    });
 
-  if (!customer) {
-    throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException("Customer not found");
+
+    if (!this.canEditCustomer(user, customer)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const fileName = this.cleanStr(body.fileName);
+    const storagePath = this.cleanStr(body.storagePath);
+
+    if (!fileName) throw new BadRequestException("fileName is required");
+    if (!storagePath) throw new BadRequestException("storagePath is required");
+
+    return this.prisma.customerDocument.create({
+      data: {
+        customerId,
+        type: this.normalizeDocumentType(body.type),
+        fileName,
+        storagePath,
+        mimeType: this.cleanStr(body.mimeType),
+      },
+    });
   }
 
-  const canAccess =
-    this.isAdmin(user) ||
-    this.isManager(user) ||
-    this.salesOwnsCustomer(user, customer);
+  async deleteCustomerDocument(
+    user: ReqUser,
+    customerId: string,
+    documentId: string,
+  ) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: { assignedSalesId: true },
+        },
+      },
+    });
 
-  if (!canAccess) {
-    throw new ForbiddenException("No access");
+    if (!customer) throw new NotFoundException("Customer not found");
+
+    if (!this.canEditCustomer(user, customer)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const doc = await this.prisma.customerDocument.findFirst({
+      where: { id: documentId, customerId },
+    });
+
+    if (!doc) throw new NotFoundException("Document not found");
+
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+    if (!bucket) {
+      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+    }
+
+    if (doc.storagePath) {
+      const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+
+      const { error } = await supabaseAdmin.storage
+        .from(bucket)
+        .remove([doc.storagePath]);
+
+      if (error) throw new BadRequestException(error.message);
+    }
+
+    await this.prisma.customerDocument.delete({
+      where: { id: documentId },
+    });
+
+    if (doc.type === "ID") {
+      await this.prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          idDocumentUrl: null,
+          idDocumentName: null,
+        },
+      });
+    }
+
+    return { success: true };
   }
 
-  const doc = await this.prisma.customerDocument.findFirst({
-    where: {
-      id: documentId,
-      customerId,
-    },
-  });
+  async getCustomerDocumentUrl(
+    user: ReqUser,
+    customerId: string,
+    documentId: string,
+  ) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      include: {
+        presentations: {
+          select: { assignedSalesId: true },
+        },
+      },
+    });
 
-  if (!doc) {
-    throw new NotFoundException("Document not found");
+    if (!customer) throw new NotFoundException("Customer not found");
+
+    if (!this.canSeeCustomer(user, customer)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const doc = await this.prisma.customerDocument.findFirst({
+      where: { id: documentId, customerId },
+    });
+
+    if (!doc) throw new NotFoundException("Document not found");
+    if (!doc.storagePath) throw new BadRequestException("Document storagePath is missing");
+
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+    if (!bucket) {
+      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+    }
+
+    const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+
+    const { data, error } = await supabaseAdmin.storage
+      .from(bucket)
+      .createSignedUrl(doc.storagePath, 60 * 10);
+
+    if (error || !data?.signedUrl) {
+      throw new BadRequestException(error?.message || "Could not create signed URL");
+    }
+
+    return { url: data.signedUrl };
   }
-
-  if (!doc.storagePath) {
-    throw new BadRequestException("Document storagePath is missing");
-  }
-
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
-  if (!bucket) {
-    throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
-  }
-
-const { supabaseAdmin } = await import("../lib/supabase-admin.js");
-
-  const { data, error } = await supabaseAdmin.storage
-    .from(bucket)
-    .createSignedUrl(doc.storagePath, 60 * 10);
-
-  if (error || !data?.signedUrl) {
-    throw new BadRequestException(
-      error?.message || "Could not create signed URL",
-    );
-  }
-
-  return { url: data.signedUrl };
-}
-
 
   async createPresentation(user: ReqUser, customerId: string, dto: any) {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
       include: {
         presentations: {
-          select: {
-            assignedSalesId: true,
-          },
+          select: { assignedSalesId: true },
         },
       },
     });
 
-    if (!customer) {
-      throw new NotFoundException("Customer not found");
-    }
+    if (!customer) throw new NotFoundException("Customer not found");
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      this.salesOwnsCustomer(user, customer);
-
-    if (!canEdit) {
+    if (!this.canEditCustomer(user, customer)) {
       throw new ForbiddenException("No access");
     }
 
     const title = dto.title?.trim();
-    if (!title) {
-      throw new BadRequestException("Title required");
-    }
-
-    if (!dto.presentationAt) {
-      throw new BadRequestException("Date required");
-    }
+    if (!title) throw new BadRequestException("Title required");
+    if (!dto.presentationAt) throw new BadRequestException("Date required");
 
     const presentationAt = new Date(dto.presentationAt);
     if (Number.isNaN(presentationAt.getTime())) {
       throw new BadRequestException("Invalid presentationAt");
     }
 
-    let assignedSalesId = dto.assignedSalesId;
+    let assignedSalesId = this.cleanStr(dto.assignedSalesId);
 
-    if (this.isSales(user)) {
-      assignedSalesId = user.id;
-    }
+    if (this.isSales(user)) assignedSalesId = user.id;
+    if (this.isManager(user) && !assignedSalesId) assignedSalesId = user.id;
 
     if (!assignedSalesId) {
-      throw new BadRequestException("Sales must be assigned");
+      throw new BadRequestException("Assigned user is required");
     }
 
-    const salesUser = await this.prisma.user.findUnique({
-      where: { id: assignedSalesId },
-      select: { id: true, role: true, isActive: true },
-    });
-
-    if (!salesUser || !salesUser.isActive || salesUser.role !== "SALES") {
-      throw new BadRequestException("Assigned sales user is invalid");
-    }
+    await this.validateAssignableOwner(assignedSalesId);
 
     return this.prisma.presentation.create({
       data: {
@@ -901,7 +821,7 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
       include: {
         agency: true,
         owner: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, role: true },
         },
         unitSelections: {
           orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
@@ -923,21 +843,20 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
       },
     });
 
-    if (!customer) {
-      throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException("Customer not found");
+
+    if (this.isAdmin(user)) {
+      return this.withAccessFlags(customer, true);
     }
 
-    if (this.isAdmin(user) || this.isManager(user)) {
-      return {
-        ...customer,
-        canSeeContactDetails: true,
-        canEdit: true,
-      };
-    }
+    if (this.isManager(user) || this.isSales(user)) {
+      const canSeeContact = this.ownsCustomer(user, customer);
 
-    if (this.isSales(user)) {
-      const canSeeContact = this.salesOwnsCustomer(user, customer);
-      return this.maskCustomerForSales(customer, canSeeContact);
+      if (!canSeeContact) {
+        throw new ForbiddenException("No access");
+      }
+
+      return this.maskCustomerForLimitedUser(customer, canSeeContact);
     }
 
     throw new ForbiddenException("No access");
@@ -945,9 +864,7 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
 
   async addPresentationNote(user: ReqUser, presentationId: string, dto: any) {
     const note = dto.note?.trim();
-    if (!note) {
-      throw new BadRequestException("Note required");
-    }
+    if (!note) throw new BadRequestException("Note required");
 
     const presentation = await this.prisma.presentation.findUnique({
       where: { id: presentationId },
@@ -957,18 +874,11 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
       },
     });
 
-    if (!presentation) {
-      throw new NotFoundException("Presentation not found");
-    }
+    if (!presentation) throw new NotFoundException("Presentation not found");
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      presentation.assignedSalesId === user.id;
+    const canEdit = this.isAdmin(user) || presentation.assignedSalesId === user.id;
 
-    if (!canEdit) {
-      throw new ForbiddenException("No access");
-    }
+    if (!canEdit) throw new ForbiddenException("No access");
 
     return this.prisma.presentationNote.create({
       data: {
@@ -987,32 +897,21 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
       where: { id },
     });
 
-    if (!presentation) {
-      throw new NotFoundException("Presentation not found");
-    }
+    if (!presentation) throw new NotFoundException("Presentation not found");
 
-    const canEdit =
-      this.isAdmin(user) ||
-      this.isManager(user) ||
-      presentation.assignedSalesId === user.id;
+    const canEdit = this.isAdmin(user) || presentation.assignedSalesId === user.id;
 
-    if (!canEdit) {
-      throw new ForbiddenException("No access");
-    }
+    if (!canEdit) throw new ForbiddenException("No access");
 
     const data: any = {};
 
     if (dto.title !== undefined) {
       const title = dto.title?.trim();
-      if (!title) {
-        throw new BadRequestException("Title required");
-      }
+      if (!title) throw new BadRequestException("Title required");
       data.title = title;
     }
 
-    if (dto.projectName !== undefined) {
-      data.projectName = this.cleanStr(dto.projectName);
-    }
+    if (dto.projectName !== undefined) data.projectName = this.cleanStr(dto.projectName);
 
     if (dto.presentationAt !== undefined) {
       const presentationAt = new Date(dto.presentationAt);
@@ -1022,20 +921,15 @@ const { supabaseAdmin } = await import("../lib/supabase-admin.js");
       data.presentationAt = presentationAt;
     }
 
-    if (dto.location !== undefined) {
-      data.location = this.cleanStr(dto.location);
-    }
+    if (dto.location !== undefined) data.location = this.cleanStr(dto.location);
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.outcome !== undefined) data.outcome = dto.outcome || null;
+    if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary);
 
-    if (dto.status !== undefined) {
-      data.status = dto.status;
-    }
-
-    if (dto.outcome !== undefined) {
-      data.outcome = dto.outcome || null;
-    }
-
-    if (dto.notesSummary !== undefined) {
-      data.notesSummary = this.cleanStr(dto.notesSummary);
+    if (dto.assignedSalesId !== undefined) {
+      const assignedSalesId = this.cleanStr(dto.assignedSalesId);
+      await this.validateAssignableOwner(assignedSalesId);
+      data.assignedSalesId = assignedSalesId;
     }
 
     return this.prisma.presentation.update({

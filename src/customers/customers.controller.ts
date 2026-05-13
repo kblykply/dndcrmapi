@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -28,8 +29,17 @@ export class CustomersController {
 
   @Get()
   @Roles("ADMIN", "MANAGER", "SALES")
-  list(@Req() req: any) {
-    return this.customers.listCustomers(req.user);
+  list(
+    @Req() req: any,
+    @Query("q") q?: string,
+    @Query("ownerId") ownerId?: string,
+    @Query("agencyId") agencyId?: string,
+  ) {
+    return this.customers.listCustomers(req.user, {
+      q,
+      ownerId,
+      agencyId,
+    });
   }
 
   @Get(":id")
@@ -44,13 +54,102 @@ export class CustomersController {
 
   @Post()
   @Roles("ADMIN", "MANAGER", "SALES")
-  create(@Req() req: any, @Body() body: any) {
+  create(
+    @Req() req: any,
+    @Body()
+    body: {
+      fullName: string;
+      companyName?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      city?: string | null;
+      country?: string | null;
+      address?: string | null;
+      source?: string | null;
+      notesSummary?: string | null;
+
+      type?: "POTENTIAL" | "EXISTING";
+
+      agencyId?: string | null;
+      ownerId?: string | null;
+
+      language?: string | null;
+      nationality?: string | null;
+      gender?: "MALE" | "FEMALE" | "OTHER" | null;
+      birthday?: string | null;
+      job?: string | null;
+
+      project?:
+        | "LA_JOYA"
+        | "LA_JOYA_PERLA"
+        | "LA_JOYA_PERLA_II"
+        | "LAGOON_VERDE"
+        | null;
+
+      idDocumentUrl?: string | null;
+      idDocumentName?: string | null;
+
+      unitSelections?: Array<{
+        project:
+          | "LA_JOYA"
+          | "LA_JOYA_PERLA"
+          | "LA_JOYA_PERLA_II"
+          | "LAGOON_VERDE";
+        unitNumber: string;
+      }>;
+    },
+  ) {
     return this.customers.createCustomer(req.user, body);
   }
 
   @Patch(":id")
   @Roles("ADMIN", "MANAGER", "SALES")
-  update(@Req() req: any, @Param("id") id: string, @Body() body: any) {
+  update(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      fullName?: string;
+      companyName?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      city?: string | null;
+      country?: string | null;
+      address?: string | null;
+      source?: string | null;
+      notesSummary?: string | null;
+
+      type?: "POTENTIAL" | "EXISTING";
+
+      agencyId?: string | null;
+      ownerId?: string | null;
+
+      language?: string | null;
+      nationality?: string | null;
+      gender?: "MALE" | "FEMALE" | "OTHER" | null;
+      birthday?: string | null;
+      job?: string | null;
+
+      project?:
+        | "LA_JOYA"
+        | "LA_JOYA_PERLA"
+        | "LA_JOYA_PERLA_II"
+        | "LAGOON_VERDE"
+        | null;
+
+      idDocumentUrl?: string | null;
+      idDocumentName?: string | null;
+
+      unitSelections?: Array<{
+        project:
+          | "LA_JOYA"
+          | "LA_JOYA_PERLA"
+          | "LA_JOYA_PERLA_II"
+          | "LAGOON_VERDE";
+        unitNumber: string;
+      }>;
+    },
+  ) {
     if (!id?.trim()) {
       throw new BadRequestException("Customer id is required");
     }
@@ -73,7 +172,15 @@ export class CustomersController {
   createPresentation(
     @Req() req: any,
     @Param("id") id: string,
-    @Body() body: any,
+    @Body()
+    body: {
+      title: string;
+      projectName?: string | null;
+      presentationAt: string;
+      location?: string | null;
+      notesSummary?: string | null;
+      assignedSalesId?: string | null;
+    },
   ) {
     if (!id?.trim()) {
       throw new BadRequestException("Customer id is required");
@@ -167,6 +274,52 @@ export class CustomersController {
       req.user,
       id.trim(),
       file,
+      body,
+    );
+  }
+
+  @Post("presentations/:presentationId/notes")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  addPresentationNote(
+    @Req() req: any,
+    @Param("presentationId") presentationId: string,
+    @Body() body: { note: string },
+  ) {
+    if (!presentationId?.trim()) {
+      throw new BadRequestException("Presentation id is required");
+    }
+
+    return this.customers.addPresentationNote(
+      req.user,
+      presentationId.trim(),
+      body,
+    );
+  }
+
+  @Patch("presentations/:presentationId")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  updatePresentation(
+    @Req() req: any,
+    @Param("presentationId") presentationId: string,
+    @Body()
+    body: {
+      title?: string;
+      projectName?: string | null;
+      presentationAt?: string;
+      location?: string | null;
+      status?: string;
+      outcome?: string | null;
+      notesSummary?: string | null;
+      assignedSalesId?: string | null;
+    },
+  ) {
+    if (!presentationId?.trim()) {
+      throw new BadRequestException("Presentation id is required");
+    }
+
+    return this.customers.updatePresentation(
+      req.user,
+      presentationId.trim(),
       body,
     );
   }
