@@ -11,6 +11,7 @@ import type { ActivityType, LeadStatus, Role } from "../common/types";
 import { canEditCoreFields, canTransition } from "./lead.rules";
 
 type ReqUser = { id: string; role: Role; email: string };
+type LeadInterestFilter = "active" | "notInterested" | "all";
 
 type LeadRow = Prisma.LeadGetPayload<{}>;
 
@@ -282,6 +283,7 @@ export class LeadsService {
       page?: number;
       pageSize?: number;
       q?: string;
+      interest?: string;
     },
   ) {
     const page = Math.max(1, Number(opts?.page || 1));
@@ -292,6 +294,7 @@ export class LeadsService {
     const where: any = {
       archivedAt: null,
     };
+    const and: any[] = [];
 
     if (opts?.status) {
       where.status = opts.status as any;
@@ -308,8 +311,7 @@ export class LeadsService {
     }
 
     if (q) {
-      where.AND = where.AND || [];
-      where.AND.push({
+      and.push({
         OR: [
           { fullName: { contains: q, mode: "insensitive" } },
           { phone: { contains: q, mode: "insensitive" } },
@@ -317,6 +319,28 @@ export class LeadsService {
           { source: { contains: q, mode: "insensitive" } },
         ],
       });
+    }
+
+    const interest = opts?.interest as LeadInterestFilter | undefined;
+
+    if (interest === "active") {
+      and.push({
+        activities: {
+          none: { callOutcome: "NOT_INTERESTED" },
+        },
+      });
+    } else if (interest === "notInterested") {
+      and.push({
+        activities: {
+          some: { callOutcome: "NOT_INTERESTED" },
+        },
+      });
+    } else if (interest && interest !== "all") {
+      throw new BadRequestException("Invalid interest filter");
+    }
+
+    if (and.length) {
+      where.AND = and;
     }
 
     const items = await this.withRetry<LeadListRow[]>(() =>
@@ -440,6 +464,39 @@ export class LeadsService {
     );
 
     await this.audit.log(user, "LEAD_UPDATE_CORE", "Lead", leadId, data);
+    return updated;
+  }
+
+  async updateLeadFollowUp(
+    user: ReqUser,
+    leadId: string,
+    input: { nextFollowUpAt?: string | null },
+  ) {
+    await this.getAccessibleLeadOrThrow(user, leadId);
+
+    if (input.nextFollowUpAt === undefined) {
+      throw new BadRequestException("nextFollowUpAt is required");
+    }
+
+    const nextFollowUpAt = input.nextFollowUpAt
+      ? new Date(input.nextFollowUpAt)
+      : null;
+
+    if (nextFollowUpAt && Number.isNaN(nextFollowUpAt.getTime())) {
+      throw new BadRequestException("Invalid nextFollowUpAt");
+    }
+
+    const updated = await this.withRetry<LeadRow>(() =>
+      this.prisma.lead.update({
+        where: { id: leadId },
+        data: { nextFollowUpAt },
+      }),
+    );
+
+    await this.audit.log(user, "LEAD_FOLLOW_UP_UPDATE", "Lead", leadId, {
+      nextFollowUpAt: nextFollowUpAt ? nextFollowUpAt.toISOString() : null,
+    });
+
     return updated;
   }
 

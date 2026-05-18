@@ -59,12 +59,14 @@ export class LeadsController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("q") q?: string,
+    @Query("interest") interest?: string,
   ) {
     return this.leads.listLeads(req.user, {
       status,
       page: this.toPositiveNumber(page, 1),
       pageSize: this.toPositiveNumber(pageSize, 25),
       q: q || "",
+      interest,
     });
   }
 
@@ -92,6 +94,20 @@ export class LeadsController {
     }
 
     return this.leads.updateLeadCore(req.user, id, patch);
+  }
+
+  @Patch(":id/follow-up")
+  @Roles("CALLCENTER", "MANAGER", "ADMIN", "SALES")
+  updateFollowUp(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { nextFollowUpAt?: string | null },
+  ) {
+    if (!id) {
+      throw new BadRequestException("Lead id is required");
+    }
+
+    return this.leads.updateLeadFollowUp(req.user, id, body);
   }
 
   @Post(":id/activity")
