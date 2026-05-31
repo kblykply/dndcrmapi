@@ -56,3 +56,7 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Local customer import data contains personal information.
+/scripts/old-customers*.csv
+/scripts/old-customers*.xlsx

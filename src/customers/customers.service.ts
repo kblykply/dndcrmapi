@@ -6,6 +6,10 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import type { Role } from "../common/types";
+import {
+  extractOldNationalityCode,
+  resolveCustomerNationality,
+} from "./nationality-data";
 
 type ReqUser = {
   id: string;
@@ -98,6 +102,83 @@ export class CustomersService {
     }
 
     return value as CustomerDocumentType;
+  }
+
+  private normalizeCustomerLocationFields(row: {
+    country?: string | null;
+    nationality?: string | null;
+    oldCustomerCode?: string | null;
+    oldCariCodes?: string | null;
+  }) {
+    const info = resolveCustomerNationality(row);
+
+    return {
+      country: info?.country || this.cleanStr(row.country),
+      nationality: info?.nationality || this.cleanStr(row.nationality),
+    };
+  }
+
+  private reportPercent(count: number, total: number) {
+    return total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
+  }
+
+  private normalizeReportValue(value?: string | null) {
+    return String(value || "").trim().replace(/\s+/g, " ");
+  }
+
+  private incrementBucket(map: Map<string, number>, value?: string | null) {
+    const key = this.normalizeReportValue(value);
+    if (!key) return;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+
+  private bucketRows(map: Map<string, number>, total: number, limit?: number) {
+    const rows = [...map.entries()]
+      .map(([label, count]) => ({
+        label,
+        count,
+        percent: this.reportPercent(count, total),
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
+    return limit ? rows.slice(0, limit) : rows;
+  }
+
+  private calculateAge(birthday?: Date | string | null) {
+    if (!birthday) return null;
+    const date = new Date(birthday);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const now = new Date();
+    let age = now.getFullYear() - date.getFullYear();
+    const monthDelta = now.getMonth() - date.getMonth();
+
+    if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) {
+      age -= 1;
+    }
+
+    return age >= 0 && age <= 120 ? age : null;
+  }
+
+  private ageGroup(age: number | null) {
+    if (age === null) return "";
+    if (age < 25) return "Under 25";
+    if (age < 35) return "25-34";
+    if (age < 45) return "35-44";
+    if (age < 55) return "45-54";
+    if (age < 65) return "55-64";
+    return "65+";
+  }
+
+  private projectLabel(project?: string | null) {
+    const labels: Record<string, string> = {
+      LA_JOYA: "La Joya",
+      LA_JOYA_PERLA: "La Joya Perla",
+      LA_JOYA_PERLA_II: "La Joya Perla II",
+      LAGOON_VERDE: "Lagoon Verde",
+    };
+
+    return project ? labels[project] || project : "";
   }
 
   private normalizeUnitSelections(input: any): Array<{
@@ -208,6 +289,9 @@ export class CustomersService {
       notesSummary: null,
       birthday: null,
       nationality: null,
+      identityNumber: null,
+      oldCustomerCode: null,
+      oldCariCodes: null,
       language: null,
       job: null,
       idDocumentUrl: null,
@@ -279,11 +363,15 @@ export class CustomersService {
         OR: [
           { fullName: { contains: q, mode: "insensitive" } },
           { companyName: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q, mode: "insensitive" } },
-          { email: { contains: q, mode: "insensitive" } },
-          { city: { contains: q, mode: "insensitive" } },
-          { country: { contains: q, mode: "insensitive" } },
-        ],
+        { phone: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        { identityNumber: { contains: q, mode: "insensitive" } },
+        { oldCustomerCode: { contains: q, mode: "insensitive" } },
+        { oldCariCodes: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+        { country: { contains: q, mode: "insensitive" } },
+        { nationality: { contains: q, mode: "insensitive" } },
+      ],
       });
     }
 
@@ -349,6 +437,12 @@ export class CustomersService {
     const gender = this.normalizeGender(dto.gender);
     const project = this.normalizeProject(dto.project);
     const unitSelections = this.normalizeUnitSelections(dto.unitSelections);
+    const location = this.normalizeCustomerLocationFields({
+      country: dto.country,
+      nationality: dto.nationality,
+      oldCustomerCode: dto.oldCustomerCode,
+      oldCariCodes: dto.oldCariCodes,
+    });
 
     return this.prisma.customer.create({
       data: {
@@ -357,7 +451,7 @@ export class CustomersService {
         phone: this.cleanStr(dto.phone),
         email: this.cleanStr(dto.email),
         city: this.cleanStr(dto.city),
-        country: this.cleanStr(dto.country),
+        country: location.country,
         address: this.cleanStr(dto.address),
         source: this.cleanStr(dto.source),
         notesSummary: this.cleanStr(dto.notesSummary),
@@ -366,7 +460,10 @@ export class CustomersService {
         ownerId,
 
         language: this.cleanStr(dto.language),
-        nationality: this.cleanStr(dto.nationality),
+        nationality: location.nationality,
+        identityNumber: this.cleanStr(dto.identityNumber),
+        oldCustomerCode: this.cleanStr(dto.oldCustomerCode),
+        oldCariCodes: this.cleanStr(dto.oldCariCodes),
         gender,
         birthday,
         job: this.cleanStr(dto.job),
@@ -442,12 +539,37 @@ export class CustomersService {
 
     if (dto.language !== undefined) data.language = this.cleanStr(dto.language);
     if (dto.nationality !== undefined) data.nationality = this.cleanStr(dto.nationality);
+    if (dto.identityNumber !== undefined) data.identityNumber = this.cleanStr(dto.identityNumber);
+    if (dto.oldCustomerCode !== undefined) data.oldCustomerCode = this.cleanStr(dto.oldCustomerCode);
+    if (dto.oldCariCodes !== undefined) data.oldCariCodes = this.cleanStr(dto.oldCariCodes);
     if (dto.gender !== undefined) data.gender = this.normalizeGender(dto.gender);
     if (dto.birthday !== undefined) data.birthday = this.parseDateOrNull(dto.birthday);
     if (dto.job !== undefined) data.job = this.cleanStr(dto.job);
     if (dto.project !== undefined) data.project = this.normalizeProject(dto.project);
     if (dto.idDocumentUrl !== undefined) data.idDocumentUrl = this.cleanStr(dto.idDocumentUrl);
     if (dto.idDocumentName !== undefined) data.idDocumentName = this.cleanStr(dto.idDocumentName);
+
+    if (
+      dto.country !== undefined ||
+      dto.nationality !== undefined ||
+      dto.oldCustomerCode !== undefined ||
+      dto.oldCariCodes !== undefined
+    ) {
+      const location = this.normalizeCustomerLocationFields({
+        country: dto.country !== undefined ? dto.country : customer.country,
+        nationality:
+          dto.nationality !== undefined ? dto.nationality : customer.nationality,
+        oldCustomerCode:
+          dto.oldCustomerCode !== undefined
+            ? dto.oldCustomerCode
+            : customer.oldCustomerCode,
+        oldCariCodes:
+          dto.oldCariCodes !== undefined ? dto.oldCariCodes : customer.oldCariCodes,
+      });
+
+      data.country = location.country;
+      data.nationality = location.nationality;
+    }
 
     if (dto.agencyId !== undefined) {
       const agencyId = this.cleanStr(dto.agencyId);
@@ -860,6 +982,264 @@ export class CustomersService {
     }
 
     throw new ForbiddenException("No access");
+  }
+
+  async getNationalityReport(user: ReqUser) {
+    if (!this.isCrmUser(user)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const where: any = {};
+
+    if (!this.isAdmin(user)) {
+      where.OR = [
+        { ownerId: user.id },
+        { presentations: { some: { assignedSalesId: user.id } } },
+      ];
+    }
+
+    const customers = await this.prisma.customer.findMany({
+      where,
+      select: {
+        id: true,
+        country: true,
+        nationality: true,
+        oldCustomerCode: true,
+        oldCariCodes: true,
+        type: true,
+      },
+    });
+
+    const countries = new Map<
+      string,
+      {
+        country: string;
+        nationality: string;
+        iso2: string;
+        lat: number;
+        lon: number;
+        count: number;
+        existing: number;
+        potential: number;
+        rawCodes: Set<string>;
+      }
+    >();
+    const unmapped = new Map<string, number>();
+
+    for (const customer of customers) {
+      const info = resolveCustomerNationality(customer);
+      const rawCode =
+        extractOldNationalityCode(customer.oldCustomerCode) ||
+        extractOldNationalityCode(customer.oldCariCodes) ||
+        customer.nationality ||
+        customer.country ||
+        "(blank)";
+
+      if (!info) {
+        unmapped.set(rawCode, (unmapped.get(rawCode) || 0) + 1);
+        continue;
+      }
+
+      const existing = countries.get(info.country) || {
+        ...info,
+        count: 0,
+        existing: 0,
+        potential: 0,
+        rawCodes: new Set<string>(),
+      };
+
+      existing.count += 1;
+      if (customer.type === "EXISTING") existing.existing += 1;
+      if (customer.type === "POTENTIAL") existing.potential += 1;
+      if (rawCode && rawCode !== "(blank)") existing.rawCodes.add(rawCode);
+      countries.set(info.country, existing);
+    }
+
+    const totalCustomers = customers.length;
+    const rows = [...countries.values()]
+      .map((row) => ({
+        country: row.country,
+        nationality: row.nationality,
+        iso2: row.iso2,
+        lat: row.lat,
+        lon: row.lon,
+        count: row.count,
+        existing: row.existing,
+        potential: row.potential,
+        percent:
+          totalCustomers > 0
+            ? Number(((row.count / totalCustomers) * 100).toFixed(1))
+            : 0,
+        rawCodes: [...row.rawCodes].sort(),
+      }))
+      .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
+
+    const unmappedRows = [...unmapped.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+
+    const mappedCustomers = rows.reduce((sum, row) => sum + row.count, 0);
+
+    return {
+      totalCustomers,
+      mappedCustomers,
+      unmappedCustomers: totalCustomers - mappedCustomers,
+      countries: rows,
+      topCountries: rows.slice(0, 10),
+      unmapped: unmappedRows,
+    };
+  }
+
+  async getDemographicsReport(user: ReqUser) {
+    if (!this.isCrmUser(user)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const where: any = {};
+
+    if (!this.isAdmin(user)) {
+      where.OR = [
+        { ownerId: user.id },
+        { presentations: { some: { assignedSalesId: user.id } } },
+      ];
+    }
+
+    const customers = await this.prisma.customer.findMany({
+      where,
+      select: {
+        id: true,
+        type: true,
+        gender: true,
+        birthday: true,
+        job: true,
+        language: true,
+        nationality: true,
+        country: true,
+        source: true,
+        project: true,
+        ownerId: true,
+        agencyId: true,
+        phone: true,
+        email: true,
+        unitSelections: {
+          select: { project: true },
+        },
+      },
+    });
+
+    const totalCustomers = customers.length;
+    const gender = new Map<string, number>();
+    const ageGroups = new Map<string, number>();
+    const jobs = new Map<string, number>();
+    const languages = new Map<string, number>();
+    const types = new Map<string, number>();
+    const projects = new Map<string, number>();
+    const sources = new Map<string, number>();
+    const countries = new Map<string, number>();
+    const nationalities = new Map<string, number>();
+
+    let ageSum = 0;
+    let ageCount = 0;
+    let existing = 0;
+    let potential = 0;
+
+    const coverage = {
+      birthday: 0,
+      gender: 0,
+      job: 0,
+      language: 0,
+      country: 0,
+      nationality: 0,
+      project: 0,
+      owner: 0,
+      agency: 0,
+      phone: 0,
+      email: 0,
+    };
+
+    for (const customer of customers) {
+      if (customer.type === "EXISTING") existing += 1;
+      if (customer.type === "POTENTIAL") potential += 1;
+
+      this.incrementBucket(types, customer.type);
+      this.incrementBucket(gender, customer.gender);
+      this.incrementBucket(jobs, customer.job);
+      this.incrementBucket(languages, customer.language);
+      this.incrementBucket(sources, customer.source);
+      this.incrementBucket(countries, customer.country);
+      this.incrementBucket(nationalities, customer.nationality);
+
+      const age = this.calculateAge(customer.birthday);
+      const group = this.ageGroup(age);
+      this.incrementBucket(ageGroups, group);
+
+      if (age !== null) {
+        ageSum += age;
+        ageCount += 1;
+      }
+
+      const customerProjects = new Set<string>();
+      if (customer.project) customerProjects.add(customer.project);
+      for (const unit of customer.unitSelections || []) {
+        if (unit.project) customerProjects.add(unit.project);
+      }
+      for (const project of customerProjects) {
+        this.incrementBucket(projects, this.projectLabel(project));
+      }
+
+      if (customer.birthday) coverage.birthday += 1;
+      if (customer.gender) coverage.gender += 1;
+      if (this.cleanStr(customer.job)) coverage.job += 1;
+      if (this.cleanStr(customer.language)) coverage.language += 1;
+      if (this.cleanStr(customer.country)) coverage.country += 1;
+      if (this.cleanStr(customer.nationality)) coverage.nationality += 1;
+      if (customerProjects.size > 0) coverage.project += 1;
+      if (customer.ownerId) coverage.owner += 1;
+      if (customer.agencyId) coverage.agency += 1;
+      if (this.cleanStr(customer.phone)) coverage.phone += 1;
+      if (this.cleanStr(customer.email)) coverage.email += 1;
+    }
+
+    const coverageRows = Object.entries(coverage)
+      .map(([field, filled]) => ({
+        field,
+        label: field
+          .replace(/([A-Z])/g, " $1")
+          .replace(/^./, (letter) => letter.toUpperCase()),
+        filled,
+        missing: totalCustomers - filled,
+        percent: this.reportPercent(filled, totalCustomers),
+      }))
+      .sort((a, b) => a.percent - b.percent || a.label.localeCompare(b.label));
+
+    return {
+      totalCustomers,
+      overview: {
+        existing,
+        potential,
+        averageAge: ageCount ? Number((ageSum / ageCount).toFixed(1)) : null,
+        withAge: ageCount,
+        completion:
+          coverageRows.length > 0
+            ? Number(
+                (
+                  coverageRows.reduce((sum, row) => sum + row.percent, 0) /
+                  coverageRows.length
+                ).toFixed(1),
+              )
+            : 0,
+      },
+      coverage: coverageRows,
+      gender: this.bucketRows(gender, totalCustomers),
+      ageGroups: this.bucketRows(ageGroups, totalCustomers),
+      jobs: this.bucketRows(jobs, totalCustomers, 30),
+      languages: this.bucketRows(languages, totalCustomers, 30),
+      types: this.bucketRows(types, totalCustomers),
+      projects: this.bucketRows(projects, totalCustomers),
+      sources: this.bucketRows(sources, totalCustomers, 30),
+      countries: this.bucketRows(countries, totalCustomers, 30),
+      nationalities: this.bucketRows(nationalities, totalCustomers, 30),
+    };
   }
 
   async addPresentationNote(user: ReqUser, presentationId: string, dto: any) {

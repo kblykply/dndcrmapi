@@ -42,6 +42,18 @@ export class CustomersController {
     });
   }
 
+  @Get("reports/nationalities")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  nationalityReport(@Req() req: any) {
+    return this.customers.getNationalityReport(req.user);
+  }
+
+  @Get("reports/demographics")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  demographicsReport(@Req() req: any) {
+    return this.customers.getDemographicsReport(req.user);
+  }
+
   @Get(":id")
   @Roles("ADMIN", "MANAGER", "SALES")
   getOne(@Req() req: any, @Param("id") id: string) {
@@ -75,6 +87,9 @@ export class CustomersController {
 
       language?: string | null;
       nationality?: string | null;
+      identityNumber?: string | null;
+      oldCustomerCode?: string | null;
+      oldCariCodes?: string | null;
       gender?: "MALE" | "FEMALE" | "OTHER" | null;
       birthday?: string | null;
       job?: string | null;
@@ -126,6 +141,9 @@ export class CustomersController {
 
       language?: string | null;
       nationality?: string | null;
+      identityNumber?: string | null;
+      oldCustomerCode?: string | null;
+      oldCariCodes?: string | null;
       gender?: "MALE" | "FEMALE" | "OTHER" | null;
       birthday?: string | null;
       job?: string | null;

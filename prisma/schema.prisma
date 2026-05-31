@@ -481,6 +481,9 @@ model Customer {
 
   language       String?
   nationality    String?
+  identityNumber String?
+  oldCustomerCode String?
+  oldCariCodes    String?
   gender         Gender?
   birthday       DateTime?
   job            String?
@@ -491,6 +494,9 @@ model Customer {
   unitSelections CustomerUnitSelection[]
   documents      CustomerDocument[]
   agencyMeetings AgencyMeeting[]
+
+  @@unique([oldCustomerCode])
+  @@index([identityNumber])
 }
 
 model CustomerUnitSelection {
