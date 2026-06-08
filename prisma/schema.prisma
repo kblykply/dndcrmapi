@@ -479,17 +479,17 @@ model Customer {
 
   tasks Task[] @relation("CustomerTasks")
 
-  language       String?
-  nationality    String?
-  identityNumber String?
+  language        String?
+  nationality     String?
+  identityNumber  String?
   oldCustomerCode String?
   oldCariCodes    String?
-  gender         Gender?
-  birthday       DateTime?
-  job            String?
-  project        ProjectType?
-  idDocumentUrl  String?
-  idDocumentName String?
+  gender          Gender?
+  birthday        DateTime?
+  job             String?
+  project         ProjectType?
+  idDocumentUrl   String?
+  idDocumentName  String?
 
   unitSelections CustomerUnitSelection[]
   documents      CustomerDocument[]
@@ -507,10 +507,22 @@ model CustomerUnitSelection {
   project    ProjectType
   unitNumber String
 
+  deliveryStatus    UnitDeliveryStatus @default(NOT_READY)
+  companyStatus     UnitCompanyStatus  @default(UNKNOWN)
+  generalInfo       String?
+  unitInfo          String?
+  customerRequest   String?
+  customerComplaint String?
+  unitComplaint     String?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([customerId, project, unitNumber])
   @@index([customerId])
+  @@index([project])
+  @@index([deliveryStatus])
+  @@index([companyStatus])
 }
 
 model CustomerDocument {
@@ -544,6 +556,18 @@ enum ProjectType {
 enum CustomerDocumentType {
   ID
   PASSPORT
+  OTHER
+}
+
+enum UnitDeliveryStatus {
+  NOT_READY
+  READY_TO_DELIVER
+  DELIVERED
+}
+
+enum UnitCompanyStatus {
+  UNKNOWN
+  DND
   OTHER
 }
 

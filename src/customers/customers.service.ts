@@ -608,13 +608,48 @@ export class CustomersService {
       });
 
       if (nextUnitSelections !== null) {
-        await tx.customerUnitSelection.deleteMany({
+        const existingUnits = await tx.customerUnitSelection.findMany({
           where: { customerId },
+          select: { id: true, project: true, unitNumber: true },
         });
 
-        if (nextUnitSelections.length > 0) {
+        const unitKey = (row: { project: string; unitNumber: string }) =>
+          `${row.project}__${row.unitNumber.trim().toUpperCase()}`;
+        const nextKeys = new Set(nextUnitSelections.map(unitKey));
+        const existingByKey = new Map<
+          string,
+          { id: string; project: ProjectType; unitNumber: string }
+        >(
+          existingUnits.map((row) => [unitKey(row), row]),
+        );
+        const staleIds = existingUnits
+          .filter((row) => !nextKeys.has(unitKey(row)))
+          .map((row) => row.id);
+
+        if (staleIds.length > 0) {
+          await tx.customerUnitSelection.deleteMany({
+            where: { id: { in: staleIds } },
+          });
+        }
+
+        for (const row of nextUnitSelections) {
+          const existing = existingByKey.get(unitKey(row));
+
+          if (existing && existing.unitNumber !== row.unitNumber) {
+            await tx.customerUnitSelection.update({
+              where: { id: existing.id },
+              data: { unitNumber: row.unitNumber },
+            });
+          }
+        }
+
+        const unitsToCreate = nextUnitSelections.filter(
+          (row) => !existingByKey.has(unitKey(row)),
+        );
+
+        if (unitsToCreate.length > 0) {
           await tx.customerUnitSelection.createMany({
-            data: nextUnitSelections.map((row) => ({
+            data: unitsToCreate.map((row) => ({
               customerId,
               project: row.project,
               unitNumber: row.unitNumber,

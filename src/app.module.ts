@@ -20,6 +20,7 @@ import { PdcaModule } from "./pdca/pdca.module";
 
 import { OrgChartModule } from "./org-chart/org-chart.module";
 import { UserActivityModule } from "./user-activity/user-activity.module";
+import { UnitsModule } from "./units/units.module";
 
 
 
@@ -44,6 +45,7 @@ import { UserActivityModule } from "./user-activity/user-activity.module";
         OrgChartModule,
 PdcaModule,
 UserActivityModule,
+UnitsModule,
         
 
   ],
