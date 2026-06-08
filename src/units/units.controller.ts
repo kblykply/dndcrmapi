@@ -29,7 +29,7 @@ export class UnitsController {
   constructor(private readonly units: UnitsService) {}
 
   @Get()
-  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER", "AFTERSALES")
   list(
     @Req() req: any,
     @Query("project") project?: ProjectType | "",
@@ -46,7 +46,7 @@ export class UnitsController {
   }
 
   @Patch(":id")
-  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER", "AFTERSALES")
   update(
     @Req() req: any,
     @Param("id") id: string,

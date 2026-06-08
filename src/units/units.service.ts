@@ -49,6 +49,10 @@ export class UnitsService {
     return user.role === "CALLCENTER";
   }
 
+  private isAftersales(user: ReqUser) {
+    return user.role === "AFTERSALES";
+  }
+
   private cleanStr(v?: string | null) {
     const x = (v ?? "").trim();
     return x || null;
@@ -106,7 +110,9 @@ export class UnitsService {
       } | null;
     },
   ) {
-    if (this.isAdmin(user) || this.isManager(user)) return true;
+    if (this.isAdmin(user) || this.isManager(user) || this.isAftersales(user)) {
+      return true;
+    }
 
     if (this.isSales(user) || this.isCallcenter(user)) {
       const customer = unit.customer;
@@ -122,7 +128,9 @@ export class UnitsService {
   }
 
   private customerAccessWhere(user: ReqUser) {
-    if (this.isAdmin(user) || this.isManager(user)) return null;
+    if (this.isAdmin(user) || this.isManager(user) || this.isAftersales(user)) {
+      return null;
+    }
 
     return {
       customer: {

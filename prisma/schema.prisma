@@ -34,6 +34,7 @@ enum Role {
   MANAGER
   SALES
   ADMIN
+  AFTERSALES
 }
 
 enum LeadStatus {

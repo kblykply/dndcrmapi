@@ -16,7 +16,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { RolesGuard } from "../common/roles.guard";
 import { Roles } from "../common/roles.decorator";
-import type { Role } from "../common/types";
+import { ROLES, type Role } from "../common/types";
 
 type CreateUserDto = {
   name: string;
@@ -39,6 +39,17 @@ type UpdateUserDto = {
 @Controller("users")
 export class UsersController {
   constructor(private prisma: PrismaService) {}
+
+  private normalizeRole(value?: string | null): Role | null {
+    if (value == null) return null;
+    const role = value.trim().toUpperCase();
+
+    if (!role || !ROLES.includes(role as Role)) {
+      throw new BadRequestException("Invalid role");
+    }
+
+    return role as Role;
+  }
 
   @Get()
   async list(@Query("role") role?: Role, @Query("all") all?: string) {
@@ -94,7 +105,7 @@ export class UsersController {
     const name = body.name?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password?.trim();
-    const role = body.role;
+    const role = this.normalizeRole(body.role);
     const managerId = body.managerId || null;
 
     if (!name) throw new BadRequestException("Name is required");
@@ -159,7 +170,7 @@ export class UsersController {
 
     if (typeof body.name === "string") data.name = body.name.trim();
     if (typeof body.email === "string") data.email = body.email.trim().toLowerCase();
-    if (typeof body.role === "string") data.role = body.role;
+    if (typeof body.role === "string") data.role = this.normalizeRole(body.role);
     if (typeof body.isActive === "boolean") data.isActive = body.isActive;
     if ("managerId" in body) data.managerId = body.managerId || null;
 
