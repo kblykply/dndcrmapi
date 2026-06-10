@@ -120,12 +120,13 @@ model User {
   agencyTasksCreated     AgencyTask[]    @relation("AgencyTaskCreator")
   agencyTasksAssigned    AgencyTask[]    @relation("AgencyTaskAssignee")
 
-  ownedCustomers        Customer[]         @relation("CustomerOwner")
-  presentationsCreated  Presentation[]     @relation("PresentationCreator")
-  presentationsAssigned Presentation[]     @relation("PresentationSales")
-  presentationNotes     PresentationNote[] @relation("PresentationNoteAuthor")
-  crmTasksAssigned      CrmTask[]          @relation("CrmTaskAssignedTo")
-  crmTasksCreated       CrmTask[]          @relation("CrmTaskCreatedBy")
+  ownedCustomers        Customer[]                 @relation("CustomerOwner")
+  presentationsCreated  Presentation[]             @relation("PresentationCreator")
+  presentationsAssigned Presentation[]             @relation("PresentationSales")
+  presentationNotes     PresentationNote[]         @relation("PresentationNoteAuthor")
+  crmTasksAssigned      CrmTask[]                  @relation("CrmTaskAssignedTo")
+  crmTasksCreated       CrmTask[]                  @relation("CrmTaskCreatedBy")
+  unitSelectionLogs     CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
 
   pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
   pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
@@ -516,14 +517,34 @@ model CustomerUnitSelection {
   customerComplaint String?
   unitComplaint     String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+  logs      CustomerUnitSelectionLog[]
 
   @@unique([customerId, project, unitNumber])
   @@index([customerId])
   @@index([project])
   @@index([deliveryStatus])
   @@index([companyStatus])
+}
+
+model CustomerUnitSelectionLog {
+  id              String                @id @default(cuid())
+  unitSelectionId String
+  unitSelection   CustomerUnitSelection @relation(fields: [unitSelectionId], references: [id], onDelete: Cascade)
+
+  section  String
+  field    String
+  oldValue String?
+  newValue String?
+
+  createdById String?
+  createdBy   User?    @relation("UserUnitSelectionLogs", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([unitSelectionId, createdAt])
+  @@index([createdById])
+  @@index([section])
 }
 
 model CustomerDocument {

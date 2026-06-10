@@ -22,6 +22,18 @@ type ProjectType =
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 type UnitCompanyStatus = "UNKNOWN" | "DND" | "OTHER";
 
+const UNIT_CHANGE_META = {
+  deliveryStatus: { section: "UNIT_INFORMATION" },
+  companyStatus: { section: "UNIT_INFORMATION" },
+  unitInfo: { section: "UNIT_INFORMATION" },
+  unitComplaint: { section: "UNIT_INFORMATION" },
+  generalInfo: { section: "CUSTOMER_RECORDS" },
+  customerRequest: { section: "CUSTOMER_RECORDS" },
+  customerComplaint: { section: "CUSTOMER_RECORDS" },
+} as const;
+
+type UnitChangeField = keyof typeof UNIT_CHANGE_META;
+
 type UnitListQuery = {
   project?: string | null;
   deliveryStatus?: string | null;
@@ -173,6 +185,25 @@ export class UnitsService {
     };
   }
 
+  private unitDetailInclude() {
+    return {
+      ...this.unitInclude(),
+      logs: {
+        include: {
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+        orderBy: { createdAt: "desc" as const },
+      },
+    };
+  }
+
+  private logValue(value: unknown) {
+    if (value === null || value === undefined) return null;
+    return String(value);
+  }
+
   private buildListWhere(user: ReqUser, query: UnitListQuery) {
     const where: any = {};
     const project = this.normalizeProject(query.project);
@@ -269,6 +300,21 @@ export class UnitsService {
     };
   }
 
+  async getUnit(user: ReqUser, id: string) {
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      include: this.unitDetailInclude(),
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    if (!this.canAccessUnit(user, unit)) {
+      throw new ForbiddenException("No access to unit");
+    }
+
+    return unit;
+  }
+
   async updateUnit(user: ReqUser, id: string, dto: any) {
     const unit = await this.prisma.customerUnitSelection.findUnique({
       where: { id },
@@ -305,10 +351,43 @@ export class UnitsService {
       data.unitComplaint = this.cleanStr(dto.unitComplaint);
     }
 
-    return this.prisma.customerUnitSelection.update({
-      where: { id },
-      data,
-      include: this.unitInclude(),
+    const changes = (Object.keys(UNIT_CHANGE_META) as UnitChangeField[])
+      .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
+      .map((field) => ({
+        field,
+        section: UNIT_CHANGE_META[field].section,
+        oldValue: this.logValue(unit[field]),
+        newValue: this.logValue(data[field]),
+      }))
+      .filter((change) => change.oldValue !== change.newValue);
+
+    if (changes.length === 0) {
+      return this.getUnit(user, id);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.customerUnitSelection.update({
+        where: { id },
+        data,
+      });
+
+      if (changes.length > 0) {
+        await tx.customerUnitSelectionLog.createMany({
+          data: changes.map((change) => ({
+            unitSelectionId: id,
+            section: change.section,
+            field: change.field,
+            oldValue: change.oldValue,
+            newValue: change.newValue,
+            createdById: user.id,
+          })),
+        });
+      }
+
+      return tx.customerUnitSelection.findUnique({
+        where: { id },
+        include: this.unitDetailInclude(),
+      });
     });
   }
 }

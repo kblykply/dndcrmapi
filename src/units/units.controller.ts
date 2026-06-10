@@ -45,6 +45,16 @@ export class UnitsController {
     });
   }
 
+  @Get(":id")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER", "AFTERSALES")
+  detail(@Req() req: any, @Param("id") id: string) {
+    if (!id?.trim()) {
+      throw new BadRequestException("Unit id is required");
+    }
+
+    return this.units.getUnit(req.user, id.trim());
+  }
+
   @Patch(":id")
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER", "AFTERSALES")
   update(
