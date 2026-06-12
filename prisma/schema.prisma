@@ -120,13 +120,14 @@ model User {
   agencyTasksCreated     AgencyTask[]    @relation("AgencyTaskCreator")
   agencyTasksAssigned    AgencyTask[]    @relation("AgencyTaskAssignee")
 
-  ownedCustomers        Customer[]                 @relation("CustomerOwner")
-  presentationsCreated  Presentation[]             @relation("PresentationCreator")
-  presentationsAssigned Presentation[]             @relation("PresentationSales")
-  presentationNotes     PresentationNote[]         @relation("PresentationNoteAuthor")
-  crmTasksAssigned      CrmTask[]                  @relation("CrmTaskAssignedTo")
-  crmTasksCreated       CrmTask[]                  @relation("CrmTaskCreatedBy")
-  unitSelectionLogs     CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
+  ownedCustomers         Customer[]                 @relation("CustomerOwner")
+  presentationsCreated   Presentation[]             @relation("PresentationCreator")
+  presentationsAssigned  Presentation[]             @relation("PresentationSales")
+  presentationNotes      PresentationNote[]         @relation("PresentationNoteAuthor")
+  crmTasksAssigned       CrmTask[]                  @relation("CrmTaskAssignedTo")
+  crmTasksCreated        CrmTask[]                  @relation("CrmTaskCreatedBy")
+  unitSelectionLogs      CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
+  canceledUnitSelections CustomerUnitSelection[]    @relation("UnitCanceledBy")
 
   pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
   pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
@@ -517,6 +518,21 @@ model CustomerUnitSelection {
   customerComplaint String?
   unitComplaint     String?
 
+  isCanceled   Boolean   @default(false)
+  canceledAt   DateTime?
+  cancelReason String?
+  canceledById String?
+  canceledBy   User?     @relation("UnitCanceledBy", fields: [canceledById], references: [id], onDelete: SetNull)
+
+  kdvStatus           String  @default("UNPAID")
+  trafoStatus         String  @default("UNPAID")
+  installments        Json?
+  electricityProvider String  @default("UNKNOWN")
+  waterAccessStatus   String  @default("UNKNOWN")
+  rentalPackage       String  @default("NOT_INTERESTED")
+  customFurniture     String?
+  rentalStatus        String  @default("NOT_INTERESTED")
+
   createdAt DateTime                   @default(now())
   updatedAt DateTime                   @updatedAt
   logs      CustomerUnitSelectionLog[]
@@ -526,6 +542,8 @@ model CustomerUnitSelection {
   @@index([project])
   @@index([deliveryStatus])
   @@index([companyStatus])
+  @@index([isCanceled])
+  @@index([rentalStatus])
 }
 
 model CustomerUnitSelectionLog {

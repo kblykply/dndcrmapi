@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { EmailService } from "../email/email.service";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -21,12 +23,33 @@ type ProjectType =
 
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 type UnitCompanyStatus = "UNKNOWN" | "DND" | "OTHER";
+type PaymentStatus = "UNPAID" | "PAID";
+type ElectricityProvider = "UNKNOWN" | "TIPTEK" | "DND";
+type WaterAccessStatus = "UNKNOWN" | "ON" | "OFF";
+type RentalPackage = "FULL_FURNISHED" | "NOT_INTERESTED" | "CUSTOM";
+type RentalStatus = "SHORT_TERM" | "LONG_TERM" | "DND_UNITS" | "NOT_INTERESTED";
+type CommunicationType = "EMAIL" | "WHATSAPP";
+
+const unitNumberCollator = new Intl.Collator("en", {
+  numeric: true,
+  sensitivity: "base",
+});
 
 const UNIT_CHANGE_META = {
   deliveryStatus: { section: "UNIT_INFORMATION" },
   companyStatus: { section: "UNIT_INFORMATION" },
   unitInfo: { section: "UNIT_INFORMATION" },
   unitComplaint: { section: "UNIT_INFORMATION" },
+  isCanceled: { section: "ADMIN" },
+  cancelReason: { section: "ADMIN" },
+  kdvStatus: { section: "ACCOUNTING" },
+  trafoStatus: { section: "ACCOUNTING" },
+  installments: { section: "ACCOUNTING" },
+  electricityProvider: { section: "UTILITY" },
+  waterAccessStatus: { section: "UTILITY" },
+  rentalPackage: { section: "RENTAL" },
+  customFurniture: { section: "RENTAL" },
+  rentalStatus: { section: "RENTAL" },
   generalInfo: { section: "CUSTOMER_RECORDS" },
   customerRequest: { section: "CUSTOMER_RECORDS" },
   customerComplaint: { section: "CUSTOMER_RECORDS" },
@@ -43,7 +66,11 @@ type UnitListQuery = {
 
 @Injectable()
 export class UnitsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+    private email: EmailService,
+  ) {}
 
   private isAdmin(user: ReqUser) {
     return user.role === "ADMIN";
@@ -111,6 +138,93 @@ export class UnitsService {
     }
 
     return value as UnitCompanyStatus;
+  }
+
+  private normalizePaymentStatus(v?: string | null): PaymentStatus {
+    const value = String(v || "UNPAID").trim().toUpperCase();
+    if (value !== "PAID" && value !== "UNPAID") {
+      throw new BadRequestException("Invalid payment status");
+    }
+    return value as PaymentStatus;
+  }
+
+  private normalizeElectricityProvider(v?: string | null): ElectricityProvider {
+    const value = String(v || "UNKNOWN").trim().toUpperCase();
+    if (value !== "UNKNOWN" && value !== "TIPTEK" && value !== "DND") {
+      throw new BadRequestException("Invalid electricity provider");
+    }
+    return value as ElectricityProvider;
+  }
+
+  private normalizeWaterAccessStatus(v?: string | null): WaterAccessStatus {
+    const value = String(v || "UNKNOWN").trim().toUpperCase();
+    if (value !== "UNKNOWN" && value !== "ON" && value !== "OFF") {
+      throw new BadRequestException("Invalid water access status");
+    }
+    return value as WaterAccessStatus;
+  }
+
+  private normalizeRentalPackage(v?: string | null): RentalPackage {
+    const value = String(v || "NOT_INTERESTED").trim().toUpperCase();
+    if (
+      value !== "FULL_FURNISHED" &&
+      value !== "NOT_INTERESTED" &&
+      value !== "CUSTOM"
+    ) {
+      throw new BadRequestException("Invalid rental package");
+    }
+    return value as RentalPackage;
+  }
+
+  private normalizeRentalStatus(v?: string | null): RentalStatus {
+    const value = String(v || "NOT_INTERESTED").trim().toUpperCase();
+    if (
+      value !== "SHORT_TERM" &&
+      value !== "LONG_TERM" &&
+      value !== "DND_UNITS" &&
+      value !== "NOT_INTERESTED"
+    ) {
+      throw new BadRequestException("Invalid rental status");
+    }
+    return value as RentalStatus;
+  }
+
+  private normalizeInstallments(value: any) {
+    if (value === null) return null;
+    if (!Array.isArray(value)) {
+      throw new BadRequestException("Installments must be a list");
+    }
+
+    return value.slice(0, 200).map((row, index) => {
+      const type = String(row?.type || "INSTALLMENT").trim().toUpperCase();
+      const normalizedType =
+        type === "DEPOSIT" || type === "AIDAT" ? type : "INSTALLMENT";
+      const amount =
+        row?.amount === null || row?.amount === undefined || row?.amount === ""
+          ? null
+          : Number(row.amount);
+
+      if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
+        throw new BadRequestException("Invalid installment amount");
+      }
+
+      return {
+        id: this.cleanStr(row?.id) || `installment-${Date.now()}-${index}`,
+        type: normalizedType,
+        title:
+          this.cleanStr(row?.title) ||
+          (normalizedType === "DEPOSIT"
+            ? "Deposit"
+            : normalizedType === "AIDAT"
+              ? "Aidat"
+              : `Installment ${index + 1}`),
+        amount,
+        dueDate: this.cleanStr(row?.dueDate),
+        status: this.normalizePaymentStatus(row?.status),
+        paidAt: this.cleanStr(row?.paidAt),
+        note: this.cleanStr(row?.note),
+      };
+    });
   }
 
   private canAccessUnit(
@@ -185,23 +299,64 @@ export class UnitsService {
     };
   }
 
-  private unitDetailInclude() {
-    return {
+  private unitDetailInclude(includeLogs = true): any {
+    const include: any = {
       ...this.unitInclude(),
-      logs: {
+      canceledBy: {
+        select: { id: true, name: true, email: true, role: true },
+      },
+    };
+
+    if (includeLogs) {
+      include.logs = {
         include: {
           createdBy: {
             select: { id: true, name: true, email: true, role: true },
           },
         },
-        orderBy: { createdAt: "desc" as const },
-      },
-    };
+        orderBy: { createdAt: "desc" },
+      };
+    }
+
+    return include;
   }
 
   private logValue(value: unknown) {
     if (value === null || value === undefined) return null;
+    if (typeof value === "object") return JSON.stringify(value);
     return String(value);
+  }
+
+  private async notifyUnitDelivered(actor: ReqUser, unit: any) {
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { role: "MANAGER" },
+          { role: "AFTERSALES" },
+          ...(unit.customer?.ownerId ? [{ id: unit.customer.ownerId }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    await this.notifications.createManyForUsers(
+      recipients.map((user) => user.id),
+      {
+        type: "SYSTEM",
+        title: "Unit delivered",
+        message: `${unit.unitNumber} has been delivered to the owner.`,
+        entityType: "UNIT",
+        entityId: unit.id,
+        link: `/units/${unit.id}`,
+        metaJson: {
+          actorId: actor.id,
+          project: unit.project,
+          unitNumber: unit.unitNumber,
+          customerId: unit.customerId,
+        },
+      },
+    );
   }
 
   private buildListWhere(user: ReqUser, query: UnitListQuery) {
@@ -294,6 +449,13 @@ export class UnitsService {
       take: 5000,
     });
 
+    items.sort(
+      (a, b) =>
+        a.project.localeCompare(b.project) ||
+        unitNumberCollator.compare(a.unitNumber, b.unitNumber) ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
     return {
       items,
       stats: this.buildStats(items),
@@ -303,7 +465,7 @@ export class UnitsService {
   async getUnit(user: ReqUser, id: string) {
     const unit = await this.prisma.customerUnitSelection.findUnique({
       where: { id },
-      include: this.unitDetailInclude(),
+      include: this.unitDetailInclude(this.isAdmin(user)),
     });
 
     if (!unit) throw new NotFoundException("Unit not found");
@@ -313,6 +475,162 @@ export class UnitsService {
     }
 
     return unit;
+  }
+
+  async endOfDayReport(user: ReqUser, date?: string | null) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to unit reports");
+    }
+
+    const day = this.cleanStr(date) || new Date().toISOString().slice(0, 10);
+    const start = new Date(`${day}T00:00:00.000Z`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+    const logs = await this.prisma.customerUnitSelectionLog.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
+        unitSelection: {
+          include: {
+            customer: {
+              select: { id: true, fullName: true, phone: true, email: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    });
+
+    const byUser = new Map<string, { user: any; count: number }>();
+
+    for (const log of logs) {
+      const userId = log.createdBy?.id || "system";
+      const current = byUser.get(userId) || {
+        user: log.createdBy || null,
+        count: 0,
+      };
+      current.count += 1;
+      byUser.set(userId, current);
+    }
+
+    return {
+      date: day,
+      total: logs.length,
+      byUser: [...byUser.values()].sort((a, b) => b.count - a.count),
+      items: logs.map((log) => ({
+        id: log.id,
+        section: log.section,
+        field: log.field,
+        oldValue: log.oldValue,
+        newValue: log.newValue,
+        createdAt: log.createdAt,
+        createdBy: log.createdBy,
+        unit: {
+          id: log.unitSelection.id,
+          project: log.unitSelection.project,
+          unitNumber: log.unitSelection.unitNumber,
+          customer: log.unitSelection.customer,
+        },
+      })),
+    };
+  }
+
+  async recordCommunication(
+    user: ReqUser,
+    id: string,
+    dto: { type?: string | null; message?: string | null },
+  ) {
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      include: this.unitInclude(),
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    if (!this.canAccessUnit(user, unit)) {
+      throw new ForbiddenException("No access to unit");
+    }
+
+    const type = String(dto.type || "").trim().toUpperCase();
+    if (type !== "EMAIL" && type !== "WHATSAPP") {
+      throw new BadRequestException("Invalid communication type");
+    }
+
+    const message = this.cleanStr(dto.message);
+    if (!message) {
+      throw new BadRequestException("Message is required");
+    }
+
+    await this.prisma.customerUnitSelectionLog.create({
+      data: {
+        unitSelectionId: id,
+        section: "COMMUNICATION",
+        field: type as CommunicationType,
+        oldValue: null,
+        newValue: message,
+        createdById: user.id,
+      },
+    });
+
+    return this.getUnit(user, id);
+  }
+
+  async sendUnitEmail(
+    user: ReqUser,
+    id: string,
+    dto: { subject?: string | null; message?: string | null },
+  ) {
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      include: this.unitInclude(),
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    if (!this.canAccessUnit(user, unit)) {
+      throw new ForbiddenException("No access to unit");
+    }
+
+    const to = this.cleanStr(unit.customer?.email);
+    const message = this.cleanStr(dto.message);
+    const subject =
+      this.cleanStr(dto.subject) || `${unit.unitNumber} - ${unit.customer.fullName}`;
+
+    if (!to) {
+      throw new BadRequestException("Customer email is missing");
+    }
+
+    if (!message) {
+      throw new BadRequestException("Message is required");
+    }
+
+    await this.email.sendMail({
+      to,
+      subject,
+      text: message,
+      replyTo: user.email,
+    });
+
+    await this.prisma.customerUnitSelectionLog.create({
+      data: {
+        unitSelectionId: id,
+        section: "COMMUNICATION",
+        field: "EMAIL",
+        oldValue: null,
+        newValue: `Subject: ${subject}\n\n${message}`,
+        createdById: user.id,
+      },
+    });
+
+    return this.getUnit(user, id);
   }
 
   async updateUnit(user: ReqUser, id: string, dto: any) {
@@ -351,6 +669,58 @@ export class UnitsService {
       data.unitComplaint = this.cleanStr(dto.unitComplaint);
     }
 
+    if (
+      dto.isCanceled !== undefined ||
+      dto.cancelReason !== undefined
+    ) {
+      if (!this.isAdmin(user)) {
+        throw new ForbiddenException("Only admin can cancel units");
+      }
+
+      const nextCanceled =
+        dto.isCanceled !== undefined ? Boolean(dto.isCanceled) : unit.isCanceled;
+      data.isCanceled = nextCanceled;
+      data.cancelReason = this.cleanStr(dto.cancelReason);
+      data.canceledAt = nextCanceled ? unit.canceledAt || new Date() : null;
+      data.canceledById = nextCanceled ? user.id : null;
+    }
+
+    if (dto.kdvStatus !== undefined) {
+      data.kdvStatus = this.normalizePaymentStatus(dto.kdvStatus);
+    }
+
+    if (dto.trafoStatus !== undefined) {
+      data.trafoStatus = this.normalizePaymentStatus(dto.trafoStatus);
+    }
+
+    if (dto.installments !== undefined) {
+      data.installments = this.normalizeInstallments(dto.installments);
+    }
+
+    if (dto.electricityProvider !== undefined) {
+      data.electricityProvider = this.normalizeElectricityProvider(
+        dto.electricityProvider,
+      );
+    }
+
+    if (dto.waterAccessStatus !== undefined) {
+      data.waterAccessStatus = this.normalizeWaterAccessStatus(
+        dto.waterAccessStatus,
+      );
+    }
+
+    if (dto.rentalPackage !== undefined) {
+      data.rentalPackage = this.normalizeRentalPackage(dto.rentalPackage);
+    }
+
+    if (dto.customFurniture !== undefined) {
+      data.customFurniture = this.cleanStr(dto.customFurniture);
+    }
+
+    if (dto.rentalStatus !== undefined) {
+      data.rentalStatus = this.normalizeRentalStatus(dto.rentalStatus);
+    }
+
     const changes = (Object.keys(UNIT_CHANGE_META) as UnitChangeField[])
       .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
       .map((field) => ({
@@ -365,7 +735,10 @@ export class UnitsService {
       return this.getUnit(user, id);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const shouldNotifyDelivery =
+      unit.deliveryStatus !== "DELIVERED" && data.deliveryStatus === "DELIVERED";
+
+    const updated = await this.prisma.$transaction(async (tx) => {
       await tx.customerUnitSelection.update({
         where: { id },
         data,
@@ -386,8 +759,14 @@ export class UnitsService {
 
       return tx.customerUnitSelection.findUnique({
         where: { id },
-        include: this.unitDetailInclude(),
+        include: this.unitDetailInclude(this.isAdmin(user)),
       });
     });
+
+    if (shouldNotifyDelivery && updated) {
+      await this.notifyUnitDelivered(user, updated);
+    }
+
+    return updated;
   }
 }
