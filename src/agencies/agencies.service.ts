@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -71,7 +72,10 @@ type UpdateAgencyTaskDto = {
 
 @Injectable()
 export class AgenciesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private isAdmin(user: ReqUser) {
     return user.role === "ADMIN";
@@ -88,6 +92,44 @@ export class AgenciesService {
   private cleanStr(v?: string | null) {
     const x = (v ?? "").trim();
     return x || undefined;
+  }
+
+  private agencyLink(agencyId: string) {
+    return `/agencies/${agencyId}`;
+  }
+
+  private async notifyAgencyUsers(
+    actor: ReqUser,
+    userIds: Array<string | null | undefined>,
+    input: {
+      type: "AGENCY_UPDATED" | "SYSTEM";
+      title: string;
+      message: string;
+      agencyId: string;
+      entityType?: string;
+      entityId?: string;
+      metaJson?: any;
+    },
+  ) {
+    const recipients = Array.from(
+      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+    );
+
+    if (recipients.length === 0) return;
+
+    await this.notifications.createManyForUsers(recipients, {
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      entityType: input.entityType || "Agency",
+      entityId: input.entityId || input.agencyId,
+      link: this.agencyLink(input.agencyId),
+      metaJson: {
+        actorId: actor.id,
+        agencyId: input.agencyId,
+        ...(input.metaJson || {}),
+      },
+    });
   }
 
   private async validateAssignableUser(id?: string | null) {
@@ -377,7 +419,7 @@ export class AgenciesService {
     const status =
       dto.status && allowedStatuses.includes(dto.status) ? dto.status : "ACTIVE";
 
-    return this.prisma.agency.create({
+    const agency = await this.prisma.agency.create({
       data: {
         name,
         contactName: this.cleanStr(dto.contactName) ?? null,
@@ -398,6 +440,18 @@ export class AgenciesService {
         },
       },
     });
+
+    await this.notifyAgencyUsers(user, [agency.assignedSalesId], {
+      type: "AGENCY_UPDATED",
+      title: "Agency assigned to you",
+      message: `${agency.name} is now assigned to you.`,
+      agencyId: agency.id,
+      metaJson: {
+        action: "created",
+      },
+    });
+
+    return agency;
   }
 
   async updateAgency(user: ReqUser, agencyId: string, dto: UpdateAgencyDto) {
@@ -439,7 +493,7 @@ export class AgenciesService {
       data.assignedSalesId = assignedSalesId;
     }
 
-    return this.prisma.agency.update({
+    const updated = await this.prisma.agency.update({
       where: { id: agencyId },
       data,
       include: {
@@ -448,6 +502,29 @@ export class AgenciesService {
         },
       },
     });
+
+    await this.notifyAgencyUsers(user, [updated.assignedSalesId], {
+      type: "AGENCY_UPDATED",
+      title:
+        data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
+          ? "Agency assigned to you"
+          : "Agency updated",
+      message:
+        data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
+          ? `${updated.name} is now assigned to you.`
+          : `${updated.name} was updated.`,
+      agencyId: updated.id,
+      metaJson: {
+        action:
+          data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
+            ? "assigned"
+            : "updated",
+        previousAssignedSalesId: agency.assignedSalesId,
+        assignedSalesId: updated.assignedSalesId,
+      },
+    });
+
+    return updated;
   }
 
   async deleteAgency(user: ReqUser, agencyId: string) {
@@ -485,7 +562,7 @@ export class AgenciesService {
     const salesId = this.cleanStr(dto.salesId) ?? null;
     await this.validateAssignableUser(salesId);
 
-    return this.prisma.agency.update({
+    const updated = await this.prisma.agency.update({
       where: { id: agency.id },
       data: {
         assignedSalesId: salesId,
@@ -496,6 +573,20 @@ export class AgenciesService {
         },
       },
     });
+
+    await this.notifyAgencyUsers(user, [updated.assignedSalesId], {
+      type: "AGENCY_UPDATED",
+      title: "Agency assigned to you",
+      message: `${updated.name} is now assigned to you.`,
+      agencyId: updated.id,
+      metaJson: {
+        action: "assigned",
+        previousAssignedSalesId: agency.assignedSalesId,
+        assignedSalesId: updated.assignedSalesId,
+      },
+    });
+
+    return updated;
   }
 
   async addNote(user: ReqUser, agencyId: string, dto: CreateAgencyNoteDto) {
@@ -508,7 +599,7 @@ export class AgenciesService {
     const note = this.cleanStr(dto.note);
     if (!note) throw new BadRequestException("Note is required");
 
-    return this.prisma.agencyNote.create({
+    const created = await this.prisma.agencyNote.create({
       data: {
         agencyId,
         createdById: user.id,
@@ -518,6 +609,19 @@ export class AgenciesService {
         createdBy: { select: { id: true, name: true, email: true } },
       },
     });
+
+    await this.notifyAgencyUsers(user, [agency.assignedSalesId], {
+      type: "AGENCY_UPDATED",
+      title: "Agency note added",
+      message: `A note was added to ${agency.name}.`,
+      agencyId,
+      metaJson: {
+        action: "note_added",
+        noteId: created.id,
+      },
+    });
+
+    return created;
   }
 
   async createMeeting(user: ReqUser, agencyId: string, dto: CreateAgencyMeetingDto) {
@@ -536,7 +640,7 @@ export class AgenciesService {
       throw new BadRequestException("Invalid meetingAt");
     }
 
-    return this.prisma.agencyMeeting.create({
+    const created = await this.prisma.agencyMeeting.create({
       data: {
         agencyId,
         createdById: user.id,
@@ -550,6 +654,22 @@ export class AgenciesService {
         assignedSales: { select: { id: true, name: true, email: true, role: true } },
       },
     });
+
+    await this.notifyAgencyUsers(user, [created.assignedSalesId], {
+      type: "SYSTEM",
+      title: "Agency meeting scheduled",
+      message: `${created.title} was scheduled for ${agency.name}.`,
+      agencyId,
+      entityType: "AgencyMeeting",
+      entityId: created.id,
+      metaJson: {
+        action: "meeting_created",
+        meetingId: created.id,
+        meetingAt: created.meetingAt,
+      },
+    });
+
+    return created;
   }
 
   async updateMeeting(user: ReqUser, meetingId: string, dto: UpdateAgencyMeetingDto) {
@@ -625,7 +745,7 @@ export class AgenciesService {
       }
     }
 
-    return this.prisma.agencyTask.create({
+    const created = await this.prisma.agencyTask.create({
       data: {
         agencyId: agency.id,
         createdById: user.id,
@@ -640,6 +760,22 @@ export class AgenciesService {
         assignedTo: { select: { id: true, name: true, email: true } },
       },
     });
+
+    await this.notifyAgencyUsers(user, [created.assignedToId], {
+      type: "SYSTEM",
+      title: "Agency task assigned",
+      message: `${created.title} was assigned to you.`,
+      agencyId: agency.id,
+      entityType: "AgencyTask",
+      entityId: created.id,
+      metaJson: {
+        action: "task_created",
+        taskId: created.id,
+        assignedToId: created.assignedToId,
+      },
+    });
+
+    return created;
   }
 
   async updateTask(user: ReqUser, taskId: string, dto: UpdateAgencyTaskDto) {
@@ -706,7 +842,7 @@ export class AgenciesService {
       }
     }
 
-    return this.prisma.agencyTask.update({
+    const updated = await this.prisma.agencyTask.update({
       where: { id: taskId },
       data,
       include: {
@@ -714,5 +850,23 @@ export class AgenciesService {
         assignedTo: { select: { id: true, name: true, email: true } },
       },
     });
+
+    await this.notifyAgencyUsers(user, [updated.assignedToId, task.createdById], {
+      type: "SYSTEM",
+      title: "Agency task updated",
+      message: `${updated.title} was updated.`,
+      agencyId: task.agencyId,
+      entityType: "AgencyTask",
+      entityId: updated.id,
+      metaJson: {
+        action: "task_updated",
+        taskId: updated.id,
+        status: updated.status,
+        previousStatus: task.status,
+        assignedToId: updated.assignedToId,
+      },
+    });
+
+    return updated;
   }
 }

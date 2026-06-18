@@ -12,6 +12,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -68,11 +69,52 @@ type UpdateMeetingDto = {
 
 @Injectable()
 export class MeetingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private cleanStr(value?: string | null) {
     const cleaned = String(value ?? "").trim();
     return cleaned || undefined;
+  }
+
+  private meetingLink(kind: MeetingKind, id: string) {
+    return `/meetings/${id}?kind=${kind}`;
+  }
+
+  private async notifyMeetingUsers(
+    actor: ReqUser,
+    userIds: Array<string | null | undefined>,
+    input: {
+      title: string;
+      message: string;
+      kind: MeetingKind;
+      meetingId: string;
+      type?: "PRESENTATION_CREATED" | "SYSTEM";
+      metaJson?: any;
+    },
+  ) {
+    const recipients = Array.from(
+      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+    );
+
+    if (recipients.length === 0) return;
+
+    await this.notifications.createManyForUsers(recipients, {
+      type: input.type || "SYSTEM",
+      title: input.title,
+      message: input.message,
+      entityType: input.kind === "PRESENTATION" ? "Presentation" : "Meeting",
+      entityId: input.meetingId,
+      link: this.meetingLink(input.kind, input.meetingId),
+      metaJson: {
+        actorId: actor.id,
+        kind: input.kind,
+        meetingId: input.meetingId,
+        ...(input.metaJson || {}),
+      },
+    });
   }
 
   private parseDate(value?: string) {
@@ -650,6 +692,19 @@ export class MeetingsService {
         throw new ForbiddenException("No access");
       }
 
+      await this.notifyMeetingUsers(user, [row.assignedSalesId, row.agency?.assignedSalesId], {
+        title: "Meeting scheduled",
+        message: `${row.title} was scheduled.`,
+        kind: "AGENCY",
+        meetingId: row.id,
+        metaJson: {
+          action: "created",
+          meetingAt: row.meetingAt,
+          agencyId: row.agencyId,
+          customerId: row.customerId,
+        },
+      });
+
       return this.normalizeAgencyMeeting(row);
     }
 
@@ -694,6 +749,20 @@ export class MeetingsService {
         throw new ForbiddenException("No access");
       }
 
+      await this.notifyMeetingUsers(user, [row.assignedSalesId, row.customer?.ownerId], {
+        title: "Presentation scheduled",
+        message: `${row.title} was scheduled.`,
+        kind: "PRESENTATION",
+        meetingId: row.id,
+        type: "PRESENTATION_CREATED",
+        metaJson: {
+          action: "created",
+          meetingAt: row.presentationAt,
+          agencyId: row.agencyId,
+          customerId: row.customerId,
+        },
+      });
+
       return this.normalizePresentation(row);
     }
 
@@ -722,6 +791,17 @@ export class MeetingsService {
     if (!this.canSeeOtherMeeting(user, row)) {
       throw new ForbiddenException("No access");
     }
+
+    await this.notifyMeetingUsers(user, [row.assignedSalesId], {
+      title: "Meeting scheduled",
+      message: `${row.title} was scheduled.`,
+      kind: "OTHER",
+      meetingId: row.id,
+      metaJson: {
+        action: "created",
+        meetingAt: row.meetingAt,
+      },
+    });
 
     return this.normalizeOtherMeeting(row);
   }
@@ -901,6 +981,7 @@ export class MeetingsService {
         select: {
           id: true,
           createdById: true,
+          assignedSalesId: true,
         },
       });
 
@@ -994,6 +1075,26 @@ export class MeetingsService {
         },
       });
 
+      await this.notifyMeetingUsers(
+        user,
+        [updated.assignedSalesId, updated.createdById],
+        {
+          title:
+            updated.assignedSalesId !== existing.assignedSalesId
+              ? "Meeting assigned to you"
+              : "Meeting updated",
+          message: `${updated.title} was updated.`,
+          kind: "AGENCY",
+          meetingId: updated.id,
+          metaJson: {
+            action: "updated",
+            status: updated.status,
+            previousAssignedSalesId: existing.assignedSalesId,
+            assignedSalesId: updated.assignedSalesId,
+          },
+        },
+      );
+
       return this.normalizeAgencyMeeting(updated);
     }
 
@@ -1003,6 +1104,7 @@ export class MeetingsService {
         select: {
           id: true,
           createdById: true,
+          assignedSalesId: true,
         },
       });
 
@@ -1105,6 +1207,27 @@ export class MeetingsService {
         },
       });
 
+      await this.notifyMeetingUsers(
+        user,
+        [updated.assignedSalesId, updated.createdById, updated.customer?.ownerId],
+        {
+          title:
+            updated.assignedSalesId !== existing.assignedSalesId
+              ? "Presentation assigned to you"
+              : "Presentation updated",
+          message: `${updated.title} was updated.`,
+          kind: "PRESENTATION",
+          meetingId: updated.id,
+          type: "PRESENTATION_CREATED",
+          metaJson: {
+            action: "updated",
+            status: updated.status,
+            previousAssignedSalesId: existing.assignedSalesId,
+            assignedSalesId: updated.assignedSalesId,
+          },
+        },
+      );
+
       return this.normalizePresentation(updated);
     }
 
@@ -1113,6 +1236,7 @@ export class MeetingsService {
       select: {
         id: true,
         createdById: true,
+        assignedSalesId: true,
       },
     });
 
@@ -1190,6 +1314,26 @@ export class MeetingsService {
         },
       },
     });
+
+    await this.notifyMeetingUsers(
+      user,
+      [updated.assignedSalesId, updated.createdById],
+      {
+        title:
+          updated.assignedSalesId !== existing.assignedSalesId
+            ? "Meeting assigned to you"
+            : "Meeting updated",
+        message: `${updated.title} was updated.`,
+        kind: "OTHER",
+        meetingId: updated.id,
+        metaJson: {
+          action: "updated",
+          status: updated.status,
+          previousAssignedSalesId: existing.assignedSalesId,
+          assignedSalesId: updated.assignedSalesId,
+        },
+      },
+    );
 
     return this.normalizeOtherMeeting(updated);
   }

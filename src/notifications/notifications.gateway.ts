@@ -40,7 +40,10 @@ export class NotificationsGateway
       }
 
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET || "dev-secret-change-me",
+        secret:
+          process.env.JWT_ACCESS_SECRET ||
+          process.env.JWT_SECRET ||
+          "dev-secret-change-me",
       });
 
       const userId = payload?.sub;

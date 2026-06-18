@@ -30,6 +30,37 @@ type RentalPackage = "FULL_FURNISHED" | "NOT_INTERESTED" | "CUSTOM";
 type RentalStatus = "SHORT_TERM" | "LONG_TERM" | "DND_UNITS" | "NOT_INTERESTED";
 type CommunicationType = "EMAIL" | "WHATSAPP";
 
+const EMAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+const EMAIL_ATTACHMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+const EMAIL_ATTACHMENT_EXTENSIONS = new Set([
+  "pdf",
+  "txt",
+  "csv",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+]);
+
 const unitNumberCollator = new Intl.Collator("en", {
   numeric: true,
   sensitivity: "base",
@@ -189,42 +220,125 @@ export class UnitsService {
     return value as RentalStatus;
   }
 
-  private normalizeInstallments(value: any) {
+  private normalizeEmailAttachment(file?: Express.Multer.File) {
+    if (!file) return null;
+
+    if (!file.buffer?.length) {
+      throw new BadRequestException("Attachment file is empty");
+    }
+
+    if (file.size > EMAIL_ATTACHMENT_MAX_BYTES) {
+      throw new BadRequestException("Attachment must be 10MB or smaller");
+    }
+
+    const filename =
+      this.cleanStr(file.originalname)?.replace(/[\\/]/g, "-") || "attachment";
+    const extension = filename.includes(".")
+      ? filename.split(".").pop()?.toLowerCase()
+      : null;
+    const contentType = this.cleanStr(file.mimetype) || "application/octet-stream";
+
+    if (
+      !EMAIL_ATTACHMENT_MIME_TYPES.has(contentType) &&
+      (!extension || !EMAIL_ATTACHMENT_EXTENSIONS.has(extension))
+    ) {
+      throw new BadRequestException("Unsupported attachment file type");
+    }
+
+    return {
+      filename,
+      content: file.buffer,
+      contentType,
+    };
+  }
+
+  private normalizeAidatRow(row: any, index: number, previous?: any) {
+    const id = this.cleanStr(row?.id) || `aidat-${Date.now()}-${index}`;
+    const amount =
+      row?.amount === null || row?.amount === undefined || row?.amount === ""
+        ? null
+        : Number(row.amount);
+
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
+      throw new BadRequestException("Invalid aidat amount");
+    }
+
+    const status = this.normalizePaymentStatus(row?.status);
+
+    return {
+      id,
+      type: "AIDAT",
+      title: this.cleanStr(row?.title) || `Aidat ${index + 1}`,
+      amount,
+      dueDate: this.cleanStr(row?.dueDate),
+      status,
+      paidAt:
+        status === "PAID"
+          ? this.cleanStr(row?.paidAt) ||
+            this.cleanStr(previous?.paidAt) ||
+            new Date().toISOString()
+          : null,
+      note: this.cleanStr(row?.note),
+    };
+  }
+
+  private lockedAidatFingerprint(row: any) {
+    return JSON.stringify({
+      id: row.id,
+      type: "AIDAT",
+      title: row.title,
+      amount: row.amount,
+      dueDate: row.dueDate,
+      status: "PAID",
+      note: row.note,
+    });
+  }
+
+  private normalizeInstallments(value: any, existing?: any) {
     if (value === null) return null;
     if (!Array.isArray(value)) {
       throw new BadRequestException("Installments must be a list");
     }
 
-    return value.slice(0, 200).map((row, index) => {
-      const type = String(row?.type || "INSTALLMENT").trim().toUpperCase();
-      const normalizedType =
-        type === "DEPOSIT" || type === "AIDAT" ? type : "INSTALLMENT";
-      const amount =
-        row?.amount === null || row?.amount === undefined || row?.amount === ""
-          ? null
-          : Number(row.amount);
+    const existingRows = Array.isArray(existing) ? existing : [];
+    const existingById = new Map(
+      existingRows
+        .filter((row) => this.cleanStr(row?.id))
+        .map((row, index) => [
+          this.cleanStr(row?.id),
+          this.normalizeAidatRow(row, index, row),
+        ]),
+    );
 
-      if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
-        throw new BadRequestException("Invalid installment amount");
+    const normalized = value.slice(0, 200).map((row, index) => {
+      const id = this.cleanStr(row?.id);
+      return this.normalizeAidatRow(
+        row,
+        index,
+        id ? existingById.get(id) : undefined,
+      );
+    });
+
+    const normalizedById = new Map(normalized.map((row) => [row.id, row]));
+
+    for (const previous of existingById.values()) {
+      if (previous.status !== "PAID") continue;
+
+      const next = normalizedById.get(previous.id);
+      if (!next) {
+        throw new BadRequestException("Paid aidat rows cannot be deleted");
       }
 
-      return {
-        id: this.cleanStr(row?.id) || `installment-${Date.now()}-${index}`,
-        type: normalizedType,
-        title:
-          this.cleanStr(row?.title) ||
-          (normalizedType === "DEPOSIT"
-            ? "Deposit"
-            : normalizedType === "AIDAT"
-              ? "Aidat"
-              : `Installment ${index + 1}`),
-        amount,
-        dueDate: this.cleanStr(row?.dueDate),
-        status: this.normalizePaymentStatus(row?.status),
-        paidAt: this.cleanStr(row?.paidAt),
-        note: this.cleanStr(row?.note),
-      };
-    });
+      if (
+        next.status === "PAID" &&
+        this.lockedAidatFingerprint(previous) !==
+          this.lockedAidatFingerprint(next)
+      ) {
+        throw new BadRequestException("Paid aidat rows cannot be edited");
+      }
+    }
+
+    return normalized;
   }
 
   private canAccessUnit(
@@ -299,7 +413,7 @@ export class UnitsService {
     };
   }
 
-  private unitDetailInclude(includeLogs = true): any {
+  private unitDetailInclude(logVisibility: "all" | "communication" | "none" = "all"): any {
     const include: any = {
       ...this.unitInclude(),
       canceledBy: {
@@ -307,8 +421,11 @@ export class UnitsService {
       },
     };
 
-    if (includeLogs) {
+    if (logVisibility !== "none") {
       include.logs = {
+        ...(logVisibility === "communication"
+          ? { where: { section: "COMMUNICATION" } }
+          : {}),
         include: {
           createdBy: {
             select: { id: true, name: true, email: true, role: true },
@@ -319,6 +436,10 @@ export class UnitsService {
     }
 
     return include;
+  }
+
+  private unitLogVisibility(user: ReqUser): "all" | "communication" {
+    return this.isAdmin(user) ? "all" : "communication";
   }
 
   private logValue(value: unknown) {
@@ -359,6 +480,77 @@ export class UnitsService {
     );
   }
 
+  private async notifyUnitCanceled(actor: ReqUser, unit: any) {
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { role: "MANAGER" },
+          { role: "AFTERSALES" },
+          ...(unit.customer?.ownerId ? [{ id: unit.customer.ownerId }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    await this.notifications.createManyForUsers(
+      recipients.map((user) => user.id).filter((id) => id !== actor.id),
+      {
+        type: "SYSTEM",
+        title: "Unit canceled",
+        message: `${unit.unitNumber} has been marked as canceled.`,
+        entityType: "UNIT",
+        entityId: unit.id,
+        link: `/units/${unit.id}`,
+        metaJson: {
+          actorId: actor.id,
+          project: unit.project,
+          unitNumber: unit.unitNumber,
+          customerId: unit.customerId,
+          cancelReason: unit.cancelReason,
+        },
+      },
+    );
+  }
+
+  private normalizeReportDate(value?: string | null) {
+    const date = this.cleanStr(value);
+    if (!date) return null;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException("Report date must be YYYY-MM-DD");
+    }
+
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException("Invalid report date");
+    }
+
+    return date;
+  }
+
+  private buildReportRange(range?: {
+    date?: string | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }) {
+    const today = new Date().toISOString().slice(0, 10);
+    const legacyDate = this.normalizeReportDate(range?.date);
+    const dateFrom =
+      this.normalizeReportDate(range?.dateFrom) || legacyDate || today;
+    const dateTo = this.normalizeReportDate(range?.dateTo) || legacyDate || dateFrom;
+
+    if (dateFrom > dateTo) {
+      throw new BadRequestException("Report start date cannot be after end date");
+    }
+
+    const start = new Date(`${dateFrom}T00:00:00.000Z`);
+    const end = new Date(`${dateTo}T00:00:00.000Z`);
+    end.setUTCDate(end.getUTCDate() + 1);
+
+    return { dateFrom, dateTo, start, end };
+  }
+
   private buildListWhere(user: ReqUser, query: UnitListQuery) {
     const where: any = {};
     const project = this.normalizeProject(query.project);
@@ -367,12 +559,13 @@ export class UnitsService {
     const q = this.cleanStr(query.q);
     const accessWhere = this.customerAccessWhere(user);
 
+    where.AND = [{ customer: { is: { type: "EXISTING" } } }];
+
     if (project) where.project = project;
     if (deliveryStatus) where.deliveryStatus = deliveryStatus;
     if (companyStatus) where.companyStatus = companyStatus;
 
     if (q) {
-      where.AND = where.AND || [];
       where.AND.push({
         OR: [
           { unitNumber: { contains: q, mode: "insensitive" } },
@@ -395,7 +588,6 @@ export class UnitsService {
     }
 
     if (accessWhere) {
-      where.AND = where.AND || [];
       where.AND.push(accessWhere);
     }
 
@@ -465,7 +657,7 @@ export class UnitsService {
   async getUnit(user: ReqUser, id: string) {
     const unit = await this.prisma.customerUnitSelection.findUnique({
       where: { id },
-      include: this.unitDetailInclude(this.isAdmin(user)),
+      include: this.unitDetailInclude(this.unitLogVisibility(user)),
     });
 
     if (!unit) throw new NotFoundException("Unit not found");
@@ -477,14 +669,34 @@ export class UnitsService {
     return unit;
   }
 
-  async endOfDayReport(user: ReqUser, date?: string | null) {
+  async deleteUnit(user: ReqUser, id: string) {
+    if (!this.isAdmin(user)) {
+      throw new ForbiddenException("Only admin can delete units");
+    }
+
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    await this.prisma.customerUnitSelection.delete({
+      where: { id },
+    });
+
+    return { ok: true, id };
+  }
+
+  async endOfDayReport(
+    user: ReqUser,
+    range?: { date?: string | null; dateFrom?: string | null; dateTo?: string | null },
+  ) {
     if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
       throw new ForbiddenException("No access to unit reports");
     }
 
-    const day = this.cleanStr(date) || new Date().toISOString().slice(0, 10);
-    const start = new Date(`${day}T00:00:00.000Z`);
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const { dateFrom, dateTo, start, end } = this.buildReportRange(range);
 
     const logs = await this.prisma.customerUnitSelectionLog.findMany({
       where: {
@@ -506,7 +718,7 @@ export class UnitsService {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 1000,
+      take: 5000,
     });
 
     const byUser = new Map<string, { user: any; count: number }>();
@@ -522,7 +734,9 @@ export class UnitsService {
     }
 
     return {
-      date: day,
+      date: dateFrom,
+      dateFrom,
+      dateTo,
       total: logs.length,
       byUser: [...byUser.values()].sort((a, b) => b.count - a.count),
       items: logs.map((log) => ({
@@ -587,6 +801,7 @@ export class UnitsService {
     user: ReqUser,
     id: string,
     dto: { subject?: string | null; message?: string | null },
+    file?: Express.Multer.File,
   ) {
     const unit = await this.prisma.customerUnitSelection.findUnique({
       where: { id },
@@ -612,11 +827,14 @@ export class UnitsService {
       throw new BadRequestException("Message is required");
     }
 
+    const attachment = this.normalizeEmailAttachment(file);
+
     await this.email.sendMail({
       to,
       subject,
       text: message,
       replyTo: user.email,
+      attachments: attachment ? [attachment] : undefined,
     });
 
     await this.prisma.customerUnitSelectionLog.create({
@@ -625,7 +843,9 @@ export class UnitsService {
         section: "COMMUNICATION",
         field: "EMAIL",
         oldValue: null,
-        newValue: `Subject: ${subject}\n\n${message}`,
+        newValue: `Subject: ${subject}${
+          attachment ? `\nAttachment: ${attachment.filename}` : ""
+        }\n\n${message}`,
         createdById: user.id,
       },
     });
@@ -694,7 +914,10 @@ export class UnitsService {
     }
 
     if (dto.installments !== undefined) {
-      data.installments = this.normalizeInstallments(dto.installments);
+      data.installments = this.normalizeInstallments(
+        dto.installments,
+        unit.installments,
+      );
     }
 
     if (dto.electricityProvider !== undefined) {
@@ -737,6 +960,8 @@ export class UnitsService {
 
     const shouldNotifyDelivery =
       unit.deliveryStatus !== "DELIVERED" && data.deliveryStatus === "DELIVERED";
+    const shouldNotifyCancellation =
+      unit.isCanceled !== true && data.isCanceled === true;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.customerUnitSelection.update({
@@ -759,12 +984,16 @@ export class UnitsService {
 
       return tx.customerUnitSelection.findUnique({
         where: { id },
-        include: this.unitDetailInclude(this.isAdmin(user)),
+        include: this.unitDetailInclude(this.unitLogVisibility(user)),
       });
     });
 
     if (shouldNotifyDelivery && updated) {
       await this.notifyUnitDelivered(user, updated);
+    }
+
+    if (shouldNotifyCancellation && updated) {
+      await this.notifyUnitCanceled(user, updated);
     }
 
     return updated;

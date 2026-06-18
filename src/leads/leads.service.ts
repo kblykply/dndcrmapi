@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { Prisma } from "@prisma/client";
 import type { ActivityType, LeadStatus, Role } from "../common/types";
 import { canEditCoreFields, canTransition } from "./lead.rules";
@@ -67,6 +68,7 @@ export class LeadsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notifications: NotificationsService,
   ) {}
 
   private sleep(ms: number) {
@@ -115,6 +117,74 @@ export class LeadsService {
     }
 
     throw lastError;
+  }
+
+  private leadLink(leadId: string) {
+    return `/leads/${leadId}`;
+  }
+
+  private async notifyLeadUser(
+    actor: ReqUser,
+    userId: string | null | undefined,
+    input: {
+      type:
+        | "LEAD_ASSIGNED"
+        | "LEAD_STATUS_CHANGED"
+        | "LEAD_SENT_TO_MANAGER";
+      title: string;
+      message: string;
+      leadId: string;
+      metaJson?: any;
+    },
+  ) {
+    if (!userId || userId === actor.id) return;
+
+    await this.notifications.createForUser({
+      userId,
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      entityType: "Lead",
+      entityId: input.leadId,
+      link: this.leadLink(input.leadId),
+      metaJson: {
+        actorId: actor.id,
+        leadId: input.leadId,
+        ...(input.metaJson || {}),
+      },
+    });
+  }
+
+  private async notifyLeadUsers(
+    actor: ReqUser,
+    userIds: Array<string | null | undefined>,
+    input: {
+      type: "LEAD_STATUS_CHANGED";
+      title: string;
+      message: string;
+      leadId: string;
+      metaJson?: any;
+    },
+  ) {
+    const recipients = Array.from(
+      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+    );
+
+    if (recipients.length === 0) return;
+
+    await this.notifications.createManyForUsers(recipients, {
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      entityType: "Lead",
+      entityId: input.leadId,
+      link: this.leadLink(input.leadId),
+      metaJson: {
+        actorId: actor.id,
+        leadId: input.leadId,
+        ...(input.metaJson || {}),
+      },
+    });
   }
 
   private async getAccessibleLeadOrThrow(
@@ -666,6 +736,21 @@ export class LeadsService {
       to,
     });
 
+    await this.notifyLeadUsers(
+      user,
+      [updated.assignedManagerId, updated.assignedSalesId, updated.ownerCallCenterId],
+      {
+        type: "LEAD_STATUS_CHANGED",
+        title: "Lead status updated",
+        message: `${lead.fullName}: ${lead.status} -> ${to}`,
+        leadId,
+        metaJson: {
+          fromStatus: lead.status,
+          toStatus: to,
+        },
+      },
+    );
+
     return updated;
   }
 
@@ -742,6 +827,17 @@ async sendToManager(user: ReqUser, leadId: string, managerId: string) {
     fromStatus: lead.status,
     toStatus: "MANAGER_REVIEW",
     autoFlow: true,
+  });
+
+  await this.notifyLeadUser(user, managerId, {
+    type: "LEAD_SENT_TO_MANAGER",
+    title: "Lead sent to manager review",
+    message: `${lead.fullName} was sent to you for review.`,
+    leadId,
+    metaJson: {
+      fromStatus: lead.status,
+      toStatus: "MANAGER_REVIEW",
+    },
   });
 
   return updated;
@@ -825,6 +921,18 @@ async sendToManager(user: ReqUser, leadId: string, managerId: string) {
       leadId,
       { salesId },
     );
+
+    await this.notifyLeadUser(user, salesId, {
+      type: "LEAD_ASSIGNED",
+      title: isReassign ? "Lead reassigned to you" : "Lead assigned to you",
+      message: `${lead.fullName} is now assigned to you.`,
+      leadId,
+      metaJson: {
+        fromStatus: lead.status,
+        toStatus: updated.status,
+        isReassign,
+      },
+    });
 
     return updated;
   }

@@ -195,6 +195,7 @@ export class NotificationsService {
       });
     }
 
+    this.gateway.emitNotificationRead(user.id, notificationId);
     await this.pushUnreadCount(user.id);
     return updated;
   }
@@ -272,6 +273,7 @@ export class NotificationsService {
       where: { id: notificationId },
     });
 
+    this.gateway.emitNotificationDeleted(user.id, notificationId);
     await this.pushUnreadCount(user.id);
 
     return { success: true };

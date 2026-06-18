@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Role } from "../common/types";
 import {
   extractOldNationalityCode,
@@ -34,7 +35,10 @@ type ListCustomersQuery = {
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private isAdmin(user: ReqUser) {
     return user.role === "ADMIN";
@@ -55,6 +59,44 @@ export class CustomersService {
   private cleanStr(v?: string | null) {
     const x = (v ?? "").trim();
     return x || null;
+  }
+
+  private customerLink(customerId: string) {
+    return `/customers/${customerId}`;
+  }
+
+  private async notifyCustomerUsers(
+    actor: ReqUser,
+    userIds: Array<string | null | undefined>,
+    input: {
+      type: "CUSTOMER_UPDATED" | "PRESENTATION_CREATED" | "PRESENTATION_NOTE_ADDED";
+      title: string;
+      message: string;
+      customerId: string;
+      entityType?: string;
+      entityId?: string;
+      metaJson?: any;
+    },
+  ) {
+    const recipients = Array.from(
+      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+    );
+
+    if (recipients.length === 0) return;
+
+    await this.notifications.createManyForUsers(recipients, {
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      entityType: input.entityType || "Customer",
+      entityId: input.entityId || input.customerId,
+      link: this.customerLink(input.customerId),
+      metaJson: {
+        actorId: actor.id,
+        customerId: input.customerId,
+        ...(input.metaJson || {}),
+      },
+    });
   }
 
   private parseDateOrNull(v?: string | null) {
@@ -444,7 +486,7 @@ export class CustomersService {
       oldCariCodes: dto.oldCariCodes,
     });
 
-    return this.prisma.customer.create({
+    const customer = await this.prisma.customer.create({
       data: {
         fullName,
         companyName: this.cleanStr(dto.companyName),
@@ -501,6 +543,18 @@ export class CustomersService {
         },
       },
     });
+
+    await this.notifyCustomerUsers(user, [customer.ownerId], {
+      type: "CUSTOMER_UPDATED",
+      title: "Customer assigned to you",
+      message: `${customer.fullName} is now assigned to you.`,
+      customerId: customer.id,
+      metaJson: {
+        action: "created",
+      },
+    });
+
+    return customer;
   }
 
   async updateCustomer(user: ReqUser, customerId: string, dto: any) {
@@ -660,6 +714,24 @@ export class CustomersService {
     });
 
     const updated = await this.getCustomerOrThrow(customerId);
+
+    const ownerChanged =
+      Object.prototype.hasOwnProperty.call(data, "ownerId") &&
+      customer.ownerId !== updated.ownerId;
+
+    await this.notifyCustomerUsers(user, [updated.ownerId], {
+      type: "CUSTOMER_UPDATED",
+      title: ownerChanged ? "Customer assigned to you" : "Customer updated",
+      message: ownerChanged
+        ? `${updated.fullName} is now assigned to you.`
+        : `${updated.fullName} was updated.`,
+      customerId: updated.id,
+      metaJson: {
+        action: ownerChanged ? "owner_changed" : "updated",
+        previousOwnerId: customer.ownerId,
+        ownerId: updated.ownerId,
+      },
+    });
 
     if (this.isAdmin(user)) {
       return this.withAccessFlags(updated, true);
@@ -954,7 +1026,7 @@ export class CustomersService {
 
     await this.validateAssignableOwner(assignedSalesId);
 
-    return this.prisma.presentation.create({
+    const presentation = await this.prisma.presentation.create({
       data: {
         customerId,
         title,
@@ -970,6 +1042,22 @@ export class CustomersService {
         createdBy: true,
       },
     });
+
+    await this.notifyCustomerUsers(user, [presentation.assignedSalesId, customer.ownerId], {
+      type: "PRESENTATION_CREATED",
+      title: "Presentation scheduled",
+      message: `${presentation.title} was scheduled for ${customer.fullName}.`,
+      customerId,
+      entityType: "Presentation",
+      entityId: presentation.id,
+      metaJson: {
+        presentationId: presentation.id,
+        assignedSalesId: presentation.assignedSalesId,
+        presentationAt: presentation.presentationAt,
+      },
+    });
+
+    return presentation;
   }
 
   async getCustomerDetail(user: ReqUser, customerId: string) {
@@ -1285,6 +1373,8 @@ export class CustomersService {
       where: { id: presentationId },
       select: {
         id: true,
+        title: true,
+        customerId: true,
         assignedSalesId: true,
       },
     });
@@ -1295,7 +1385,7 @@ export class CustomersService {
 
     if (!canEdit) throw new ForbiddenException("No access");
 
-    return this.prisma.presentationNote.create({
+    const created = await this.prisma.presentationNote.create({
       data: {
         presentationId,
         createdById: user.id,
@@ -1305,6 +1395,21 @@ export class CustomersService {
         createdBy: true,
       },
     });
+
+    await this.notifyCustomerUsers(user, [presentation.assignedSalesId], {
+      type: "PRESENTATION_NOTE_ADDED",
+      title: "Presentation note added",
+      message: `A note was added to ${presentation.title}.`,
+      customerId: presentation.customerId,
+      entityType: "Presentation",
+      entityId: presentation.id,
+      metaJson: {
+        presentationId: presentation.id,
+        noteId: created.id,
+      },
+    });
+
+    return created;
   }
 
   async updatePresentation(user: ReqUser, id: string, dto: any) {
@@ -1347,7 +1452,7 @@ export class CustomersService {
       data.assignedSalesId = assignedSalesId;
     }
 
-    return this.prisma.presentation.update({
+    const updated = await this.prisma.presentation.update({
       where: { id },
       data,
       include: {
@@ -1355,5 +1460,26 @@ export class CustomersService {
         createdBy: true,
       },
     });
+
+    if (
+      updated.assignedSalesId &&
+      updated.assignedSalesId !== presentation.assignedSalesId
+    ) {
+      await this.notifyCustomerUsers(user, [updated.assignedSalesId], {
+        type: "PRESENTATION_CREATED",
+        title: "Presentation assigned to you",
+        message: `${updated.title} is now assigned to you.`,
+        customerId: updated.customerId,
+        entityType: "Presentation",
+        entityId: updated.id,
+        metaJson: {
+          presentationId: updated.id,
+          previousAssignedSalesId: presentation.assignedSalesId,
+          assignedSalesId: updated.assignedSalesId,
+        },
+      });
+    }
+
+    return updated;
   }
 }

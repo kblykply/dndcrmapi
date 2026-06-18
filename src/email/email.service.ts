@@ -7,6 +7,11 @@ type SendMailInput = {
   text: string;
   html?: string;
   replyTo?: string | null;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
 };
 
 @Injectable()
@@ -67,6 +72,7 @@ export class EmailService {
       text,
       html: input.html,
       replyTo: this.cleanStr(input.replyTo) || undefined,
+      attachments: input.attachments,
     });
   }
 }

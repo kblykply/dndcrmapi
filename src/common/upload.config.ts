@@ -7,3 +7,11 @@ export const customerUploadConfig = {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
 };
+
+export const emailAttachmentUploadConfig = {
+  storage: memoryStorage(),
+
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+};

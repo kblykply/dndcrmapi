@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -98,6 +99,7 @@ export class PdcaService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notifications: NotificationsService,
   ) {}
 
   private ensureAuth(user: ReqUser) {
@@ -138,6 +140,44 @@ export class PdcaService {
   private cleanStr(v?: string | null) {
     const x = String(v ?? "").trim();
     return x || null;
+  }
+
+  private pdcaLink(id: string) {
+    return `/pdca/${id}`;
+  }
+
+  private async notifyPdcaUsers(
+    actor: ReqUser,
+    item: { id: string; title: string; ownerId?: string | null; assignedToId?: string | null },
+    input: {
+      title: string;
+      message: string;
+      metaJson?: any;
+    },
+  ) {
+    const recipients = Array.from(
+      new Set(
+        [item.ownerId, item.assignedToId].filter(
+          (id): id is string => Boolean(id && id !== actor.id),
+        ),
+      ),
+    );
+
+    if (recipients.length === 0) return;
+
+    await this.notifications.createManyForUsers(recipients, {
+      type: "SYSTEM",
+      title: input.title,
+      message: input.message,
+      entityType: "PdcaCase",
+      entityId: item.id,
+      link: this.pdcaLink(item.id),
+      metaJson: {
+        actorId: actor.id,
+        pdcaCaseId: item.id,
+        ...(input.metaJson || {}),
+      },
+    });
   }
 
   private toPositiveNumber(value: string | number | undefined, fallback: number) {
@@ -421,6 +461,16 @@ export class PdcaService {
       },
     });
 
+    await this.notifyPdcaUsers(user, item, {
+      title: "PDCA case assigned",
+      message: `${item.title} was created.`,
+      metaJson: {
+        action: "created",
+        phase: item.phase,
+        status: item.status,
+      },
+    });
+
     return item;
   }
 
@@ -526,6 +576,22 @@ export class PdcaService {
       });
     }
 
+    await this.notifyPdcaUsers(user, updated, {
+      title: "PDCA case updated",
+      message: `${updated.title} was updated.`,
+      metaJson: {
+        action: "updated",
+        previousPhase: existing.phase,
+        phase: updated.phase,
+        previousStatus: existing.status,
+        status: updated.status,
+        previousOwnerId: existing.ownerId,
+        ownerId: updated.ownerId,
+        previousAssignedToId: existing.assignedToId,
+        assignedToId: updated.assignedToId,
+      },
+    });
+
     return updated;
   }
 
@@ -564,6 +630,16 @@ export class PdcaService {
     await this.audit.log(user, "PDCA_LOG_CREATE", "PdcaCase", id, {
       phase: dto.phase || null,
       note,
+    });
+
+    await this.notifyPdcaUsers(user, item, {
+      title: "PDCA log added",
+      message: `A log was added to ${item.title}.`,
+      metaJson: {
+        action: "log_added",
+        logId: log.id,
+        phase: dto.phase || null,
+      },
     });
 
     return log;
@@ -605,6 +681,16 @@ export class PdcaService {
       to: phase,
     });
 
+    await this.notifyPdcaUsers(user, updated, {
+      title: "PDCA phase changed",
+      message: `${updated.title} moved to ${phase}.`,
+      metaJson: {
+        action: "phase_changed",
+        previousPhase: item.phase,
+        phase,
+      },
+    });
+
     return updated;
   }
 
@@ -640,6 +726,16 @@ export class PdcaService {
 
     await this.audit.log(user, "PDCA_CASE_CLOSE", "PdcaCase", id, {});
 
+    await this.notifyPdcaUsers(user, updated, {
+      title: "PDCA case closed",
+      message: `${updated.title} was closed.`,
+      metaJson: {
+        action: "closed",
+        previousStatus: item.status,
+        status: updated.status,
+      },
+    });
+
     return updated;
   }
 
@@ -669,6 +765,16 @@ export class PdcaService {
 
     await this.audit.log(user, "PDCA_CASE_CANCEL", "PdcaCase", id, {
       previousStatus: item.status,
+    });
+
+    await this.notifyPdcaUsers(user, updated, {
+      title: "PDCA case cancelled",
+      message: `${updated.title} was cancelled.`,
+      metaJson: {
+        action: "cancelled",
+        previousStatus: item.status,
+        status: updated.status,
+      },
     });
 
     return updated;

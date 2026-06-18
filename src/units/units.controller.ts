@@ -2,17 +2,22 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
+import { emailAttachmentUploadConfig } from "../common/upload.config";
 import { UnitsService } from "./units.service";
 
 type ProjectType =
@@ -48,8 +53,13 @@ export class UnitsController {
 
   @Get("reports/end-of-day")
   @Roles("ADMIN", "MANAGER", "AFTERSALES")
-  endOfDayReport(@Req() req: any, @Query("date") date?: string) {
-    return this.units.endOfDayReport(req.user, date);
+  endOfDayReport(
+    @Req() req: any,
+    @Query("date") date?: string,
+    @Query("dateFrom") dateFrom?: string,
+    @Query("dateTo") dateTo?: string,
+  ) {
+    return this.units.endOfDayReport(req.user, { date, dateFrom, dateTo });
   }
 
   @Get(":id")
@@ -60,6 +70,16 @@ export class UnitsController {
     }
 
     return this.units.getUnit(req.user, id.trim());
+  }
+
+  @Delete(":id")
+  @Roles("ADMIN")
+  remove(@Req() req: any, @Param("id") id: string) {
+    if (!id?.trim()) {
+      throw new BadRequestException("Unit id is required");
+    }
+
+    return this.units.deleteUnit(req.user, id.trim());
   }
 
   @Post(":id/communication-log")
@@ -78,16 +98,18 @@ export class UnitsController {
 
   @Post(":id/send-email")
   @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER", "AFTERSALES")
+  @UseInterceptors(FileInterceptor("file", emailAttachmentUploadConfig))
   sendEmail(
     @Req() req: any,
     @Param("id") id: string,
     @Body() body: { subject?: string | null; message?: string | null },
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     if (!id?.trim()) {
       throw new BadRequestException("Unit id is required");
     }
 
-    return this.units.sendUnitEmail(req.user, id.trim(), body);
+    return this.units.sendUnitEmail(req.user, id.trim(), body, file);
   }
 
   @Patch(":id")
