@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { EmailService } from "../email/email.service";
@@ -29,6 +30,33 @@ type WaterAccessStatus = "UNKNOWN" | "ON" | "OFF";
 type RentalPackage = "FULL_FURNISHED" | "NOT_INTERESTED" | "CUSTOM";
 type RentalStatus = "SHORT_TERM" | "LONG_TERM" | "DND_UNITS" | "NOT_INTERESTED";
 type CommunicationType = "EMAIL" | "WHATSAPP";
+type AidatBillingType = "MONTHLY" | "ANNUAL";
+
+type AidatSettingsDto = {
+  monthlyAmount?: number | string | null;
+  currency?: string | null;
+  annualDiscountPercent?: number | string | null;
+};
+
+type AidatRatePeriodDto = AidatSettingsDto & {
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+};
+
+type AidatGenerateDto = {
+  year?: number | string | null;
+  month?: number | string | null;
+};
+
+type AidatPaymentUpdateDto = {
+  status?: string | null;
+  note?: string | null;
+};
+
+type AidatAnnualPaymentDto = {
+  year?: number | string | null;
+  note?: string | null;
+};
 
 const EMAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 const EMAIL_ATTACHMENT_MIME_TYPES = new Set([
@@ -65,6 +93,8 @@ const unitNumberCollator = new Intl.Collator("en", {
   numeric: true,
   sensitivity: "base",
 });
+const DND_COMPANY_CUSTOMER_ID = "dnd-company-owner";
+const DND_COMPANY_CUSTOMER_CODE = "DND_COMPANY_OWNER";
 
 const UNIT_CHANGE_META = {
   deliveryStatus: { section: "UNIT_INFORMATION" },
@@ -73,6 +103,8 @@ const UNIT_CHANGE_META = {
   unitComplaint: { section: "UNIT_INFORMATION" },
   isCanceled: { section: "ADMIN" },
   cancelReason: { section: "ADMIN" },
+  customerId: { section: "ADMIN" },
+  previousCustomerId: { section: "ADMIN" },
   kdvStatus: { section: "ACCOUNTING" },
   trafoStatus: { section: "ACCOUNTING" },
   installments: { section: "ACCOUNTING" },
@@ -126,6 +158,259 @@ export class UnitsService {
   private cleanStr(v?: string | null) {
     const x = (v ?? "").trim();
     return x || null;
+  }
+
+  private roundMoney(value: number) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private normalizeAidatAmount(value: unknown, field = "Aidat amount") {
+    const amount =
+      value === null || value === undefined || value === ""
+        ? null
+        : Number(value);
+
+    if (amount === null || !Number.isFinite(amount) || amount < 0) {
+      throw new BadRequestException(`${field} is invalid`);
+    }
+
+    return this.roundMoney(amount);
+  }
+
+  private normalizeAidatDiscount(value: unknown) {
+    const discount =
+      value === null || value === undefined || value === "" ? 10 : Number(value);
+
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      throw new BadRequestException("Annual discount must be between 0 and 100");
+    }
+
+    return this.roundMoney(discount);
+  }
+
+  private normalizeCurrency(value?: string | null) {
+    const currency = String(value || "GBP").trim().toUpperCase();
+
+    if (!/^[A-Z]{3,8}$/.test(currency)) {
+      throw new BadRequestException("Invalid currency");
+    }
+
+    return currency;
+  }
+
+  private normalizeAidatDate(value?: string | null, field = "Date") {
+    const date = this.cleanStr(value);
+    if (!date) return null;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException(`${field} must be YYYY-MM-DD`);
+    }
+
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`Invalid ${field.toLowerCase()}`);
+    }
+
+    return parsed;
+  }
+
+  private normalizeAidatYearMonth(year?: unknown, month?: unknown) {
+    const now = new Date();
+    const normalizedYear =
+      year === null || year === undefined || year === ""
+        ? now.getUTCFullYear()
+        : Number(year);
+    const normalizedMonth =
+      month === null || month === undefined || month === ""
+        ? now.getUTCMonth() + 1
+        : Number(month);
+
+    if (
+      !Number.isInteger(normalizedYear) ||
+      normalizedYear < 2020 ||
+      normalizedYear > 2100
+    ) {
+      throw new BadRequestException("Invalid aidat year");
+    }
+
+    if (
+      !Number.isInteger(normalizedMonth) ||
+      normalizedMonth < 1 ||
+      normalizedMonth > 12
+    ) {
+      throw new BadRequestException("Invalid aidat month");
+    }
+
+    return { year: normalizedYear, month: normalizedMonth };
+  }
+
+  private normalizeAidatYear(year?: unknown) {
+    const normalized =
+      year === null || year === undefined || year === ""
+        ? new Date().getUTCFullYear()
+        : Number(year);
+
+    if (!Number.isInteger(normalized) || normalized < 2020 || normalized > 2100) {
+      throw new BadRequestException("Invalid aidat year");
+    }
+
+    return normalized;
+  }
+
+  private aidatPeriodKey(year: number, month: number) {
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }
+
+  private aidatMonthStart(year: number, month: number) {
+    return new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  }
+
+  private aidatTitle(year: number, month: number) {
+    return `Aidat ${this.aidatPeriodKey(year, month)}`;
+  }
+
+  private async getAidatSettingsRow(client: any = this.prisma) {
+    return client.aidatSettings.upsert({
+      where: { id: "default" },
+      update: {},
+      create: {
+        id: "default",
+        monthlyAmount: 0,
+        currency: "GBP",
+        annualDiscountPercent: 10,
+      },
+    });
+  }
+
+  private async ensureDndCompanyCustomer(client: any = this.prisma) {
+    return client.customer.upsert({
+      where: { oldCustomerCode: DND_COMPANY_CUSTOMER_CODE },
+      update: {
+        fullName: "DND Cyprus",
+        companyName: "DND Cyprus",
+        type: "EXISTING",
+        notesSummary: "System customer used as the owner of canceled units.",
+      },
+      create: {
+        id: DND_COMPANY_CUSTOMER_ID,
+        fullName: "DND Cyprus",
+        companyName: "DND Cyprus",
+        source: "SYSTEM",
+        type: "EXISTING",
+        notesSummary: "System customer used as the owner of canceled units.",
+        oldCustomerCode: DND_COMPANY_CUSTOMER_CODE,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        companyName: true,
+      },
+    });
+  }
+
+  private async getAidatRateForDate(date: Date, client: any = this.prisma) {
+    const period = await client.aidatRatePeriod.findFirst({
+      where: {
+        effectiveFrom: { lte: date },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: date } }],
+      },
+      orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (period) {
+      return {
+        monthlyAmount: Number(period.monthlyAmount || 0),
+        currency: period.currency,
+        annualDiscountPercent: Number(period.annualDiscountPercent ?? 10),
+      };
+    }
+
+    const settings = await this.getAidatSettingsRow(client);
+    return {
+      monthlyAmount: Number(settings.monthlyAmount || 0),
+      currency: settings.currency,
+      annualDiscountPercent: Number(settings.annualDiscountPercent ?? 10),
+    };
+  }
+
+  private async generateAidatPaymentsForPeriod(
+    user: ReqUser | null,
+    year: number,
+    month: number,
+    client: any = this.prisma,
+  ) {
+    const dueDate = this.aidatMonthStart(year, month);
+    const periodKey = this.aidatPeriodKey(year, month);
+    const rate = await this.getAidatRateForDate(dueDate, client);
+    const amount = this.roundMoney(Number(rate.monthlyAmount || 0));
+    const currency = this.normalizeCurrency(rate.currency);
+
+    if (amount <= 0) {
+      return {
+        periodKey,
+        created: 0,
+        skipped: 0,
+        amount,
+        currency,
+        reason: "Aidat monthly amount is not set",
+      };
+    }
+
+    const units = await client.customerUnitSelection.findMany({
+      where: {
+        isCanceled: false,
+        customer: { is: { type: "EXISTING" } },
+      },
+      select: { id: true },
+      take: 10000,
+    });
+
+    if (units.length === 0) {
+      return { periodKey, created: 0, skipped: 0, amount, currency };
+    }
+
+    const now = new Date();
+    const result = await client.unitAidatPayment.createMany({
+      data: units.map((unit: { id: string }) => ({
+        id: randomUUID(),
+        unitSelectionId: unit.id,
+        year,
+        month,
+        periodKey,
+        title: this.aidatTitle(year, month),
+        amount,
+        originalAmount: null,
+        currency,
+        status: "UNPAID",
+        billingType: "MONTHLY" satisfies AidatBillingType,
+        discountPercent: null,
+        dueDate,
+        paidAt: null,
+        paidById: null,
+        note: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      skipDuplicates: true,
+    });
+
+    return {
+      periodKey,
+      created: result.count,
+      skipped: Math.max(units.length - result.count, 0),
+      amount,
+      currency,
+    };
+  }
+
+  private async ensureCurrentMonthAidatPayments() {
+    const now = new Date();
+    const { year, month } = this.normalizeAidatYearMonth(
+      now.getUTCFullYear(),
+      now.getUTCMonth() + 1,
+    );
+
+    return this.generateAidatPaymentsForPeriod(null, year, month);
   }
 
   private normalizeProject(v?: string | null): ProjectType | null {
@@ -386,6 +671,9 @@ export class UnitsService {
 
   private unitInclude() {
     return {
+      aidatPayments: {
+        orderBy: [{ year: "desc" as const }, { month: "desc" as const }],
+      },
       customer: {
         select: {
           id: true,
@@ -408,6 +696,17 @@ export class UnitsService {
           presentations: {
             select: { assignedSalesId: true },
           },
+        },
+      },
+      previousCustomer: {
+        select: {
+          id: true,
+          fullName: true,
+          companyName: true,
+          phone: true,
+          email: true,
+          oldCustomerCode: true,
+          oldCariCodes: true,
         },
       },
     };
@@ -632,6 +931,8 @@ export class UnitsService {
   }
 
   async listUnits(user: ReqUser, query: UnitListQuery = {}) {
+    await this.ensureCurrentMonthAidatPayments();
+
     const where = this.buildListWhere(user, query);
 
     const items = await this.prisma.customerUnitSelection.findMany({
@@ -655,6 +956,8 @@ export class UnitsService {
   }
 
   async getUnit(user: ReqUser, id: string) {
+    await this.ensureCurrentMonthAidatPayments();
+
     const unit = await this.prisma.customerUnitSelection.findUnique({
       where: { id },
       include: this.unitDetailInclude(this.unitLogVisibility(user)),
@@ -686,6 +989,303 @@ export class UnitsService {
     });
 
     return { ok: true, id };
+  }
+
+  async getAidatSettings(user: ReqUser) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat settings");
+    }
+
+    const settings = await this.getAidatSettingsRow();
+    const rates = await this.prisma.aidatRatePeriod.findMany({
+      orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
+      take: 100,
+    });
+
+    return { settings, rates };
+  }
+
+  async updateAidatSettings(user: ReqUser, dto: AidatSettingsDto) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat settings");
+    }
+
+    const data: any = { updatedById: user.id };
+
+    if (dto.monthlyAmount !== undefined) {
+      data.monthlyAmount = this.normalizeAidatAmount(dto.monthlyAmount);
+    }
+
+    if (dto.currency !== undefined) {
+      data.currency = this.normalizeCurrency(dto.currency);
+    }
+
+    if (dto.annualDiscountPercent !== undefined) {
+      data.annualDiscountPercent = this.normalizeAidatDiscount(
+        dto.annualDiscountPercent,
+      );
+    }
+
+    await this.prisma.aidatSettings.upsert({
+      where: { id: "default" },
+      update: data,
+      create: {
+        id: "default",
+        monthlyAmount: data.monthlyAmount ?? 0,
+        currency: data.currency ?? "GBP",
+        annualDiscountPercent: data.annualDiscountPercent ?? 10,
+        updatedById: user.id,
+      },
+    });
+
+    return this.getAidatSettings(user);
+  }
+
+  async createAidatRatePeriod(user: ReqUser, dto: AidatRatePeriodDto) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat settings");
+    }
+
+    const effectiveFrom = this.normalizeAidatDate(
+      dto.effectiveFrom,
+      "Effective from",
+    );
+    const effectiveTo = this.normalizeAidatDate(dto.effectiveTo, "Effective to");
+
+    if (!effectiveFrom) {
+      throw new BadRequestException("Effective from is required");
+    }
+
+    if (effectiveTo && effectiveTo < effectiveFrom) {
+      throw new BadRequestException("Effective to cannot be before effective from");
+    }
+
+    const settings = await this.getAidatSettingsRow();
+
+    await this.prisma.aidatRatePeriod.create({
+      data: {
+        monthlyAmount:
+          dto.monthlyAmount !== undefined
+            ? this.normalizeAidatAmount(dto.monthlyAmount)
+            : settings.monthlyAmount,
+        currency:
+          dto.currency !== undefined
+            ? this.normalizeCurrency(dto.currency)
+            : settings.currency,
+        annualDiscountPercent:
+          dto.annualDiscountPercent !== undefined
+            ? this.normalizeAidatDiscount(dto.annualDiscountPercent)
+            : settings.annualDiscountPercent,
+        effectiveFrom,
+        effectiveTo,
+        createdById: user.id,
+      },
+    });
+
+    return this.getAidatSettings(user);
+  }
+
+  async generateAidatPayments(user: ReqUser, dto: AidatGenerateDto) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat generation");
+    }
+
+    const { year, month } = this.normalizeAidatYearMonth(dto.year, dto.month);
+    return this.generateAidatPaymentsForPeriod(user, year, month);
+  }
+
+  async updateAidatPayment(
+    user: ReqUser,
+    id: string,
+    paymentId: string,
+    dto: AidatPaymentUpdateDto,
+  ) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat payments");
+    }
+
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      include: this.unitInclude(),
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    if (!this.canAccessUnit(user, unit)) {
+      throw new ForbiddenException("No access to update unit");
+    }
+
+    const payment = await this.prisma.unitAidatPayment.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment || payment.unitSelectionId !== id) {
+      throw new NotFoundException("Aidat payment not found");
+    }
+
+    const nextStatus =
+      dto.status !== undefined
+        ? this.normalizePaymentStatus(dto.status)
+        : (payment.status as PaymentStatus);
+    const nextNote =
+      dto.note !== undefined ? this.cleanStr(dto.note) : payment.note;
+
+    const oldValue = `${payment.periodKey}: ${payment.status} ${payment.amount} ${payment.currency}${
+      payment.note ? ` / ${payment.note}` : ""
+    }`;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.unitAidatPayment.update({
+        where: { id: paymentId },
+        data: {
+          status: nextStatus,
+          note: nextNote,
+          paidAt: nextStatus === "PAID" ? payment.paidAt || new Date() : null,
+          paidById: nextStatus === "PAID" ? user.id : null,
+        },
+      });
+
+      const newValue = `${row.periodKey}: ${row.status} ${row.amount} ${row.currency}${
+        row.note ? ` / ${row.note}` : ""
+      }`;
+
+      if (oldValue !== newValue) {
+        await tx.customerUnitSelectionLog.create({
+          data: {
+            unitSelectionId: id,
+            section: "ACCOUNTING",
+            field: "aidatPayment",
+            oldValue,
+            newValue,
+            createdById: user.id,
+          },
+        });
+      }
+
+      return tx.customerUnitSelection.findUnique({
+        where: { id },
+        include: this.unitDetailInclude(this.unitLogVisibility(user)),
+      });
+    });
+
+    return updated;
+  }
+
+  async payAnnualAidat(
+    user: ReqUser,
+    id: string,
+    dto: AidatAnnualPaymentDto,
+  ) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+      throw new ForbiddenException("No access to aidat payments");
+    }
+
+    const unit = await this.prisma.customerUnitSelection.findUnique({
+      where: { id },
+      include: this.unitInclude(),
+    });
+
+    if (!unit) throw new NotFoundException("Unit not found");
+
+    if (!this.canAccessUnit(user, unit)) {
+      throw new ForbiddenException("No access to update unit");
+    }
+
+    const year = this.normalizeAidatYear(dto.year);
+    const note = this.cleanStr(dto.note);
+    const paidAt = new Date();
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      let paidMonths = 0;
+      let totalOriginal = 0;
+      let totalDiscounted = 0;
+      let currency = "";
+
+      for (let month = 1; month <= 12; month += 1) {
+        const dueDate = this.aidatMonthStart(year, month);
+        const periodKey = this.aidatPeriodKey(year, month);
+        const rate = await this.getAidatRateForDate(dueDate, tx);
+        const originalAmount = this.roundMoney(Number(rate.monthlyAmount || 0));
+
+        if (originalAmount <= 0) continue;
+
+        const discountPercent = this.normalizeAidatDiscount(
+          rate.annualDiscountPercent,
+        );
+        const amount = this.roundMoney(
+          originalAmount * (1 - discountPercent / 100),
+        );
+        const rowCurrency = this.normalizeCurrency(rate.currency);
+        currency = currency || rowCurrency;
+        totalOriginal += originalAmount;
+        totalDiscounted += amount;
+        paidMonths += 1;
+
+        await tx.unitAidatPayment.upsert({
+          where: {
+            unitSelectionId_periodKey: {
+              unitSelectionId: id,
+              periodKey,
+            },
+          },
+          update: {
+            title: this.aidatTitle(year, month),
+            amount,
+            originalAmount,
+            currency: rowCurrency,
+            status: "PAID",
+            billingType: "ANNUAL" satisfies AidatBillingType,
+            discountPercent,
+            dueDate,
+            paidAt,
+            paidById: user.id,
+            note,
+          },
+          create: {
+            id: randomUUID(),
+            unitSelectionId: id,
+            year,
+            month,
+            periodKey,
+            title: this.aidatTitle(year, month),
+            amount,
+            originalAmount,
+            currency: rowCurrency,
+            status: "PAID",
+            billingType: "ANNUAL" satisfies AidatBillingType,
+            discountPercent,
+            dueDate,
+            paidAt,
+            paidById: user.id,
+            note,
+          },
+        });
+      }
+
+      if (paidMonths === 0) {
+        throw new BadRequestException("Aidat amount is not set for this year");
+      }
+
+      await tx.customerUnitSelectionLog.create({
+        data: {
+          unitSelectionId: id,
+          section: "ACCOUNTING",
+          field: "aidatAnnualPayment",
+          oldValue: null,
+          newValue: `${year}: ${paidMonths} months paid annually. Original ${this.roundMoney(
+            totalOriginal,
+          )} ${currency}, discounted ${this.roundMoney(totalDiscounted)} ${currency}.`,
+          createdById: user.id,
+        },
+      });
+
+      return tx.customerUnitSelection.findUnique({
+        where: { id },
+        include: this.unitDetailInclude(this.unitLogVisibility(user)),
+      });
+    });
+
+    return updated;
   }
 
   async endOfDayReport(
@@ -903,6 +1503,51 @@ export class UnitsService {
       data.cancelReason = this.cleanStr(dto.cancelReason);
       data.canceledAt = nextCanceled ? unit.canceledAt || new Date() : null;
       data.canceledById = nextCanceled ? user.id : null;
+      if (nextCanceled) {
+        const dndCustomer = await this.ensureDndCompanyCustomer();
+
+        if (unit.customerId !== dndCustomer.id) {
+          const existingDndUnit =
+            await this.prisma.customerUnitSelection.findFirst({
+              where: {
+                id: { not: id },
+                customerId: dndCustomer.id,
+                project: unit.project,
+                unitNumber: unit.unitNumber,
+              },
+              select: { id: true },
+            });
+
+          if (existingDndUnit) {
+            throw new BadRequestException(
+              "DND already owns this project and unit number",
+            );
+          }
+
+          data.previousCustomerId = unit.previousCustomerId || unit.customerId;
+          data.customerId = dndCustomer.id;
+        }
+      } else if (unit.previousCustomerId) {
+        const existingPreviousOwnerUnit =
+          await this.prisma.customerUnitSelection.findFirst({
+            where: {
+              id: { not: id },
+              customerId: unit.previousCustomerId,
+              project: unit.project,
+              unitNumber: unit.unitNumber,
+            },
+            select: { id: true },
+          });
+
+        if (existingPreviousOwnerUnit) {
+          throw new BadRequestException(
+            "Previous owner already has this project and unit number",
+          );
+        }
+
+        data.customerId = unit.previousCustomerId;
+        data.previousCustomerId = null;
+      }
     }
 
     if (dto.kdvStatus !== undefined) {

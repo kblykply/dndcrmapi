@@ -28,7 +28,7 @@ export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
   @Get()
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   list(
     @Req() req: any,
     @Query("q") q?: string,
@@ -43,19 +43,19 @@ export class CustomersController {
   }
 
   @Get("reports/nationalities")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   nationalityReport(@Req() req: any) {
     return this.customers.getNationalityReport(req.user);
   }
 
   @Get("reports/demographics")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   demographicsReport(@Req() req: any) {
     return this.customers.getDemographicsReport(req.user);
   }
 
   @Get(":id")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   getOne(@Req() req: any, @Param("id") id: string) {
     if (!id?.trim()) {
       throw new BadRequestException("Customer id is required");
@@ -228,7 +228,7 @@ export class CustomersController {
   }
 
   @Get(":id/documents/:documentId/url")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   getDocumentUrl(
     @Req() req: any,
     @Param("id") id: string,

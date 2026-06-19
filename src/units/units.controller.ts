@@ -28,6 +28,11 @@ type ProjectType =
 
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 type UnitCompanyStatus = "UNKNOWN" | "DND" | "OTHER";
+type AidatSettingsBody = {
+  monthlyAmount?: number | string | null;
+  currency?: string | null;
+  annualDiscountPercent?: number | string | null;
+};
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("units")
@@ -60,6 +65,40 @@ export class UnitsController {
     @Query("dateTo") dateTo?: string,
   ) {
     return this.units.endOfDayReport(req.user, { date, dateFrom, dateTo });
+  }
+
+  @Get("aidat/settings")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  aidatSettings(@Req() req: any) {
+    return this.units.getAidatSettings(req.user);
+  }
+
+  @Patch("aidat/settings")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  updateAidatSettings(@Req() req: any, @Body() body: AidatSettingsBody) {
+    return this.units.updateAidatSettings(req.user, body);
+  }
+
+  @Post("aidat/rates")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  createAidatRate(
+    @Req() req: any,
+    @Body()
+    body: AidatSettingsBody & {
+      effectiveFrom?: string | null;
+      effectiveTo?: string | null;
+    },
+  ) {
+    return this.units.createAidatRatePeriod(req.user, body);
+  }
+
+  @Post("aidat/generate")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  generateAidat(
+    @Req() req: any,
+    @Body() body: { year?: number | string | null; month?: number | string | null },
+  ) {
+    return this.units.generateAidatPayments(req.user, body);
   }
 
   @Get(":id")
@@ -110,6 +149,44 @@ export class UnitsController {
     }
 
     return this.units.sendUnitEmail(req.user, id.trim(), body, file);
+  }
+
+  @Patch(":id/aidat/:paymentId")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  updateAidatPayment(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Param("paymentId") paymentId: string,
+    @Body() body: { status?: string | null; note?: string | null },
+  ) {
+    if (!id?.trim()) {
+      throw new BadRequestException("Unit id is required");
+    }
+
+    if (!paymentId?.trim()) {
+      throw new BadRequestException("Aidat payment id is required");
+    }
+
+    return this.units.updateAidatPayment(
+      req.user,
+      id.trim(),
+      paymentId.trim(),
+      body,
+    );
+  }
+
+  @Post(":id/aidat/pay-annual")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  payAnnualAidat(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { year?: number | string | null; note?: string | null },
+  ) {
+    if (!id?.trim()) {
+      throw new BadRequestException("Unit id is required");
+    }
+
+    return this.units.payAnnualAidat(req.user, id.trim(), body);
   }
 
   @Patch(":id")

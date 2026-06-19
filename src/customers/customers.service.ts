@@ -52,8 +52,16 @@ export class CustomersService {
     return user.role === "SALES";
   }
 
+  private isAftersales(user: ReqUser) {
+    return user.role === "AFTERSALES";
+  }
+
   private isCrmUser(user: ReqUser) {
-    return ["ADMIN", "MANAGER", "SALES"].includes(user.role);
+    return ["ADMIN", "MANAGER", "SALES", "AFTERSALES"].includes(user.role);
+  }
+
+  private canSeeAllCustomers(user: ReqUser) {
+    return this.isAdmin(user) || this.isAftersales(user);
   }
 
   private cleanStr(v?: string | null) {
@@ -299,7 +307,7 @@ export class CustomersService {
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
-    if (this.isAdmin(user)) return true;
+    if (this.canSeeAllCustomers(user)) return true;
     if (this.isManager(user) || this.isSales(user)) return this.ownsCustomer(user, customer);
     return false;
   }
@@ -311,6 +319,7 @@ export class CustomersService {
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
+    if (this.isAftersales(user)) return false;
     return this.canSeeCustomer(user, customer);
   }
 
@@ -390,7 +399,7 @@ export class CustomersService {
       where.agencyId = agencyId;
     }
 
-    if (this.isAdmin(user)) {
+    if (this.canSeeAllCustomers(user)) {
       if (ownerId) where.ownerId = ownerId;
     } else {
       where.OR = [
@@ -446,6 +455,10 @@ export class CustomersService {
 
     if (this.isAdmin(user)) {
       return customers.map((customer) => this.withAccessFlags(customer, true));
+    }
+
+    if (this.isAftersales(user)) {
+      return customers.map((customer) => this.withAccessFlags(customer, false));
     }
 
     return customers.map((customer) =>
@@ -1094,6 +1107,10 @@ export class CustomersService {
       return this.withAccessFlags(customer, true);
     }
 
+    if (this.isAftersales(user)) {
+      return this.withAccessFlags(customer, false);
+    }
+
     if (this.isManager(user) || this.isSales(user)) {
       const canSeeContact = this.ownsCustomer(user, customer);
 
@@ -1114,7 +1131,7 @@ export class CustomersService {
 
     const where: any = {};
 
-    if (!this.isAdmin(user)) {
+    if (!this.canSeeAllCustomers(user)) {
       where.OR = [
         { ownerId: user.id },
         { presentations: { some: { assignedSalesId: user.id } } },
@@ -1220,7 +1237,7 @@ export class CustomersService {
 
     const where: any = {};
 
-    if (!this.isAdmin(user)) {
+    if (!this.canSeeAllCustomers(user)) {
       where.OR = [
         { ownerId: user.id },
         { presentations: { some: { assignedSalesId: user.id } } },
