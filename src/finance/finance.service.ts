@@ -7,6 +7,7 @@ type ReqUser = { id: string; role: Role; email: string };
 const KINDS = ["INCOME", "EXPENSE"] as const;
 const PAYMENT_TYPES = [
   "SALE_INSTALLMENT",
+  "RENTAL_INCOME",
   "CREDIT_INSTALLMENT",
   "CHECK_PAYMENT",
   "REALTOR_COMMISSION",

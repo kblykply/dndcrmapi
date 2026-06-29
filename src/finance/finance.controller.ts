@@ -19,6 +19,7 @@ import { FinanceService } from "./finance.service";
 type FinanceEntryKind = "INCOME" | "EXPENSE";
 type FinancePaymentType =
   | "SALE_INSTALLMENT"
+  | "RENTAL_INCOME"
   | "CREDIT_INSTALLMENT"
   | "CHECK_PAYMENT"
   | "REALTOR_COMMISSION"
