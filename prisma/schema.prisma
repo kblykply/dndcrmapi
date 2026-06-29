@@ -530,17 +530,15 @@ model CustomerUnitSelection {
 
   kdvStatus           String  @default("UNPAID")
   trafoStatus         String  @default("UNPAID")
-  installments        Json?
   electricityProvider String  @default("UNKNOWN")
   waterAccessStatus   String  @default("UNKNOWN")
   rentalPackage       String  @default("NOT_INTERESTED")
   customFurniture     String?
   rentalStatus        String  @default("NOT_INTERESTED")
 
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
-  logs          CustomerUnitSelectionLog[]
-  aidatPayments UnitAidatPayment[]
+  createdAt DateTime                   @default(now())
+  updatedAt DateTime                   @updatedAt
+  logs      CustomerUnitSelectionLog[]
 
   @@unique([customerId, project, unitNumber])
   @@index([customerId])
@@ -550,58 +548,6 @@ model CustomerUnitSelection {
   @@index([companyStatus])
   @@index([isCanceled])
   @@index([rentalStatus])
-}
-
-model AidatSettings {
-  id                    String   @id @default("default")
-  monthlyAmount         Float    @default(0)
-  currency              String   @default("GBP")
-  annualDiscountPercent Float    @default(10)
-  updatedById           String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-}
-
-model AidatRatePeriod {
-  id                    String    @id @default(cuid())
-  monthlyAmount         Float
-  currency              String
-  annualDiscountPercent Float     @default(10)
-  effectiveFrom         DateTime
-  effectiveTo           DateTime?
-  createdById           String?
-  createdAt             DateTime  @default(now())
-
-  @@index([effectiveFrom, effectiveTo])
-}
-
-model UnitAidatPayment {
-  id              String                @id @default(cuid())
-  unitSelectionId String
-  unitSelection   CustomerUnitSelection @relation(fields: [unitSelectionId], references: [id], onDelete: Cascade)
-
-  year            Int
-  month           Int
-  periodKey       String
-  title           String
-  amount          Float
-  originalAmount  Float?
-  currency        String
-  status          String    @default("UNPAID")
-  billingType     String    @default("MONTHLY")
-  discountPercent Float?
-  dueDate         DateTime
-  paidAt          DateTime?
-  paidById        String?
-  note            String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([unitSelectionId, periodKey])
-  @@index([periodKey, status])
-  @@index([dueDate, status])
-  @@index([unitSelectionId, year, month])
 }
 
 model CustomerUnitSelectionLog {
