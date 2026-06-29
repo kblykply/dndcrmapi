@@ -651,8 +651,32 @@ export class FinanceService {
       overdue: 0,
       flexibleExpenses: 0,
     };
+    const maxDeferralTotals = {
+      income: 0,
+      expense: 0,
+      net: 0,
+      profitRate: 0,
+    };
     const byPaymentType = new Map<string, { income: number; expense: number; count: number }>();
+    const byStatus = new Map<string, { income: number; expense: number; count: number }>();
+    const byCurrency = new Map<string, { income: number; expense: number; count: number }>();
+    const byProject = new Map<string, { income: number; expense: number; count: number }>();
     const byMonth = new Map<string, { income: number; expense: number; net: number }>();
+    const byPeriod = new Map<string, { income: number; expense: number; net: number }>();
+    const today = startOfDay(new Date());
+    const sevenDays = addDays(today, 7);
+    const thirtyDays = addDays(today, 30);
+    const dueBuckets = {
+      overdue: { income: 0, expense: 0, count: 0 },
+      next7: { income: 0, expense: 0, count: 0 },
+      next30: { income: 0, expense: 0, count: 0 },
+      later: { income: 0, expense: 0, count: 0 },
+    };
+    const rangeDays = Math.max(
+      1,
+      Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)),
+    );
+    const periodMode = rangeDays <= 45 ? "DAY" : "MONTH";
 
     const serialized = entries.map((entry: any) => {
       const baseAmount = this.entryBaseAmount(entry, rates, baseCurrency);
@@ -665,11 +689,43 @@ export class FinanceService {
         totals.flexibleExpenses += baseAmount;
       }
 
+      const maxDueDate =
+        entry.kind === "EXPENSE" && (entry.dueOptions || []).length > 0
+          ? (entry.dueOptions || []).reduce(
+              (latest: Date, option: any) =>
+                option.dueDate && option.dueDate > latest ? option.dueDate : latest,
+              entry.plannedDueDate,
+            )
+          : entry.plannedDueDate;
+      if (maxDueDate >= start && maxDueDate <= end) {
+        if (entry.kind === "INCOME") maxDeferralTotals.income += baseAmount;
+        if (entry.kind === "EXPENSE") maxDeferralTotals.expense += baseAmount;
+      }
+
       const typeRow = byPaymentType.get(entry.paymentType) || { income: 0, expense: 0, count: 0 };
       if (entry.kind === "INCOME") typeRow.income += baseAmount;
       if (entry.kind === "EXPENSE") typeRow.expense += baseAmount;
       typeRow.count += 1;
       byPaymentType.set(entry.paymentType, typeRow);
+
+      const statusRow = byStatus.get(entry.status) || { income: 0, expense: 0, count: 0 };
+      if (entry.kind === "INCOME") statusRow.income += baseAmount;
+      if (entry.kind === "EXPENSE") statusRow.expense += baseAmount;
+      statusRow.count += 1;
+      byStatus.set(entry.status, statusRow);
+
+      const currencyRow = byCurrency.get(entry.currency) || { income: 0, expense: 0, count: 0 };
+      if (entry.kind === "INCOME") currencyRow.income += Number(entry.amount || 0);
+      if (entry.kind === "EXPENSE") currencyRow.expense += Number(entry.amount || 0);
+      currencyRow.count += 1;
+      byCurrency.set(entry.currency, currencyRow);
+
+      const projectKey = entry.project || entry.unitSelection?.project || "UNSELECTED";
+      const projectRow = byProject.get(projectKey) || { income: 0, expense: 0, count: 0 };
+      if (entry.kind === "INCOME") projectRow.income += baseAmount;
+      if (entry.kind === "EXPENSE") projectRow.expense += baseAmount;
+      projectRow.count += 1;
+      byProject.set(projectKey, projectRow);
 
       const monthKey = entry.plannedDueDate.toISOString().slice(0, 7);
       const monthRow = byMonth.get(monthKey) || { income: 0, expense: 0, net: 0 };
@@ -678,25 +734,89 @@ export class FinanceService {
       monthRow.net = monthRow.income - monthRow.expense;
       byMonth.set(monthKey, monthRow);
 
-      return { ...this.serializeEntry(entry), baseAmount };
+      const periodKey =
+        periodMode === "DAY"
+          ? entry.plannedDueDate.toISOString().slice(0, 10)
+          : monthKey;
+      const periodRow = byPeriod.get(periodKey) || { income: 0, expense: 0, net: 0 };
+      if (entry.kind === "INCOME") periodRow.income += baseAmount;
+      if (entry.kind === "EXPENSE") periodRow.expense += baseAmount;
+      periodRow.net = periodRow.income - periodRow.expense;
+      byPeriod.set(periodKey, periodRow);
+
+      const dueBucket =
+        entry.plannedDueDate < today
+          ? dueBuckets.overdue
+          : entry.plannedDueDate <= sevenDays
+            ? dueBuckets.next7
+            : entry.plannedDueDate <= thirtyDays
+              ? dueBuckets.next30
+              : dueBuckets.later;
+      if (entry.kind === "INCOME") dueBucket.income += baseAmount;
+      if (entry.kind === "EXPENSE") dueBucket.expense += baseAmount;
+      dueBucket.count += 1;
+
+      return { ...this.serializeEntry(entry), baseAmount, maxDeferralDueDate: maxDueDate };
     });
 
     totals.net = totals.income - totals.expense;
     totals.profitRate = totals.income > 0 ? (totals.net / totals.income) * 100 : 0;
+    maxDeferralTotals.net = maxDeferralTotals.income - maxDeferralTotals.expense;
+    maxDeferralTotals.profitRate =
+      maxDeferralTotals.income > 0
+        ? (maxDeferralTotals.net / maxDeferralTotals.income) * 100
+        : 0;
+
+    let cumulativeNet = 0;
+    const periodRows = [...byPeriod.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([period, value]) => {
+        cumulativeNet += value.net;
+        return { period, ...value, cumulativeNet };
+      });
 
     return {
       range: { dateFrom: start, dateTo: end, baseCurrency },
       totals,
-      entries: serialized.slice(0, 30),
+      scenarios: {
+        current: totals,
+        maxDeferral: maxDeferralTotals,
+      },
+      dueBuckets,
+      entries: serialized.slice(0, 120),
       byPaymentType: [...byPaymentType.entries()].map(([paymentType, value]) => ({
         paymentType,
         ...value,
         net: value.income - value.expense,
       })),
+      byStatus: [...byStatus.entries()].map(([status, value]) => ({
+        status,
+        ...value,
+        net: value.income - value.expense,
+      })),
+      byCurrency: [...byCurrency.entries()].map(([currency, value]) => ({
+        currency,
+        ...value,
+        net: value.income - value.expense,
+      })),
+      byProject: [...byProject.entries()].map(([project, value]) => ({
+        project,
+        ...value,
+        net: value.income - value.expense,
+      })),
       byMonth: [...byMonth.entries()].map(([month, value]) => ({ month, ...value })),
+      byPeriod: periodRows,
       flexibleEntries: serialized
         .filter((entry: any) => entry.kind === "EXPENSE" && entry.dueOptions.length > 1)
         .slice(0, 20),
+      upcomingIncome: serialized
+        .filter((entry: any) => entry.kind === "INCOME")
+        .sort((a: any, b: any) => b.baseAmount - a.baseAmount)
+        .slice(0, 10),
+      upcomingExpenses: serialized
+        .filter((entry: any) => entry.kind === "EXPENSE")
+        .sort((a: any, b: any) => b.baseAmount - a.baseAmount)
+        .slice(0, 10),
     };
   }
 
