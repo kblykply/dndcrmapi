@@ -35,6 +35,7 @@ enum Role {
   SALES
   ADMIN
   AFTERSALES
+  ACCOUNTING
 }
 
 enum LeadStatus {
@@ -128,6 +129,10 @@ model User {
   crmTasksCreated        CrmTask[]                  @relation("CrmTaskCreatedBy")
   unitSelectionLogs      CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
   canceledUnitSelections CustomerUnitSelection[]    @relation("UnitCanceledBy")
+  financeEntriesCreated  FinanceEntry[]             @relation("FinanceEntryCreatedBy")
+  financeEntriesUpdated  FinanceEntry[]             @relation("FinanceEntryUpdatedBy")
+  financeLogsAuthored    FinanceEntryLog[]          @relation("FinanceEntryLogAuthor")
+  financeRatesCreated    FinanceExchangeRate[]      @relation("FinanceExchangeRateCreator")
 
   pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
   pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
@@ -498,6 +503,7 @@ model Customer {
   previousUnitSelections CustomerUnitSelection[] @relation("UnitPreviousCustomer")
   documents              CustomerDocument[]
   agencyMeetings         AgencyMeeting[]
+  financeEntries         FinanceEntry[]
 
   @@unique([oldCustomerCode])
   @@index([identityNumber])
@@ -536,9 +542,11 @@ model CustomerUnitSelection {
   customFurniture     String?
   rentalStatus        String  @default("NOT_INTERESTED")
 
-  createdAt DateTime                   @default(now())
-  updatedAt DateTime                   @updatedAt
-  logs      CustomerUnitSelectionLog[]
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  logs           CustomerUnitSelectionLog[]
+  financeEntries FinanceEntry[]
+  financeSplits  FinanceEntrySplit[]
 
   @@unique([customerId, project, unitNumber])
   @@index([customerId])
@@ -567,6 +575,175 @@ model CustomerUnitSelectionLog {
   @@index([unitSelectionId, createdAt])
   @@index([createdById])
   @@index([section])
+}
+
+enum FinanceEntryKind {
+  INCOME
+  EXPENSE
+}
+
+enum FinancePaymentType {
+  SALE_INSTALLMENT
+  CREDIT_INSTALLMENT
+  CHECK_PAYMENT
+  REALTOR_COMMISSION
+  SUBCONTRACTOR
+  INVOICE
+  OTHER
+  TAX
+  SALARY
+}
+
+enum FinancePaymentStatus {
+  PLANNED
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum FinanceCurrency {
+  GBP
+  USD
+  EUR
+  TRY
+}
+
+enum FinanceSettlementMethod {
+  CASH
+  CHECK
+  BARTER
+  BANK_TRANSFER
+  OTHER
+}
+
+model FinanceEntry {
+  id String @id @default(cuid())
+
+  kind        FinanceEntryKind
+  paymentType FinancePaymentType
+  status      FinancePaymentStatus @default(PLANNED)
+
+  title             String
+  description       String?
+  vendorName        String?
+  contractReference String?
+
+  amount             Decimal         @db.Decimal(14, 2)
+  currency           FinanceCurrency @default(GBP)
+  exchangeRateToBase Decimal?        @db.Decimal(14, 6)
+  baseCurrency       FinanceCurrency @default(GBP)
+
+  originalDueDate      DateTime
+  plannedDueDate       DateTime
+  selectedDeferralDays Int?
+  paidAt               DateTime?
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  unitSelectionId String?
+  unitSelection   CustomerUnitSelection? @relation(fields: [unitSelectionId], references: [id], onDelete: SetNull)
+
+  project ProjectType?
+
+  createdById String?
+  createdBy   User?   @relation("FinanceEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   User?   @relation("FinanceEntryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dueOptions FinanceEntryDueOption[]
+  splits     FinanceEntrySplit[]
+  logs       FinanceEntryLog[]
+
+  @@index([kind, plannedDueDate])
+  @@index([status, plannedDueDate])
+  @@index([paymentType])
+  @@index([currency])
+  @@index([customerId])
+  @@index([unitSelectionId])
+  @@index([project])
+}
+
+model FinanceEntryDueOption {
+  id String @id @default(cuid())
+
+  entryId String
+  entry   FinanceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  label            String
+  daysFromOriginal Int
+  dueDate          DateTime
+  isSelected       Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([entryId, daysFromOriginal])
+  @@index([entryId])
+  @@index([dueDate])
+}
+
+model FinanceEntrySplit {
+  id String @id @default(cuid())
+
+  entryId String
+  entry   FinanceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  method FinanceSettlementMethod
+  ratio  Decimal                 @db.Decimal(6, 2)
+  amount Decimal?                @db.Decimal(14, 2)
+  note   String?
+
+  unitSelectionId String?
+  unitSelection   CustomerUnitSelection? @relation(fields: [unitSelectionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entryId])
+  @@index([method])
+  @@index([unitSelectionId])
+}
+
+model FinanceEntryLog {
+  id String @id @default(cuid())
+
+  entryId String
+  entry   FinanceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  action   String
+  field    String?
+  oldValue String?
+  newValue String?
+
+  createdById String?
+  createdBy   User?    @relation("FinanceEntryLogAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([entryId, createdAt])
+  @@index([createdById])
+  @@index([action])
+}
+
+model FinanceExchangeRate {
+  id String @id @default(cuid())
+
+  currency      FinanceCurrency
+  baseCurrency  FinanceCurrency @default(GBP)
+  rateToBase    Decimal         @db.Decimal(14, 6)
+  effectiveDate DateTime
+  note          String?
+
+  createdById String?
+  createdBy   User?   @relation("FinanceExchangeRateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([currency, baseCurrency, effectiveDate])
 }
 
 model CustomerDocument {
