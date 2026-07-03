@@ -41,12 +41,14 @@ export class UnitsController {
     @Query("project") project?: ProjectType | "",
     @Query("deliveryStatus") deliveryStatus?: UnitDeliveryStatus | "",
     @Query("companyStatus") companyStatus?: UnitCompanyStatus | "",
+    @Query("unitState") unitState?: "ACTIVE" | "CANCELED" | "",
     @Query("q") q?: string,
   ) {
     return this.units.listUnits(req.user, {
       project,
       deliveryStatus,
       companyStatus,
+      unitState,
       q,
     });
   }

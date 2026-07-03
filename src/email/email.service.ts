@@ -1,5 +1,13 @@
-import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
+import MailComposer from "nodemailer/lib/mail-composer";
+import type Mail from "nodemailer/lib/mailer";
 
 type SendMailInput = {
   to: string;
@@ -16,6 +24,8 @@ type SendMailInput = {
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   private cleanStr(value?: string | null) {
     const next = (value || "").trim();
     return next || null;
@@ -53,6 +63,89 @@ export class EmailService {
     });
   }
 
+  private boolConfig(name: string, fallback: boolean) {
+    const value = this.cleanStr(process.env[name]);
+    if (!value) return fallback;
+    return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+  }
+
+  private unique(values: Array<string | null | undefined>) {
+    return values.filter((value, index, list): value is string => {
+      return Boolean(value) && list.indexOf(value) === index;
+    });
+  }
+
+  private imapConfig() {
+    const enabled = this.boolConfig("IMAP_SAVE_SENT", true);
+    if (!enabled) return null;
+
+    const host = this.cleanStr(process.env.IMAP_HOST) || this.requireConfig("SMTP_HOST");
+    const port = Number(this.cleanStr(process.env.IMAP_PORT) || "993");
+    const user = this.cleanStr(process.env.IMAP_USER) || this.requireConfig("SMTP_USER");
+    const pass = this.cleanStr(process.env.IMAP_PASS) || this.requireConfig("SMTP_PASS");
+    const secure = this.boolConfig("IMAP_SECURE", port === 993);
+    const sentFolder =
+      this.cleanStr(process.env.IMAP_SENT_FOLDER) || "Gönderilmiş Öğeler";
+
+    if (!Number.isFinite(port)) {
+      this.logger.warn("IMAP_PORT is invalid; sent-folder save is skipped");
+      return null;
+    }
+
+    return { host, port, user, pass, secure, sentFolder };
+  }
+
+  private async appendToSent(raw: Buffer) {
+    const config = this.imapConfig();
+    if (!config) return;
+
+    const client = new ImapFlow({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass,
+      },
+      logger: false,
+    });
+
+    try {
+      await client.connect();
+      const mailboxes = await client.list();
+      const mailboxPaths = mailboxes.map((mailbox) => mailbox.path);
+      const candidates = this.unique([
+        config.sentFolder,
+        "Gönderilmiş Öğeler",
+        "Sent",
+        "Sent Items",
+        "INBOX.Sent",
+      ]);
+      const selected =
+        candidates.find((folder) => mailboxPaths.includes(folder)) ||
+        candidates.find((folder) =>
+          mailboxPaths.some(
+            (path) => path.toLowerCase() === folder.toLowerCase(),
+          ),
+        ) ||
+        config.sentFolder;
+
+      await client.append(selected, raw, ["\\Seen"], new Date());
+    } catch (error: any) {
+      this.logger.warn(
+        `Email sent, but saving to IMAP sent folder failed: ${
+          error?.message || error
+        }`,
+      );
+    } finally {
+      try {
+        await client.logout();
+      } catch {
+        // The connection may already be closed after an IMAP error.
+      }
+    }
+  }
+
   async sendMail(input: SendMailInput) {
     const to = this.cleanStr(input.to);
     const subject = this.cleanStr(input.subject);
@@ -64,15 +157,28 @@ export class EmailService {
 
     const from =
       this.cleanStr(process.env.SMTP_FROM) || this.requireConfig("SMTP_USER");
-
-    return this.transporter().sendMail({
+    const smtpUser = this.requireConfig("SMTP_USER");
+    const replyTo = this.cleanStr(input.replyTo) || undefined;
+    const message: Mail.Options = {
       from,
       to,
       subject,
       text,
       html: input.html,
-      replyTo: this.cleanStr(input.replyTo) || undefined,
+      replyTo,
       attachments: input.attachments,
+    };
+    const raw = await new MailComposer(message).compile().build();
+
+    const result = await this.transporter().sendMail({
+      envelope: {
+        from: smtpUser,
+        to,
+      },
+      raw,
     });
+
+    await this.appendToSent(raw);
+    return result;
   }
 }

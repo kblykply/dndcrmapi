@@ -95,6 +95,7 @@ type UnitListQuery = {
   project?: string | null;
   deliveryStatus?: string | null;
   companyStatus?: string | null;
+  unitState?: string | null;
   q?: string | null;
 };
 
@@ -507,10 +508,17 @@ export class UnitsService {
     const project = this.normalizeProject(query.project);
     const deliveryStatus = this.normalizeDeliveryStatus(query.deliveryStatus);
     const companyStatus = this.normalizeCompanyStatus(query.companyStatus);
+    const unitState = String(query.unitState || "ACTIVE").trim().toUpperCase();
     const q = this.cleanStr(query.q);
     const accessWhere = this.customerAccessWhere(user);
 
     where.AND = [{ customer: { is: { type: "EXISTING" } } }];
+
+    if (unitState !== "ACTIVE" && unitState !== "CANCELED") {
+      throw new BadRequestException("Invalid unit state");
+    }
+
+    where.isCanceled = unitState === "CANCELED";
 
     if (project) where.project = project;
     if (deliveryStatus) where.deliveryStatus = deliveryStatus;
