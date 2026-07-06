@@ -28,6 +28,11 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException("User role not found");
     }
 
+    if (user.role === "PREVIEW") {
+      if (req.method === "GET") return true;
+      throw new ForbiddenException("Preview accounts are read-only");
+    }
+
     if (!roles.includes(user.role)) {
       throw new ForbiddenException("You do not have permission to access this resource");
     }

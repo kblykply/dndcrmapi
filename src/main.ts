@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import { ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { join } from "path";
+import { PreviewDataInterceptor } from "./common/preview-data.interceptor";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -14,6 +15,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
+  app.useGlobalInterceptors(new PreviewDataInterceptor());
 
   app.enableCors({
     origin: [

@@ -36,6 +36,7 @@ enum Role {
   ADMIN
   AFTERSALES
   ACCOUNTING
+  PREVIEW
 }
 
 enum LeadStatus {

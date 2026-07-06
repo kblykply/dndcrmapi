@@ -199,6 +199,7 @@ export class AdminService {
       { role: "SALES", count: usersByRoleMap.SALES || 0 },
       { role: "AFTERSALES", count: usersByRoleMap.AFTERSALES || 0 },
       { role: "ACCOUNTING", count: usersByRoleMap.ACCOUNTING || 0 },
+      { role: "PREVIEW", count: usersByRoleMap.PREVIEW || 0 },
     ];
 
     const leadDays: Record<string, number> = {};
