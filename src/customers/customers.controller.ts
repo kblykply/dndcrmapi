@@ -54,6 +54,12 @@ export class CustomersController {
     return this.customers.getDemographicsReport(req.user);
   }
 
+  @Get("my-workspace")
+  @Roles("ADMIN", "MANAGER", "SALES")
+  myWorkspace(@Req() req: any) {
+    return this.customers.getMyWorkspace(req.user);
+  }
+
   @Get(":id")
   @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   getOne(@Req() req: any, @Param("id") id: string) {

@@ -466,6 +466,101 @@ export class CustomersService {
     );
   }
 
+  async getMyWorkspace(user: ReqUser) {
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
+      throw new ForbiddenException("No access");
+    }
+
+    const customerWhere = {
+      OR: [
+        { ownerId: user.id },
+        { presentations: { some: { assignedSalesId: user.id } } },
+      ],
+    };
+
+    const presentationWhere = {
+      OR: [
+        { assignedSalesId: user.id },
+        { createdById: user.id },
+        { customer: { ownerId: user.id } },
+      ],
+    };
+
+    const [customers, presentations] = await Promise.all([
+      this.prisma.customer.findMany({
+        where: customerWhere,
+        include: {
+          agency: true,
+          owner: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          presentations: {
+            select: { assignedSalesId: true },
+          },
+          unitSelections: {
+            orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+          },
+          documents: {
+            orderBy: { createdAt: "desc" },
+          },
+          _count: {
+            select: {
+              presentations: true,
+              documents: true,
+              unitSelections: true,
+            },
+          },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 500,
+      }),
+      this.prisma.presentation.findMany({
+        where: presentationWhere,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              fullName: true,
+              companyName: true,
+              ownerId: true,
+              owner: {
+                select: { id: true, name: true, email: true, role: true },
+              },
+            },
+          },
+          assignedSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+        orderBy: { presentationAt: "desc" },
+        take: 200,
+      }),
+    ]);
+
+    const now = new Date();
+    const visibleCustomers = customers.map((customer) =>
+      this.maskCustomerForLimitedUser(customer, true),
+    );
+
+    return {
+      stats: {
+        customers: visibleCustomers.length,
+        potentialCustomers: visibleCustomers.filter((c) => c.type === "POTENTIAL").length,
+        existingCustomers: visibleCustomers.filter((c) => c.type === "EXISTING").length,
+        presentations: presentations.length,
+        upcomingPresentations: presentations.filter(
+          (p) => p.presentationAt >= now && p.status !== "CANCELLED",
+        ).length,
+        completedPresentations: presentations.filter((p) => p.status === "COMPLETED").length,
+      },
+      customers: visibleCustomers,
+      presentations,
+    };
+  }
+
   async createCustomer(user: ReqUser, dto: any) {
     if (!this.isCrmUser(user)) {
       throw new ForbiddenException("No access to create customer");
