@@ -29,6 +29,7 @@ export class AgenciesController {
     @Query("q") q?: string,
     @Query("status") status?: string,
     @Query("assignedSalesId") assignedSalesId?: string,
+    @Query("scope") scope?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
   ) {
@@ -36,6 +37,7 @@ export class AgenciesController {
       q,
       status,
       assignedSalesId,
+      scope,
       page,
       pageSize,
     });

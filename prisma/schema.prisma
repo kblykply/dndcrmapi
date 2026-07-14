@@ -117,23 +117,29 @@ model User {
   agenciesManaged  Agency[] @relation("AgencyManager")
   agenciesAssigned Agency[] @relation("AgencySales")
 
-  agencyNotesAuthored    AgencyNote[]    @relation("AgencyNoteAuthor")
-  agencyMeetingsAuthored AgencyMeeting[] @relation("AgencyMeetingAuthor")
-  agencyTasksCreated     AgencyTask[]    @relation("AgencyTaskCreator")
-  agencyTasksAssigned    AgencyTask[]    @relation("AgencyTaskAssignee")
+  agencyNotesAuthored         AgencyNote[]         @relation("AgencyNoteAuthor")
+  agencyMeetingsAuthored      AgencyMeeting[]      @relation("AgencyMeetingAuthor")
+  agencyTasksCreated          AgencyTask[]         @relation("AgencyTaskCreator")
+  agencyTasksAssigned         AgencyTask[]         @relation("AgencyTaskAssignee")
+  agencySalesHistoryPrevious  AgencySalesHistory[] @relation("AgencySalesHistoryPrevious")
+  agencySalesHistoryNew       AgencySalesHistory[] @relation("AgencySalesHistoryNew")
+  agencySalesHistoryChangedBy AgencySalesHistory[] @relation("AgencySalesHistoryChangedBy")
 
-  ownedCustomers         Customer[]                 @relation("CustomerOwner")
-  presentationsCreated   Presentation[]             @relation("PresentationCreator")
-  presentationsAssigned  Presentation[]             @relation("PresentationSales")
-  presentationNotes      PresentationNote[]         @relation("PresentationNoteAuthor")
-  crmTasksAssigned       CrmTask[]                  @relation("CrmTaskAssignedTo")
-  crmTasksCreated        CrmTask[]                  @relation("CrmTaskCreatedBy")
-  unitSelectionLogs      CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
-  canceledUnitSelections CustomerUnitSelection[]    @relation("UnitCanceledBy")
-  financeEntriesCreated  FinanceEntry[]             @relation("FinanceEntryCreatedBy")
-  financeEntriesUpdated  FinanceEntry[]             @relation("FinanceEntryUpdatedBy")
-  financeLogsAuthored    FinanceEntryLog[]          @relation("FinanceEntryLogAuthor")
-  financeRatesCreated    FinanceExchangeRate[]      @relation("FinanceExchangeRateCreator")
+  ownedCustomers                Customer[]                 @relation("CustomerOwner")
+  customerOwnerHistoryPrevious  CustomerOwnerHistory[]     @relation("CustomerOwnerHistoryPrevious")
+  customerOwnerHistoryNew       CustomerOwnerHistory[]     @relation("CustomerOwnerHistoryNew")
+  customerOwnerHistoryChangedBy CustomerOwnerHistory[]     @relation("CustomerOwnerHistoryChangedBy")
+  presentationsCreated          Presentation[]             @relation("PresentationCreator")
+  presentationsAssigned         Presentation[]             @relation("PresentationSales")
+  presentationNotes             PresentationNote[]         @relation("PresentationNoteAuthor")
+  crmTasksAssigned              CrmTask[]                  @relation("CrmTaskAssignedTo")
+  crmTasksCreated               CrmTask[]                  @relation("CrmTaskCreatedBy")
+  unitSelectionLogs             CustomerUnitSelectionLog[] @relation("UserUnitSelectionLogs")
+  canceledUnitSelections        CustomerUnitSelection[]    @relation("UnitCanceledBy")
+  financeEntriesCreated         FinanceEntry[]             @relation("FinanceEntryCreatedBy")
+  financeEntriesUpdated         FinanceEntry[]             @relation("FinanceEntryUpdatedBy")
+  financeLogsAuthored           FinanceEntryLog[]          @relation("FinanceEntryLogAuthor")
+  financeRatesCreated           FinanceExchangeRate[]      @relation("FinanceExchangeRateCreator")
 
   pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
   pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
@@ -370,8 +376,9 @@ model Agency {
   managerId       String?
   assignedSalesId String?
 
-  manager       User? @relation("AgencyManager", fields: [managerId], references: [id])
-  assignedSales User? @relation("AgencySales", fields: [assignedSalesId], references: [id])
+  manager       User?                @relation("AgencyManager", fields: [managerId], references: [id])
+  assignedSales User?                @relation("AgencySales", fields: [assignedSalesId], references: [id])
+  salesHistory  AgencySalesHistory[]
 
   notes         AgencyNote[]
   meetings      AgencyMeeting[]
@@ -380,6 +387,35 @@ model Agency {
   crmTasks      CrmTask[]
   agencyTasks   AgencyTask[]
   presentations Presentation[]
+}
+
+model AgencySalesHistory {
+  id              String   @id @default(cuid())
+  agencyId        String
+  previousSalesId String?
+  newSalesId      String?
+  changedById     String?
+  createdAt       DateTime @default(now())
+
+  previousSalesName  String?
+  previousSalesEmail String?
+  previousSalesRole  String?
+  newSalesName       String?
+  newSalesEmail      String?
+  newSalesRole       String?
+  changedByName      String?
+  changedByEmail     String?
+  changedByRole      String?
+
+  agency        Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  previousSales User?  @relation("AgencySalesHistoryPrevious", fields: [previousSalesId], references: [id], onDelete: SetNull)
+  newSales      User?  @relation("AgencySalesHistoryNew", fields: [newSalesId], references: [id], onDelete: SetNull)
+  changedBy     User?  @relation("AgencySalesHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt])
+  @@index([previousSalesId])
+  @@index([newSalesId])
+  @@index([changedById])
 }
 
 model AgencyNote {
@@ -479,8 +515,9 @@ model Customer {
   agencyId String?
   agency   Agency? @relation(fields: [agencyId], references: [id])
 
-  ownerId String?
-  owner   User?   @relation("CustomerOwner", fields: [ownerId], references: [id])
+  ownerId      String?
+  owner        User?                  @relation("CustomerOwner", fields: [ownerId], references: [id])
+  ownerHistory CustomerOwnerHistory[]
 
   presentations Presentation[]
 
@@ -508,6 +545,35 @@ model Customer {
 
   @@unique([oldCustomerCode])
   @@index([identityNumber])
+}
+
+model CustomerOwnerHistory {
+  id              String   @id @default(cuid())
+  customerId      String
+  previousOwnerId String?
+  newOwnerId      String?
+  changedById     String?
+  createdAt       DateTime @default(now())
+
+  previousOwnerName  String?
+  previousOwnerEmail String?
+  previousOwnerRole  String?
+  newOwnerName       String?
+  newOwnerEmail      String?
+  newOwnerRole       String?
+  changedByName      String?
+  changedByEmail     String?
+  changedByRole      String?
+
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  previousOwner User?    @relation("CustomerOwnerHistoryPrevious", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  newOwner      User?    @relation("CustomerOwnerHistoryNew", fields: [newOwnerId], references: [id], onDelete: SetNull)
+  changedBy     User?    @relation("CustomerOwnerHistoryChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([customerId, createdAt])
+  @@index([previousOwnerId])
+  @@index([newOwnerId])
+  @@index([changedById])
 }
 
 model CustomerUnitSelection {

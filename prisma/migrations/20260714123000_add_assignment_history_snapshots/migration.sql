@@ -1,0 +1,19 @@
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "previousOwnerName" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "previousOwnerEmail" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "previousOwnerRole" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "newOwnerName" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "newOwnerEmail" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "newOwnerRole" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "changedByName" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "changedByEmail" TEXT;
+ALTER TABLE "CustomerOwnerHistory" ADD COLUMN "changedByRole" TEXT;
+
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "previousSalesName" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "previousSalesEmail" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "previousSalesRole" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "newSalesName" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "newSalesEmail" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "newSalesRole" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "changedByName" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "changedByEmail" TEXT;
+ALTER TABLE "AgencySalesHistory" ADD COLUMN "changedByRole" TEXT;

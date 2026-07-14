@@ -14,6 +14,12 @@ type ReqUser = {
   email: string;
 };
 
+type UserSnapshot = {
+  name: string;
+  email: string;
+  role: string;
+};
+
 type AgencyStatus = "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
 
 type CreateAgencyDto = {
@@ -153,6 +159,23 @@ export class AgenciesService {
     return found;
   }
 
+  private async getUserSnapshots(ids: Array<string | null | undefined>): Promise<Map<string, UserSnapshot>> {
+    const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+    if (uniqueIds.length === 0) return new Map<string, UserSnapshot>();
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    return new Map(
+      users.map((user) => [
+        user.id,
+        { name: user.name, email: user.email, role: user.role },
+      ]),
+    );
+  }
+
   private async validateSalesUser(id?: string | null) {
     if (!id) return null;
 
@@ -179,11 +202,11 @@ export class AgenciesService {
   }
 
   private canSeeAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
-    return this.isAdmin(user) || this.ownsAgency(user, agency);
+    return this.isAdmin(user) || this.isManager(user) || this.ownsAgency(user, agency);
   }
 
   private canEditAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
-    return this.isAdmin(user) || this.ownsAgency(user, agency);
+    return this.isAdmin(user) || this.isManager(user) || this.ownsAgency(user, agency);
   }
 
   private maskAgencyForSales(agency: any, canSeeContact: boolean, canEdit: boolean) {
@@ -221,6 +244,21 @@ export class AgenciesService {
     return {
       assignedSales: {
         select: { id: true, name: true, email: true, role: true },
+      },
+      salesHistory: {
+        orderBy: { createdAt: "desc" as const },
+        take: 25,
+        include: {
+          previousSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          newSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          changedBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
       },
       notes: {
         orderBy: { createdAt: "desc" as const },
@@ -266,8 +304,8 @@ export class AgenciesService {
   private async assertCanManageAgency(user: ReqUser, agencyId: string) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
-      throw new ForbiddenException("Only assigned user or admin can manage this agency");
+    if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsAgency(user, agency)) {
+      throw new ForbiddenException("Only assigned user, manager or admin can manage this agency");
     }
 
     return agency;
@@ -279,6 +317,7 @@ export class AgenciesService {
       q?: string;
       status?: string;
       assignedSalesId?: string;
+      scope?: string;
       page?: string | number;
       pageSize?: string | number;
     },
@@ -290,18 +329,20 @@ export class AgenciesService {
     const assignedSalesId = this.cleanStr(query?.assignedSalesId);
 
     const page = Math.max(1, Number(query?.page || 1));
-    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize || 20)));
+    const pageSize = Math.min(500, Math.max(1, Number(query?.pageSize || 20)));
     const skip = (page - 1) * pageSize;
 
     if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
       throw new ForbiddenException("No access");
     }
 
-    if (!this.isAdmin(user)) {
+    const useAllScope = this.isAdmin(user) || (this.isManager(user) && query?.scope === "all");
+
+    if (!useAllScope) {
       where.assignedSalesId = user.id;
     }
 
-    if (this.isAdmin(user) && assignedSalesId) {
+    if (useAllScope && assignedSalesId) {
       where.assignedSalesId = assignedSalesId;
     }
 
@@ -484,8 +525,8 @@ export class AgenciesService {
     }
 
     if (dto.assignedSalesId !== undefined) {
-      if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
-        throw new ForbiddenException("Only assigned user or admin can reassign agency");
+      if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsAgency(user, agency)) {
+        throw new ForbiddenException("Only assigned user, manager or admin can reassign agency");
       }
 
       const assignedSalesId = this.cleanStr(dto.assignedSalesId) ?? null;
@@ -493,32 +534,67 @@ export class AgenciesService {
       data.assignedSalesId = assignedSalesId;
     }
 
-    const updated = await this.prisma.agency.update({
-      where: { id: agencyId },
-      data,
-      include: {
-        assignedSales: {
-          select: { id: true, name: true, email: true, role: true },
+    const shouldCreateSalesHistory =
+      Object.prototype.hasOwnProperty.call(data, "assignedSalesId") &&
+      agency.assignedSalesId !== data.assignedSalesId;
+    const salesSnapshots = shouldCreateSalesHistory
+      ? await this.getUserSnapshots([agency.assignedSalesId, data.assignedSalesId, user.id])
+      : new Map<string, UserSnapshot>();
+    const previousSalesSnapshot = agency.assignedSalesId
+      ? salesSnapshots.get(agency.assignedSalesId)
+      : null;
+    const newSalesSnapshot = data.assignedSalesId
+      ? salesSnapshots.get(data.assignedSalesId)
+      : null;
+    const changedBySnapshot = salesSnapshots.get(user.id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedAgency = await tx.agency.update({
+        where: { id: agencyId },
+        data,
+        include: {
+          assignedSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
         },
-      },
+      });
+
+      if (shouldCreateSalesHistory) {
+        await tx.agencySalesHistory.create({
+          data: {
+            agencyId,
+            previousSalesId: agency.assignedSalesId,
+            newSalesId: data.assignedSalesId,
+            changedById: user.id,
+            previousSalesName: previousSalesSnapshot?.name ?? null,
+            previousSalesEmail: previousSalesSnapshot?.email ?? null,
+            previousSalesRole: previousSalesSnapshot?.role ?? null,
+            newSalesName: newSalesSnapshot?.name ?? null,
+            newSalesEmail: newSalesSnapshot?.email ?? null,
+            newSalesRole: newSalesSnapshot?.role ?? null,
+            changedByName: changedBySnapshot?.name ?? null,
+            changedByEmail: changedBySnapshot?.email ?? null,
+            changedByRole: changedBySnapshot?.role ?? null,
+          },
+        });
+      }
+
+      return updatedAgency;
     });
 
     await this.notifyAgencyUsers(user, [updated.assignedSalesId], {
       type: "AGENCY_UPDATED",
       title:
-        data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
+        shouldCreateSalesHistory
           ? "Agency assigned to you"
           : "Agency updated",
       message:
-        data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
+        shouldCreateSalesHistory
           ? `${updated.name} is now assigned to you.`
           : `${updated.name} was updated.`,
       agencyId: updated.id,
       metaJson: {
-        action:
-          data.assignedSalesId !== undefined && agency.assignedSalesId !== updated.assignedSalesId
-            ? "assigned"
-            : "updated",
+        action: shouldCreateSalesHistory ? "assigned" : "updated",
         previousAssignedSalesId: agency.assignedSalesId,
         assignedSalesId: updated.assignedSalesId,
       },
@@ -562,16 +638,50 @@ export class AgenciesService {
     const salesId = this.cleanStr(dto.salesId) ?? null;
     await this.validateAssignableUser(salesId);
 
-    const updated = await this.prisma.agency.update({
-      where: { id: agency.id },
-      data: {
-        assignedSalesId: salesId,
-      },
-      include: {
-        assignedSales: {
-          select: { id: true, name: true, email: true, role: true },
+    const shouldCreateSalesHistory = agency.assignedSalesId !== salesId;
+    const salesSnapshots = shouldCreateSalesHistory
+      ? await this.getUserSnapshots([agency.assignedSalesId, salesId, user.id])
+      : new Map<string, UserSnapshot>();
+    const previousSalesSnapshot = agency.assignedSalesId
+      ? salesSnapshots.get(agency.assignedSalesId)
+      : null;
+    const newSalesSnapshot = salesId ? salesSnapshots.get(salesId) : null;
+    const changedBySnapshot = salesSnapshots.get(user.id);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedAgency = await tx.agency.update({
+        where: { id: agency.id },
+        data: {
+          assignedSalesId: salesId,
         },
-      },
+        include: {
+          assignedSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+        },
+      });
+
+      if (shouldCreateSalesHistory) {
+        await tx.agencySalesHistory.create({
+          data: {
+            agencyId: agency.id,
+            previousSalesId: agency.assignedSalesId,
+            newSalesId: salesId,
+            changedById: user.id,
+            previousSalesName: previousSalesSnapshot?.name ?? null,
+            previousSalesEmail: previousSalesSnapshot?.email ?? null,
+            previousSalesRole: previousSalesSnapshot?.role ?? null,
+            newSalesName: newSalesSnapshot?.name ?? null,
+            newSalesEmail: newSalesSnapshot?.email ?? null,
+            newSalesRole: newSalesSnapshot?.role ?? null,
+            changedByName: changedBySnapshot?.name ?? null,
+            changedByEmail: changedBySnapshot?.email ?? null,
+            changedByRole: changedBySnapshot?.role ?? null,
+          },
+        });
+      }
+
+      return updatedAgency;
     });
 
     await this.notifyAgencyUsers(user, [updated.assignedSalesId], {

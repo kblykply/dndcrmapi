@@ -18,6 +18,12 @@ type ReqUser = {
   email: string;
 };
 
+type UserSnapshot = {
+  name: string;
+  email: string;
+  role: string;
+};
+
 type Gender = "MALE" | "FEMALE" | "OTHER";
 type ProjectType =
   | "LA_JOYA"
@@ -281,6 +287,23 @@ export class CustomersService {
     return owner;
   }
 
+  private async getUserSnapshots(ids: Array<string | null | undefined>): Promise<Map<string, UserSnapshot>> {
+    const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+    if (uniqueIds.length === 0) return new Map<string, UserSnapshot>();
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    return new Map(
+      users.map((user) => [
+        user.id,
+        { name: user.name, email: user.email, role: user.role },
+      ]),
+    );
+  }
+
   private resolveOwnerId(user: ReqUser, value?: string | null) {
     if (this.isSales(user)) return user.id;
     if (this.isManager(user) && !value) return user.id;
@@ -466,25 +489,32 @@ export class CustomersService {
     );
   }
 
-  async getMyWorkspace(user: ReqUser) {
+  async getMyWorkspace(user: ReqUser, query: { scope?: string } = {}) {
     if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
       throw new ForbiddenException("No access");
     }
 
-    const customerWhere = {
-      OR: [
-        { ownerId: user.id },
-        { presentations: { some: { assignedSalesId: user.id } } },
-      ],
-    };
+    const useAllScope =
+      query.scope === "all" && (this.isAdmin(user) || this.isManager(user));
 
-    const presentationWhere = {
-      OR: [
-        { assignedSalesId: user.id },
-        { createdById: user.id },
-        { customer: { ownerId: user.id } },
-      ],
-    };
+    const customerWhere = useAllScope
+      ? {}
+      : {
+          OR: [
+            { ownerId: user.id },
+            { presentations: { some: { assignedSalesId: user.id } } },
+          ],
+        };
+
+    const presentationWhere = useAllScope
+      ? {}
+      : {
+          OR: [
+            { assignedSalesId: user.id },
+            { createdById: user.id },
+            { customer: { ownerId: user.id } },
+          ],
+        };
 
     const [customers, presentations] = await Promise.all([
       this.prisma.customer.findMany({
@@ -547,6 +577,7 @@ export class CustomersService {
 
     return {
       stats: {
+        scope: useAllScope ? "ALL" : "MINE",
         customers: visibleCustomers.length,
         potentialCustomers: visibleCustomers.filter((c) => c.type === "POTENTIAL").length,
         existingCustomers: visibleCustomers.filter((c) => c.type === "EXISTING").length,
@@ -635,6 +666,21 @@ export class CustomersService {
         agency: true,
         owner: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        ownerHistory: {
+          orderBy: { createdAt: "desc" },
+          take: 25,
+          include: {
+            previousOwner: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            newOwner: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            changedBy: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
         },
         unitSelections: {
           orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
@@ -749,8 +795,8 @@ export class CustomersService {
     }
 
     if (dto.ownerId !== undefined) {
-      if (!this.isAdmin(user) && !this.ownsCustomer(user, customer)) {
-        throw new ForbiddenException("Only owner or admin can change owner");
+      if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsCustomer(user, customer)) {
+        throw new ForbiddenException("Only owner, manager or admin can change owner");
       }
 
       const ownerId = this.cleanStr(dto.ownerId);
@@ -762,12 +808,43 @@ export class CustomersService {
       dto.unitSelections !== undefined
         ? this.normalizeUnitSelections(dto.unitSelections)
         : null;
+    const shouldCreateOwnerHistory =
+      Object.prototype.hasOwnProperty.call(data, "ownerId") &&
+      customer.ownerId !== data.ownerId;
+    const ownerSnapshots = shouldCreateOwnerHistory
+      ? await this.getUserSnapshots([customer.ownerId, data.ownerId, user.id])
+      : new Map<string, UserSnapshot>();
+    const previousOwnerSnapshot = customer.ownerId
+      ? ownerSnapshots.get(customer.ownerId)
+      : null;
+    const newOwnerSnapshot = data.ownerId ? ownerSnapshots.get(data.ownerId) : null;
+    const changedBySnapshot = ownerSnapshots.get(user.id);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.customer.update({
         where: { id: customerId },
         data,
       });
+
+      if (shouldCreateOwnerHistory) {
+        await tx.customerOwnerHistory.create({
+          data: {
+            customerId,
+            previousOwnerId: customer.ownerId,
+            newOwnerId: data.ownerId,
+            changedById: user.id,
+            previousOwnerName: previousOwnerSnapshot?.name ?? null,
+            previousOwnerEmail: previousOwnerSnapshot?.email ?? null,
+            previousOwnerRole: previousOwnerSnapshot?.role ?? null,
+            newOwnerName: newOwnerSnapshot?.name ?? null,
+            newOwnerEmail: newOwnerSnapshot?.email ?? null,
+            newOwnerRole: newOwnerSnapshot?.role ?? null,
+            changedByName: changedBySnapshot?.name ?? null,
+            changedByEmail: changedBySnapshot?.email ?? null,
+            changedByRole: changedBySnapshot?.role ?? null,
+          },
+        });
+      }
 
       if (nextUnitSelections !== null) {
         const existingUnits = await tx.customerUnitSelection.findMany({
@@ -823,19 +900,15 @@ export class CustomersService {
 
     const updated = await this.getCustomerOrThrow(customerId);
 
-    const ownerChanged =
-      Object.prototype.hasOwnProperty.call(data, "ownerId") &&
-      customer.ownerId !== updated.ownerId;
-
     await this.notifyCustomerUsers(user, [updated.ownerId], {
       type: "CUSTOMER_UPDATED",
-      title: ownerChanged ? "Customer assigned to you" : "Customer updated",
-      message: ownerChanged
+      title: shouldCreateOwnerHistory ? "Customer assigned to you" : "Customer updated",
+      message: shouldCreateOwnerHistory
         ? `${updated.fullName} is now assigned to you.`
         : `${updated.fullName} was updated.`,
       customerId: updated.id,
       metaJson: {
-        action: ownerChanged ? "owner_changed" : "updated",
+        action: shouldCreateOwnerHistory ? "owner_changed" : "updated",
         previousOwnerId: customer.ownerId,
         ownerId: updated.ownerId,
       },
@@ -1175,6 +1248,21 @@ export class CustomersService {
         agency: true,
         owner: {
           select: { id: true, name: true, email: true, role: true },
+        },
+        ownerHistory: {
+          orderBy: { createdAt: "desc" },
+          take: 25,
+          include: {
+            previousOwner: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            newOwner: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            changedBy: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
         },
         unitSelections: {
           orderBy: [{ project: "asc" }, { unitNumber: "asc" }],

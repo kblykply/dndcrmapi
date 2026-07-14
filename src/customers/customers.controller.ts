@@ -56,8 +56,8 @@ export class CustomersController {
 
   @Get("my-workspace")
   @Roles("ADMIN", "MANAGER", "SALES")
-  myWorkspace(@Req() req: any) {
-    return this.customers.getMyWorkspace(req.user);
+  myWorkspace(@Req() req: any, @Query("scope") scope?: string) {
+    return this.customers.getMyWorkspace(req.user, { scope });
   }
 
   @Get(":id")
