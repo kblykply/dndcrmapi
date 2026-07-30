@@ -852,8 +852,8 @@ export class UnitsService {
       dto.isCanceled !== undefined ||
       dto.cancelReason !== undefined
     ) {
-      if (!this.isAdmin(user)) {
-        throw new ForbiddenException("Only admin can cancel units");
+      if (!this.isAdmin(user) && !this.isAftersales(user)) {
+        throw new ForbiddenException("Only admin or aftersales can cancel units");
       }
 
       const nextCanceled =

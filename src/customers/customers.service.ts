@@ -342,7 +342,6 @@ export class CustomersService {
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
-    if (this.isAftersales(user)) return false;
     return this.canSeeCustomer(user, customer);
   }
 
@@ -481,7 +480,7 @@ export class CustomersService {
     }
 
     if (this.isAftersales(user)) {
-      return customers.map((customer) => this.withAccessFlags(customer, false));
+      return customers.map((customer) => this.withAccessFlags(customer, true));
     }
 
     return customers.map((customer) =>
@@ -490,12 +489,18 @@ export class CustomersService {
   }
 
   async getMyWorkspace(user: ReqUser, query: { scope?: string } = {}) {
-    if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
+    if (
+      !this.isAdmin(user) &&
+      !this.isManager(user) &&
+      !this.isSales(user) &&
+      !this.isAftersales(user)
+    ) {
       throw new ForbiddenException("No access");
     }
 
     const useAllScope =
-      query.scope === "all" && (this.isAdmin(user) || this.isManager(user));
+      query.scope === "all" &&
+      (this.isAdmin(user) || this.isManager(user) || this.isAftersales(user));
 
     const customerWhere = useAllScope
       ? {}
@@ -795,8 +800,15 @@ export class CustomersService {
     }
 
     if (dto.ownerId !== undefined) {
-      if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsCustomer(user, customer)) {
-        throw new ForbiddenException("Only owner, manager or admin can change owner");
+      if (
+        !this.isAdmin(user) &&
+        !this.isManager(user) &&
+        !this.isAftersales(user) &&
+        !this.ownsCustomer(user, customer)
+      ) {
+        throw new ForbiddenException(
+          "Only owner, manager, aftersales or admin can change owner",
+        );
       }
 
       const ownerId = this.cleanStr(dto.ownerId);
@@ -1291,7 +1303,7 @@ export class CustomersService {
     }
 
     if (this.isAftersales(user)) {
-      return this.withAccessFlags(customer, false);
+      return this.withAccessFlags(customer, true);
     }
 
     if (this.isManager(user) || this.isSales(user)) {

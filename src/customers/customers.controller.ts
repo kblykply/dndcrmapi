@@ -55,7 +55,7 @@ export class CustomersController {
   }
 
   @Get("my-workspace")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   myWorkspace(@Req() req: any, @Query("scope") scope?: string) {
     return this.customers.getMyWorkspace(req.user, { scope });
   }
@@ -71,7 +71,7 @@ export class CustomersController {
   }
 
   @Post()
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   create(
     @Req() req: any,
     @Body()
@@ -124,7 +124,7 @@ export class CustomersController {
   }
 
   @Patch(":id")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   update(
     @Req() req: any,
     @Param("id") id: string,
@@ -192,7 +192,7 @@ export class CustomersController {
   }
 
   @Post(":id/presentations")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   createPresentation(
     @Req() req: any,
     @Param("id") id: string,
@@ -214,7 +214,7 @@ export class CustomersController {
   }
 
   @Post(":id/documents")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   addDocument(
     @Req() req: any,
     @Param("id") id: string,
@@ -256,7 +256,7 @@ export class CustomersController {
   }
 
   @Delete(":id/documents/:documentId")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   deleteDocument(
     @Req() req: any,
     @Param("id") id: string,
@@ -278,7 +278,7 @@ export class CustomersController {
   }
 
   @Post(":id/documents/upload")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   @UseInterceptors(FileInterceptor("file", customerUploadConfig))
   uploadDocument(
     @Req() req: any,
@@ -303,7 +303,7 @@ export class CustomersController {
   }
 
   @Post("presentations/:presentationId/notes")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   addPresentationNote(
     @Req() req: any,
     @Param("presentationId") presentationId: string,
@@ -321,7 +321,7 @@ export class CustomersController {
   }
 
   @Patch("presentations/:presentationId")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "AFTERSALES")
   updatePresentation(
     @Req() req: any,
     @Param("presentationId") presentationId: string,
