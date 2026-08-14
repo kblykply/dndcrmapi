@@ -141,12 +141,20 @@ model User {
   financeLogsAuthored           FinanceEntryLog[]          @relation("FinanceEntryLogAuthor")
   financeRatesCreated           FinanceExchangeRate[]      @relation("FinanceExchangeRateCreator")
 
-  pdcaOwnedCases         PdcaCase[]      @relation("PdcaOwner")
-  pdcaAssignedCases      PdcaCase[]      @relation("PdcaAssignedTo")
-  pdcaCreatedCases       PdcaCase[]      @relation("PdcaCreatedBy")
-  pdcaLogsAuthored       PdcaLog[]       @relation("PdcaLogAuthor")
-  notifications          Notification[]
-  agencyMeetingsAssigned AgencyMeeting[] @relation("AgencyMeetingSales")
+  pdcaOwnedCases          PdcaCase[]             @relation("PdcaOwner")
+  pdcaAssignedCases       PdcaCase[]             @relation("PdcaAssignedTo")
+  pdcaCreatedCases        PdcaCase[]             @relation("PdcaCreatedBy")
+  pdcaLogsAuthored        PdcaLog[]              @relation("PdcaLogAuthor")
+  qualityCardsCreated     QualityProcessCard[]   @relation("QualityCardCreatedBy")
+  qualityCardsUpdated     QualityProcessCard[]   @relation("QualityCardUpdatedBy")
+  qualityChecklistCreated QualityChecklistItem[] @relation("QualityChecklistCreatedBy")
+  qualityChecklistChecked QualityChecklistItem[] @relation("QualityChecklistCheckedBy")
+  qualityDocumentsCreated QualityDocument[]      @relation("QualityDocumentCreatedBy")
+  qualityDocumentsUpdated QualityDocument[]      @relation("QualityDocumentUpdatedBy")
+  qualityLogsAuthored     QualityProcessLog[]    @relation("QualityProcessLogAuthor")
+  bulkEmailCampaigns      BulkEmailCampaign[]    @relation("BulkEmailCampaignCreatedBy")
+  notifications           Notification[]
+  agencyMeetingsAssigned  AgencyMeeting[]        @relation("AgencyMeetingSales")
 
   otherMeetingsCreated  OtherMeeting[] @relation("OtherMeetingCreator")
   otherMeetingsAssigned OtherMeeting[] @relation("OtherMeetingSales")
@@ -542,6 +550,7 @@ model Customer {
   documents              CustomerDocument[]
   agencyMeetings         AgencyMeeting[]
   financeEntries         FinanceEntry[]
+  bulkEmailRecipients    BulkEmailRecipient[]
 
   @@unique([oldCustomerCode])
   @@index([identityNumber])
@@ -642,6 +651,82 @@ model CustomerUnitSelectionLog {
   @@index([unitSelectionId, createdAt])
   @@index([createdById])
   @@index([section])
+}
+
+model BulkEmailCampaign {
+  id String @id @default(cuid())
+
+  name              String
+  project           ProjectType
+  subject           String
+  message           String
+  attachmentFileName String?
+  status            BulkEmailCampaignStatus @default(SENDING)
+
+  totalUnits        Int @default(0)
+  uniqueCustomers   Int @default(0)
+  attemptedCount    Int @default(0)
+  successCount      Int @default(0)
+  failedCount       Int @default(0)
+  missingEmailCount Int @default(0)
+
+  createdById String?
+  createdBy   User?   @relation("BulkEmailCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  sentAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients BulkEmailRecipient[]
+
+  @@index([project, sentAt])
+  @@index([status])
+  @@index([createdById])
+  @@index([sentAt])
+}
+
+model BulkEmailRecipient {
+  id String @id @default(cuid())
+
+  campaignId String
+  campaign   BulkEmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  customerName String
+  companyName  String?
+  email        String?
+  phone        String?
+  ownerName    String?
+  ownerEmail   String?
+  ownerRole    String?
+  unitNumbers  String
+  unitSnapshot Json?
+
+  status BulkEmailRecipientStatus
+  error  String?
+  sentAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+  @@index([email])
+}
+
+enum BulkEmailCampaignStatus {
+  SENDING
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum BulkEmailRecipientStatus {
+  SENT
+  FAILED
+  MISSING_EMAIL
 }
 
 enum FinanceEntryKind {
@@ -1118,6 +1203,115 @@ model PdcaLog {
   @@index([createdById])
 }
 
+model QualityProcessCard {
+  id String @id @default(cuid())
+
+  code        String                 @unique
+  title       String
+  description String?
+  category    QualityProcessCategory @default(OPERATIONAL)
+  status      QualityProcessStatus   @default(ACTIVE)
+
+  ownerDepartment String?
+  color           String?
+  sortOrder       Int     @default(0)
+
+  createdById String?
+  createdBy   User?   @relation("QualityCardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   User?   @relation("QualityCardUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  checklists QualityChecklistItem[]
+  documents  QualityDocument[]
+  logs       QualityProcessLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([sortOrder])
+}
+
+model QualityChecklistItem {
+  id String @id @default(cuid())
+
+  cardId String
+  card   QualityProcessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  required    Boolean   @default(false)
+  isChecked   Boolean   @default(false)
+  dueAt       DateTime?
+  checkedAt   DateTime?
+  sortOrder   Int       @default(0)
+
+  createdById String?
+  createdBy   User?   @relation("QualityChecklistCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  checkedById String?
+  checkedBy   User?   @relation("QualityChecklistCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cardId])
+  @@index([isChecked])
+  @@index([dueAt])
+}
+
+model QualityDocument {
+  id String @id @default(cuid())
+
+  cardId String
+  card   QualityProcessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  title           String
+  type            QualityDocumentType   @default(PROCEDURE)
+  status          QualityDocumentStatus @default(ACTIVE)
+  revision        String?
+  ownerDepartment String?
+  url             String?
+  storagePath     String?
+  fileName        String?
+  notes           String?
+
+  createdById String?
+  createdBy   User?   @relation("QualityDocumentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?
+  updatedBy   User?   @relation("QualityDocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cardId])
+  @@index([type])
+  @@index([status])
+}
+
+model QualityProcessLog {
+  id String @id @default(cuid())
+
+  cardId String
+  card   QualityProcessCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?   @relation("QualityProcessLogAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  action   String
+  note     String?
+  metaJson Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([cardId, createdAt])
+  @@index([createdById])
+  @@index([action])
+}
+
 model OtherMeeting {
   id              String  @id @default(cuid())
   createdById     String
@@ -1177,4 +1371,42 @@ enum PdcaIssueCategory {
   HR
   PROJECT
   OTHER
+}
+
+enum QualityProcessCategory {
+  CONTEXT
+  PLANNING
+  LEADERSHIP
+  SUPPORT
+  OPERATIONAL
+  PERFORMANCE
+  IMPROVEMENT
+  CONSTRUCTION
+  REAL_ESTATE_SALES
+  VALUE
+}
+
+enum QualityProcessStatus {
+  ACTIVE
+  NEEDS_REVIEW
+  ARCHIVED
+}
+
+enum QualityDocumentType {
+  PROCEDURE
+  POLICY
+  FORM
+  CHECKLIST
+  RECORD
+  DRAWING
+  CONTRACT
+  REPORT
+  OTHER
+}
+
+enum QualityDocumentStatus {
+  DRAFT
+  ACTIVE
+  NEEDS_REVIEW
+  ARCHIVED
 }

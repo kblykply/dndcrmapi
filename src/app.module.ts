@@ -22,6 +22,8 @@ import { OrgChartModule } from "./org-chart/org-chart.module";
 import { UserActivityModule } from "./user-activity/user-activity.module";
 import { UnitsModule } from "./units/units.module";
 import { FinanceModule } from "./finance/finance.module";
+import { QualityControlModule } from "./quality-control/quality-control.module";
+import { BulkEmailModule } from "./bulk-email/bulk-email.module";
 
 
 
@@ -48,6 +50,8 @@ PdcaModule,
 UserActivityModule,
 UnitsModule,
 FinanceModule,
+QualityControlModule,
+BulkEmailModule,
         
 
   ],
