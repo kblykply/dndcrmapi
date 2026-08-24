@@ -3,10 +3,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { NotificationsService } from "../notifications/notifications.service";
-import type { Role } from "../common/types";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import type { Role } from '../common/types';
 
 type ReqUser = {
   id: string;
@@ -20,7 +20,7 @@ type UserSnapshot = {
   role: string;
 };
 
-type AgencyStatus = "ACTIVE" | "PASSIVE" | "PROSPECT" | "DEALING" | "CLOSED";
+type AgencyStatus = 'ACTIVE' | 'PASSIVE' | 'PROSPECT' | 'DEALING' | 'CLOSED';
 
 type CreateAgencyDto = {
   name: string;
@@ -64,7 +64,7 @@ type CreateAgencyTaskDto = {
   description?: string;
   dueAt?: string;
   assignedToId?: string | null;
-  priority?: "LOW" | "MEDIUM" | "HIGH";
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
 };
 
 type UpdateAgencyTaskDto = {
@@ -72,8 +72,8 @@ type UpdateAgencyTaskDto = {
   description?: string;
   dueAt?: string | null;
   assignedToId?: string | null;
-  priority?: "LOW" | "MEDIUM" | "HIGH";
-  status?: "TODO" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  status?: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 };
 
 @Injectable()
@@ -84,19 +84,19 @@ export class AgenciesService {
   ) {}
 
   private isAdmin(user: ReqUser) {
-    return user.role === "ADMIN";
+    return user.role === 'ADMIN';
   }
 
   private isManager(user: ReqUser) {
-    return user.role === "MANAGER";
+    return user.role === 'MANAGER';
   }
 
   private isSales(user: ReqUser) {
-    return user.role === "SALES";
+    return user.role === 'SALES';
   }
 
   private cleanStr(v?: string | null) {
-    const x = (v ?? "").trim();
+    const x = (v ?? '').trim();
     return x || undefined;
   }
 
@@ -108,7 +108,7 @@ export class AgenciesService {
     actor: ReqUser,
     userIds: Array<string | null | undefined>,
     input: {
-      type: "AGENCY_UPDATED" | "SYSTEM";
+      type: 'AGENCY_UPDATED' | 'SYSTEM';
       title: string;
       message: string;
       agencyId: string;
@@ -118,7 +118,9 @@ export class AgenciesService {
     },
   ) {
     const recipients = Array.from(
-      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+      new Set(
+        userIds.filter((id): id is string => Boolean(id && id !== actor.id)),
+      ),
     );
 
     if (recipients.length === 0) return;
@@ -127,7 +129,7 @@ export class AgenciesService {
       type: input.type,
       title: input.title,
       message: input.message,
-      entityType: input.entityType || "Agency",
+      entityType: input.entityType || 'Agency',
       entityId: input.entityId || input.agencyId,
       link: this.agencyLink(input.agencyId),
       metaJson: {
@@ -149,18 +151,22 @@ export class AgenciesService {
     if (
       !found ||
       !found.isActive ||
-      (found.role !== "SALES" && found.role !== "MANAGER")
+      (found.role !== 'SALES' && found.role !== 'MANAGER')
     ) {
       throw new BadRequestException(
-        "Selected user must be an active SALES or MANAGER",
+        'Selected user must be an active SALES or MANAGER',
       );
     }
 
     return found;
   }
 
-  private async getUserSnapshots(ids: Array<string | null | undefined>): Promise<Map<string, UserSnapshot>> {
-    const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+  private async getUserSnapshots(
+    ids: Array<string | null | undefined>,
+  ): Promise<Map<string, UserSnapshot>> {
+    const uniqueIds = Array.from(
+      new Set(ids.filter((id): id is string => Boolean(id))),
+    );
     if (uniqueIds.length === 0) return new Map<string, UserSnapshot>();
 
     const users = await this.prisma.user.findMany({
@@ -184,8 +190,8 @@ export class AgenciesService {
       select: { id: true, role: true, isActive: true },
     });
 
-    if (!found || !found.isActive || found.role !== "SALES") {
-      throw new BadRequestException("Selected user is not an active SALES rep");
+    if (!found || !found.isActive || found.role !== 'SALES') {
+      throw new BadRequestException('Selected user is not an active SALES rep');
     }
 
     return found;
@@ -197,19 +203,41 @@ export class AgenciesService {
     return this.cleanStr(value) ?? null;
   }
 
-  private ownsAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
+  private ownsAgency(
+    user: ReqUser,
+    agency: { assignedSalesId?: string | null },
+  ) {
     return agency.assignedSalesId === user.id;
   }
 
-  private canSeeAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
-    return this.isAdmin(user) || this.isManager(user) || this.ownsAgency(user, agency);
+  private canSeeAgency(
+    user: ReqUser,
+    agency: { assignedSalesId?: string | null },
+  ) {
+    return (
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      this.isSales(user) ||
+      this.ownsAgency(user, agency)
+    );
   }
 
-  private canEditAgency(user: ReqUser, agency: { assignedSalesId?: string | null }) {
-    return this.isAdmin(user) || this.isManager(user) || this.ownsAgency(user, agency);
+  private canEditAgency(
+    user: ReqUser,
+    agency: { assignedSalesId?: string | null },
+  ) {
+    return (
+      this.isAdmin(user) ||
+      this.isManager(user) ||
+      this.ownsAgency(user, agency)
+    );
   }
 
-  private maskAgencyForSales(agency: any, canSeeContact: boolean, canEdit: boolean) {
+  private maskAgencyForSales(
+    agency: any,
+    canSeeContact: boolean,
+    canEdit: boolean,
+  ) {
     if (canSeeContact) {
       return {
         ...agency,
@@ -246,7 +274,7 @@ export class AgenciesService {
         select: { id: true, name: true, email: true, role: true },
       },
       salesHistory: {
-        orderBy: { createdAt: "desc" as const },
+        orderBy: { createdAt: 'desc' as const },
         take: 25,
         include: {
           previousSales: {
@@ -261,21 +289,23 @@ export class AgenciesService {
         },
       },
       notes: {
-        orderBy: { createdAt: "desc" as const },
+        orderBy: { createdAt: 'desc' as const },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
         },
       },
       meetings: {
-        orderBy: { meetingAt: "asc" as const },
+        orderBy: { meetingAt: 'asc' as const },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
-          assignedSales: { select: { id: true, name: true, email: true, role: true } },
+          assignedSales: {
+            select: { id: true, name: true, email: true, role: true },
+          },
           customer: { select: { id: true, fullName: true, companyName: true } },
         },
       },
       tasks: {
-        orderBy: [{ status: "asc" as const }, { dueAt: "asc" as const }],
+        orderBy: [{ status: 'asc' as const }, { dueAt: 'asc' as const }],
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
           assignedTo: { select: { id: true, name: true, email: true } },
@@ -294,18 +324,24 @@ export class AgenciesService {
       },
     });
 
-    if (!agency) throw new NotFoundException("Agency not found");
+    if (!agency) throw new NotFoundException('Agency not found');
 
     if (this.canSeeAgency(user, agency)) return agency;
 
-    throw new ForbiddenException("No access to this agency");
+    throw new ForbiddenException('No access to this agency');
   }
 
   private async assertCanManageAgency(user: ReqUser, agencyId: string) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
-    if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsAgency(user, agency)) {
-      throw new ForbiddenException("Only assigned user, manager or admin can manage this agency");
+    if (
+      !this.isAdmin(user) &&
+      !this.isManager(user) &&
+      !this.ownsAgency(user, agency)
+    ) {
+      throw new ForbiddenException(
+        'Only assigned user, manager or admin can manage this agency',
+      );
     }
 
     return agency;
@@ -333,10 +369,13 @@ export class AgenciesService {
     const skip = (page - 1) * pageSize;
 
     if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
-    const useAllScope = this.isAdmin(user) || (this.isManager(user) && query?.scope === "all");
+    const useAllScope =
+      this.isAdmin(user) ||
+      this.isSales(user) ||
+      (this.isManager(user) && query?.scope === 'all');
 
     if (!useAllScope) {
       where.assignedSalesId = user.id;
@@ -346,21 +385,32 @@ export class AgenciesService {
       where.assignedSalesId = assignedSalesId;
     }
 
-    if (status && status !== "ALL") {
+    if (status && status !== 'ALL') {
       where.status = status;
     }
 
     if (q) {
       where.AND = where.AND || [];
+      const publicSearch = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { city: { contains: q, mode: 'insensitive' } },
+        { country: { contains: q, mode: 'insensitive' } },
+      ];
+      const privateSearch = [
+        { contactName: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+      ];
+
       where.AND.push({
-        OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { contactName: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q, mode: "insensitive" } },
-          { email: { contains: q, mode: "insensitive" } },
-          { city: { contains: q, mode: "insensitive" } },
-          { country: { contains: q, mode: "insensitive" } },
-        ],
+        OR: this.isSales(user)
+          ? [
+              ...publicSearch,
+              {
+                AND: [{ assignedSalesId: user.id }, { OR: privateSearch }],
+              },
+            ]
+          : [...publicSearch, ...privateSearch],
       });
     }
 
@@ -379,7 +429,7 @@ export class AgenciesService {
             },
           },
         },
-        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: pageSize,
       }),
@@ -415,10 +465,10 @@ export class AgenciesService {
       include: this.agencyIncludeForDetail(),
     });
 
-    if (!agency) throw new NotFoundException("Agency not found");
+    if (!agency) throw new NotFoundException('Agency not found');
 
     if (!this.canSeeAgency(user, agency)) {
-      throw new ForbiddenException("No access to this agency");
+      throw new ForbiddenException('No access to this agency');
     }
 
     const canEdit = this.canEditAgency(user, agency);
@@ -436,11 +486,11 @@ export class AgenciesService {
 
   async createAgency(user: ReqUser, dto: CreateAgencyDto) {
     if (!this.isAdmin(user) && !this.isManager(user) && !this.isSales(user)) {
-      throw new ForbiddenException("No access to create agencies");
+      throw new ForbiddenException('No access to create agencies');
     }
 
     const name = this.cleanStr(dto.name);
-    if (!name) throw new BadRequestException("Agency name is required");
+    if (!name) throw new BadRequestException('Agency name is required');
 
     const assignedSalesId = this.resolveAssignedSalesId(
       user,
@@ -450,15 +500,17 @@ export class AgenciesService {
     await this.validateAssignableUser(assignedSalesId);
 
     const allowedStatuses = [
-      "ACTIVE",
-      "PASSIVE",
-      "PROSPECT",
-      "DEALING",
-      "CLOSED",
+      'ACTIVE',
+      'PASSIVE',
+      'PROSPECT',
+      'DEALING',
+      'CLOSED',
     ] as const;
 
     const status =
-      dto.status && allowedStatuses.includes(dto.status) ? dto.status : "ACTIVE";
+      dto.status && allowedStatuses.includes(dto.status)
+        ? dto.status
+        : 'ACTIVE';
 
     const agency = await this.prisma.agency.create({
       data: {
@@ -483,12 +535,12 @@ export class AgenciesService {
     });
 
     await this.notifyAgencyUsers(user, [agency.assignedSalesId], {
-      type: "AGENCY_UPDATED",
-      title: "Agency assigned to you",
+      type: 'AGENCY_UPDATED',
+      title: 'Agency assigned to you',
       message: `${agency.name} is now assigned to you.`,
       agencyId: agency.id,
       metaJson: {
-        action: "created",
+        action: 'created',
       },
     });
 
@@ -499,34 +551,46 @@ export class AgenciesService {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     if (!this.canEditAgency(user, agency)) {
-      throw new ForbiddenException("No access to update this agency");
+      throw new ForbiddenException('No access to update this agency');
     }
 
     const data: any = {};
 
     if (dto.name !== undefined) {
       const name = this.cleanStr(dto.name);
-      if (!name) throw new BadRequestException("Agency name is required");
+      if (!name) throw new BadRequestException('Agency name is required');
       data.name = name;
     }
 
-    if (dto.contactName !== undefined) data.contactName = this.cleanStr(dto.contactName) ?? null;
+    if (dto.contactName !== undefined)
+      data.contactName = this.cleanStr(dto.contactName) ?? null;
     if (dto.phone !== undefined) data.phone = this.cleanStr(dto.phone) ?? null;
     if (dto.email !== undefined) data.email = this.cleanStr(dto.email) ?? null;
     if (dto.city !== undefined) data.city = this.cleanStr(dto.city) ?? null;
-    if (dto.country !== undefined) data.country = this.cleanStr(dto.country) ?? null;
-    if (dto.address !== undefined) data.address = this.cleanStr(dto.address) ?? null;
-    if (dto.website !== undefined) data.website = this.cleanStr(dto.website) ?? null;
-    if (dto.source !== undefined) data.source = this.cleanStr(dto.source) ?? null;
-    if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary) ?? null;
+    if (dto.country !== undefined)
+      data.country = this.cleanStr(dto.country) ?? null;
+    if (dto.address !== undefined)
+      data.address = this.cleanStr(dto.address) ?? null;
+    if (dto.website !== undefined)
+      data.website = this.cleanStr(dto.website) ?? null;
+    if (dto.source !== undefined)
+      data.source = this.cleanStr(dto.source) ?? null;
+    if (dto.notesSummary !== undefined)
+      data.notesSummary = this.cleanStr(dto.notesSummary) ?? null;
 
     if (dto.status !== undefined) {
       data.status = dto.status;
     }
 
     if (dto.assignedSalesId !== undefined) {
-      if (!this.isAdmin(user) && !this.isManager(user) && !this.ownsAgency(user, agency)) {
-        throw new ForbiddenException("Only assigned user, manager or admin can reassign agency");
+      if (
+        !this.isAdmin(user) &&
+        !this.isManager(user) &&
+        !this.ownsAgency(user, agency)
+      ) {
+        throw new ForbiddenException(
+          'Only assigned user, manager or admin can reassign agency',
+        );
       }
 
       const assignedSalesId = this.cleanStr(dto.assignedSalesId) ?? null;
@@ -535,10 +599,14 @@ export class AgenciesService {
     }
 
     const shouldCreateSalesHistory =
-      Object.prototype.hasOwnProperty.call(data, "assignedSalesId") &&
+      Object.prototype.hasOwnProperty.call(data, 'assignedSalesId') &&
       agency.assignedSalesId !== data.assignedSalesId;
     const salesSnapshots = shouldCreateSalesHistory
-      ? await this.getUserSnapshots([agency.assignedSalesId, data.assignedSalesId, user.id])
+      ? await this.getUserSnapshots([
+          agency.assignedSalesId,
+          data.assignedSalesId,
+          user.id,
+        ])
       : new Map<string, UserSnapshot>();
     const previousSalesSnapshot = agency.assignedSalesId
       ? salesSnapshots.get(agency.assignedSalesId)
@@ -583,18 +651,16 @@ export class AgenciesService {
     });
 
     await this.notifyAgencyUsers(user, [updated.assignedSalesId], {
-      type: "AGENCY_UPDATED",
-      title:
-        shouldCreateSalesHistory
-          ? "Agency assigned to you"
-          : "Agency updated",
-      message:
-        shouldCreateSalesHistory
-          ? `${updated.name} is now assigned to you.`
-          : `${updated.name} was updated.`,
+      type: 'AGENCY_UPDATED',
+      title: shouldCreateSalesHistory
+        ? 'Agency assigned to you'
+        : 'Agency updated',
+      message: shouldCreateSalesHistory
+        ? `${updated.name} is now assigned to you.`
+        : `${updated.name} was updated.`,
       agencyId: updated.id,
       metaJson: {
-        action: shouldCreateSalesHistory ? "assigned" : "updated",
+        action: shouldCreateSalesHistory ? 'assigned' : 'updated',
         previousAssignedSalesId: agency.assignedSalesId,
         assignedSalesId: updated.assignedSalesId,
       },
@@ -605,13 +671,15 @@ export class AgenciesService {
 
   async deleteAgency(user: ReqUser, agencyId: string) {
     if (!this.isAdmin(user) && !this.isManager(user)) {
-      throw new ForbiddenException("No access to delete agency");
+      throw new ForbiddenException('No access to delete agency');
     }
 
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
-      throw new ForbiddenException("Only assigned manager or admin can delete agency");
+      throw new ForbiddenException(
+        'Only assigned manager or admin can delete agency',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -685,12 +753,12 @@ export class AgenciesService {
     });
 
     await this.notifyAgencyUsers(user, [updated.assignedSalesId], {
-      type: "AGENCY_UPDATED",
-      title: "Agency assigned to you",
+      type: 'AGENCY_UPDATED',
+      title: 'Agency assigned to you',
       message: `${updated.name} is now assigned to you.`,
       agencyId: updated.id,
       metaJson: {
-        action: "assigned",
+        action: 'assigned',
         previousAssignedSalesId: agency.assignedSalesId,
         assignedSalesId: updated.assignedSalesId,
       },
@@ -703,11 +771,11 @@ export class AgenciesService {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     if (!this.canEditAgency(user, agency)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const note = this.cleanStr(dto.note);
-    if (!note) throw new BadRequestException("Note is required");
+    if (!note) throw new BadRequestException('Note is required');
 
     const created = await this.prisma.agencyNote.create({
       data: {
@@ -721,12 +789,12 @@ export class AgenciesService {
     });
 
     await this.notifyAgencyUsers(user, [agency.assignedSalesId], {
-      type: "AGENCY_UPDATED",
-      title: "Agency note added",
+      type: 'AGENCY_UPDATED',
+      title: 'Agency note added',
       message: `A note was added to ${agency.name}.`,
       agencyId,
       metaJson: {
-        action: "note_added",
+        action: 'note_added',
         noteId: created.id,
       },
     });
@@ -734,20 +802,25 @@ export class AgenciesService {
     return created;
   }
 
-  async createMeeting(user: ReqUser, agencyId: string, dto: CreateAgencyMeetingDto) {
+  async createMeeting(
+    user: ReqUser,
+    agencyId: string,
+    dto: CreateAgencyMeetingDto,
+  ) {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     if (!this.canEditAgency(user, agency)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const title = this.cleanStr(dto.title);
-    if (!title) throw new BadRequestException("Meeting title is required");
-    if (!dto.meetingAt) throw new BadRequestException("Meeting time is required");
+    if (!title) throw new BadRequestException('Meeting title is required');
+    if (!dto.meetingAt)
+      throw new BadRequestException('Meeting time is required');
 
     const meetingAt = new Date(dto.meetingAt);
     if (Number.isNaN(meetingAt.getTime())) {
-      throw new BadRequestException("Invalid meetingAt");
+      throw new BadRequestException('Invalid meetingAt');
     }
 
     const created = await this.prisma.agencyMeeting.create({
@@ -761,19 +834,21 @@ export class AgenciesService {
       },
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true, role: true } },
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
 
     await this.notifyAgencyUsers(user, [created.assignedSalesId], {
-      type: "SYSTEM",
-      title: "Agency meeting scheduled",
+      type: 'SYSTEM',
+      title: 'Agency meeting scheduled',
       message: `${created.title} was scheduled for ${agency.name}.`,
       agencyId,
-      entityType: "AgencyMeeting",
+      entityType: 'AgencyMeeting',
       entityId: created.id,
       metaJson: {
-        action: "meeting_created",
+        action: 'meeting_created',
         meetingId: created.id,
         meetingAt: created.meetingAt,
       },
@@ -782,7 +857,11 @@ export class AgenciesService {
     return created;
   }
 
-  async updateMeeting(user: ReqUser, meetingId: string, dto: UpdateAgencyMeetingDto) {
+  async updateMeeting(
+    user: ReqUser,
+    meetingId: string,
+    dto: UpdateAgencyMeetingDto,
+  ) {
     const meeting = await this.prisma.agencyMeeting.findUnique({
       where: { id: meetingId },
       include: {
@@ -790,18 +869,18 @@ export class AgenciesService {
       },
     });
 
-    if (!meeting) throw new NotFoundException("Meeting not found");
-    if (!meeting.agency) throw new NotFoundException("Agency not found");
+    if (!meeting) throw new NotFoundException('Meeting not found');
+    if (!meeting.agency) throw new NotFoundException('Agency not found');
 
     if (!this.canEditAgency(user, meeting.agency)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const data: any = {};
 
     if (dto.title !== undefined) {
       const title = this.cleanStr(dto.title);
-      if (!title) throw new BadRequestException("Meeting title is required");
+      if (!title) throw new BadRequestException('Meeting title is required');
       data.title = title;
     }
 
@@ -812,7 +891,7 @@ export class AgenciesService {
     if (dto.meetingAt !== undefined) {
       const meetingAt = new Date(dto.meetingAt);
       if (Number.isNaN(meetingAt.getTime())) {
-        throw new BadRequestException("Invalid meetingAt");
+        throw new BadRequestException('Invalid meetingAt');
       }
       data.meetingAt = meetingAt;
     }
@@ -822,7 +901,9 @@ export class AgenciesService {
       data,
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
-        assignedSales: { select: { id: true, name: true, email: true, role: true } },
+        assignedSales: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
   }
@@ -831,11 +912,11 @@ export class AgenciesService {
     const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     if (!this.canEditAgency(user, agency)) {
-      throw new ForbiddenException("No access to create this task");
+      throw new ForbiddenException('No access to create this task');
     }
 
     const title = this.cleanStr(dto.title);
-    if (!title) throw new BadRequestException("Task title is required");
+    if (!title) throw new BadRequestException('Task title is required');
 
     let assignedToId: string | null = dto.assignedToId || null;
 
@@ -851,7 +932,7 @@ export class AgenciesService {
     if (dto.dueAt) {
       dueAt = new Date(dto.dueAt);
       if (Number.isNaN(dueAt.getTime())) {
-        throw new BadRequestException("Invalid dueAt");
+        throw new BadRequestException('Invalid dueAt');
       }
     }
 
@@ -863,7 +944,7 @@ export class AgenciesService {
         title,
         description: this.cleanStr(dto.description),
         dueAt,
-        priority: dto.priority || "MEDIUM",
+        priority: dto.priority || 'MEDIUM',
       },
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
@@ -872,14 +953,14 @@ export class AgenciesService {
     });
 
     await this.notifyAgencyUsers(user, [created.assignedToId], {
-      type: "SYSTEM",
-      title: "Agency task assigned",
+      type: 'SYSTEM',
+      title: 'Agency task assigned',
       message: `${created.title} was assigned to you.`,
       agencyId: agency.id,
-      entityType: "AgencyTask",
+      entityType: 'AgencyTask',
       entityId: created.id,
       metaJson: {
-        action: "task_created",
+        action: 'task_created',
         taskId: created.id,
         assignedToId: created.assignedToId,
       },
@@ -896,29 +977,29 @@ export class AgenciesService {
       },
     });
 
-    if (!task) throw new NotFoundException("Task not found");
+    if (!task) throw new NotFoundException('Task not found');
 
     const ownerCanEdit =
       this.isAdmin(user) ||
-      (task.agency?.assignedSalesId === user.id && user.role === "MANAGER");
+      (task.agency?.assignedSalesId === user.id && user.role === 'MANAGER');
 
     const salesCanEditOwn = this.isSales(user) && task.assignedToId === user.id;
 
     if (!ownerCanEdit && !salesCanEditOwn) {
-      throw new ForbiddenException("No access to update this task");
+      throw new ForbiddenException('No access to update this task');
     }
 
     const data: any = {};
 
     if (dto.status !== undefined) {
       data.status = dto.status;
-      data.completedAt = dto.status === "DONE" ? new Date() : null;
+      data.completedAt = dto.status === 'DONE' ? new Date() : null;
     }
 
     if (ownerCanEdit) {
       if (dto.title !== undefined) {
         const title = this.cleanStr(dto.title);
-        if (!title) throw new BadRequestException("Task title is required");
+        if (!title) throw new BadRequestException('Task title is required');
         data.title = title;
       }
 
@@ -945,7 +1026,7 @@ export class AgenciesService {
         } else {
           const dueAt = new Date(dto.dueAt);
           if (Number.isNaN(dueAt.getTime())) {
-            throw new BadRequestException("Invalid dueAt");
+            throw new BadRequestException('Invalid dueAt');
           }
           data.dueAt = dueAt;
         }
@@ -961,21 +1042,25 @@ export class AgenciesService {
       },
     });
 
-    await this.notifyAgencyUsers(user, [updated.assignedToId, task.createdById], {
-      type: "SYSTEM",
-      title: "Agency task updated",
-      message: `${updated.title} was updated.`,
-      agencyId: task.agencyId,
-      entityType: "AgencyTask",
-      entityId: updated.id,
-      metaJson: {
-        action: "task_updated",
-        taskId: updated.id,
-        status: updated.status,
-        previousStatus: task.status,
-        assignedToId: updated.assignedToId,
+    await this.notifyAgencyUsers(
+      user,
+      [updated.assignedToId, task.createdById],
+      {
+        type: 'SYSTEM',
+        title: 'Agency task updated',
+        message: `${updated.title} was updated.`,
+        agencyId: task.agencyId,
+        entityType: 'AgencyTask',
+        entityId: updated.id,
+        metaJson: {
+          action: 'task_updated',
+          taskId: updated.id,
+          status: updated.status,
+          previousStatus: task.status,
+          assignedToId: updated.assignedToId,
+        },
       },
-    });
+    );
 
     return updated;
   }

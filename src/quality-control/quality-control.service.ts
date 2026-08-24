@@ -7,6 +7,10 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import type { Role } from "../common/types";
+import {
+  DEFAULT_QUALITY_CHECKLISTS,
+  defaultQualityChecklistId,
+} from "./quality-control-checklists";
 
 type ReqUser = {
   id: string;
@@ -419,6 +423,8 @@ const DEFAULT_CARDS: Array<{
 
 @Injectable()
 export class QualityControlService {
+  private defaultDataPromise: Promise<void> | null = null;
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
@@ -503,7 +509,11 @@ export class QualityControlService {
     }
   }
 
-  private async ensureDefaultCards() {
+  private normalizeChecklistTitle(title: string) {
+    return title.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, " ");
+  }
+
+  private async seedDefaultData() {
     await this.prisma.qualityProcessCard.createMany({
       data: DEFAULT_CARDS.map((card) => ({
         ...card,
@@ -511,6 +521,62 @@ export class QualityControlService {
       })),
       skipDuplicates: true,
     });
+
+    const checklistCodes = Object.keys(DEFAULT_QUALITY_CHECKLISTS);
+    const cards = await this.prisma.qualityProcessCard.findMany({
+      where: { code: { in: checklistCodes } },
+      select: { id: true, code: true },
+    });
+    const cardIdByCode = new Map(cards.map((card) => [card.code, card.id]));
+    const cardIds = cards.map((card) => card.id);
+
+    const existing = cardIds.length
+      ? await this.prisma.qualityChecklistItem.findMany({
+          where: { cardId: { in: cardIds } },
+          select: { id: true, cardId: true, title: true },
+        })
+      : [];
+    const existingIds = new Set(existing.map((item) => item.id));
+    const existingTitles = new Set(
+      existing.map((item) => `${item.cardId}:${this.normalizeChecklistTitle(item.title)}`),
+    );
+
+    const defaults = Object.entries(DEFAULT_QUALITY_CHECKLISTS).flatMap(([cardCode, items]) => {
+      const cardId = cardIdByCode.get(cardCode);
+      if (!cardId) return [];
+
+      return items.map((item, index) => ({
+        id: defaultQualityChecklistId(cardCode, item.key),
+        cardId,
+        title: item.title,
+        description: item.description,
+        required: item.required,
+        sortOrder: (index + 1) * 10,
+      }));
+    });
+    const missingDefaults = defaults.filter(
+      (item) =>
+        !existingIds.has(item.id) &&
+        !existingTitles.has(`${item.cardId}:${this.normalizeChecklistTitle(item.title)}`),
+    );
+
+    if (missingDefaults.length > 0) {
+      await this.prisma.qualityChecklistItem.createMany({
+        data: missingDefaults,
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  private async ensureDefaultCards() {
+    if (!this.defaultDataPromise) {
+      this.defaultDataPromise = this.seedDefaultData().catch((error) => {
+        this.defaultDataPromise = null;
+        throw error;
+      });
+    }
+
+    await this.defaultDataPromise;
   }
 
   private listInclude() {

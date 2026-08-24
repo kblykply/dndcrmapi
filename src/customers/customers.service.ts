@@ -3,14 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { NotificationsService } from "../notifications/notifications.service";
-import type { Role } from "../common/types";
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import type { Role } from '../common/types';
 import {
   extractOldNationalityCode,
   resolveCustomerNationality,
-} from "./nationality-data";
+} from './nationality-data';
 
 type ReqUser = {
   id: string;
@@ -24,14 +24,14 @@ type UserSnapshot = {
   role: string;
 };
 
-type Gender = "MALE" | "FEMALE" | "OTHER";
+type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 type ProjectType =
-  | "LA_JOYA"
-  | "LA_JOYA_PERLA"
-  | "LA_JOYA_PERLA_II"
-  | "LAGOON_VERDE";
+  | 'LA_JOYA'
+  | 'LA_JOYA_PERLA'
+  | 'LA_JOYA_PERLA_II'
+  | 'LAGOON_VERDE';
 
-type CustomerDocumentType = "ID" | "PASSPORT" | "OTHER";
+type CustomerDocumentType = 'ID' | 'PASSPORT' | 'OTHER';
 
 type ListCustomersQuery = {
   q?: string;
@@ -47,23 +47,23 @@ export class CustomersService {
   ) {}
 
   private isAdmin(user: ReqUser) {
-    return user.role === "ADMIN";
+    return user.role === 'ADMIN';
   }
 
   private isManager(user: ReqUser) {
-    return user.role === "MANAGER";
+    return user.role === 'MANAGER';
   }
 
   private isSales(user: ReqUser) {
-    return user.role === "SALES";
+    return user.role === 'SALES';
   }
 
   private isAftersales(user: ReqUser) {
-    return user.role === "AFTERSALES";
+    return user.role === 'AFTERSALES';
   }
 
   private isCrmUser(user: ReqUser) {
-    return ["ADMIN", "MANAGER", "SALES", "AFTERSALES"].includes(user.role);
+    return ['ADMIN', 'MANAGER', 'SALES', 'AFTERSALES'].includes(user.role);
   }
 
   private canSeeAllCustomers(user: ReqUser) {
@@ -71,7 +71,7 @@ export class CustomersService {
   }
 
   private cleanStr(v?: string | null) {
-    const x = (v ?? "").trim();
+    const x = (v ?? '').trim();
     return x || null;
   }
 
@@ -83,7 +83,10 @@ export class CustomersService {
     actor: ReqUser,
     userIds: Array<string | null | undefined>,
     input: {
-      type: "CUSTOMER_UPDATED" | "PRESENTATION_CREATED" | "PRESENTATION_NOTE_ADDED";
+      type:
+        | 'CUSTOMER_UPDATED'
+        | 'PRESENTATION_CREATED'
+        | 'PRESENTATION_NOTE_ADDED';
       title: string;
       message: string;
       customerId: string;
@@ -93,7 +96,9 @@ export class CustomersService {
     },
   ) {
     const recipients = Array.from(
-      new Set(userIds.filter((id): id is string => Boolean(id && id !== actor.id))),
+      new Set(
+        userIds.filter((id): id is string => Boolean(id && id !== actor.id)),
+      ),
     );
 
     if (recipients.length === 0) return;
@@ -102,7 +107,7 @@ export class CustomersService {
       type: input.type,
       title: input.title,
       message: input.message,
-      entityType: input.entityType || "Customer",
+      entityType: input.entityType || 'Customer',
       entityId: input.entityId || input.customerId,
       link: this.customerLink(input.customerId),
       metaJson: {
@@ -116,7 +121,8 @@ export class CustomersService {
   private parseDateOrNull(v?: string | null) {
     if (!v) return null;
     const d = new Date(v);
-    if (Number.isNaN(d.getTime())) throw new BadRequestException("Invalid date");
+    if (Number.isNaN(d.getTime()))
+      throw new BadRequestException('Invalid date');
     return d;
   }
 
@@ -124,8 +130,8 @@ export class CustomersService {
     if (!v) return null;
     const value = String(v).trim().toUpperCase();
 
-    if (value !== "MALE" && value !== "FEMALE" && value !== "OTHER") {
-      throw new BadRequestException("Invalid gender");
+    if (value !== 'MALE' && value !== 'FEMALE' && value !== 'OTHER') {
+      throw new BadRequestException('Invalid gender');
     }
 
     return value as Gender;
@@ -136,25 +142,25 @@ export class CustomersService {
     const value = String(v).trim().toUpperCase();
 
     const allowed: ProjectType[] = [
-      "LA_JOYA",
-      "LA_JOYA_PERLA",
-      "LA_JOYA_PERLA_II",
-      "LAGOON_VERDE",
+      'LA_JOYA',
+      'LA_JOYA_PERLA',
+      'LA_JOYA_PERLA_II',
+      'LAGOON_VERDE',
     ];
 
     if (!allowed.includes(value as ProjectType)) {
-      throw new BadRequestException("Invalid project");
+      throw new BadRequestException('Invalid project');
     }
 
     return value as ProjectType;
   }
 
   private normalizeDocumentType(v?: string | null): CustomerDocumentType {
-    if (!v) return "OTHER";
+    if (!v) return 'OTHER';
     const value = String(v).trim().toUpperCase();
 
-    if (value !== "ID" && value !== "PASSPORT" && value !== "OTHER") {
-      throw new BadRequestException("Invalid document type");
+    if (value !== 'ID' && value !== 'PASSPORT' && value !== 'OTHER') {
+      throw new BadRequestException('Invalid document type');
     }
 
     return value as CustomerDocumentType;
@@ -179,7 +185,9 @@ export class CustomersService {
   }
 
   private normalizeReportValue(value?: string | null) {
-    return String(value || "").trim().replace(/\s+/g, " ");
+    return String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ');
   }
 
   private incrementBucket(map: Map<string, number>, value?: string | null) {
@@ -209,7 +217,10 @@ export class CustomersService {
     let age = now.getFullYear() - date.getFullYear();
     const monthDelta = now.getMonth() - date.getMonth();
 
-    if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < date.getDate())) {
+    if (
+      monthDelta < 0 ||
+      (monthDelta === 0 && now.getDate() < date.getDate())
+    ) {
       age -= 1;
     }
 
@@ -217,24 +228,24 @@ export class CustomersService {
   }
 
   private ageGroup(age: number | null) {
-    if (age === null) return "";
-    if (age < 25) return "Under 25";
-    if (age < 35) return "25-34";
-    if (age < 45) return "35-44";
-    if (age < 55) return "45-54";
-    if (age < 65) return "55-64";
-    return "65+";
+    if (age === null) return '';
+    if (age < 25) return 'Under 25';
+    if (age < 35) return '25-34';
+    if (age < 45) return '35-44';
+    if (age < 55) return '45-54';
+    if (age < 65) return '55-64';
+    return '65+';
   }
 
   private projectLabel(project?: string | null) {
     const labels: Record<string, string> = {
-      LA_JOYA: "La Joya",
-      LA_JOYA_PERLA: "La Joya Perla",
-      LA_JOYA_PERLA_II: "La Joya Perla II",
-      LAGOON_VERDE: "Lagoon Verde",
+      LA_JOYA: 'La Joya',
+      LA_JOYA_PERLA: 'La Joya Perla',
+      LA_JOYA_PERLA_II: 'La Joya Perla II',
+      LAGOON_VERDE: 'Lagoon Verde',
     };
 
-    return project ? labels[project] || project : "";
+    return project ? labels[project] || project : '';
   }
 
   private normalizeUnitSelections(input: any): Array<{
@@ -277,18 +288,22 @@ export class CustomersService {
     if (
       !owner ||
       !owner.isActive ||
-      (owner.role !== "SALES" && owner.role !== "MANAGER")
+      (owner.role !== 'SALES' && owner.role !== 'MANAGER')
     ) {
       throw new BadRequestException(
-        "Selected owner must be an active SALES or MANAGER user",
+        'Selected owner must be an active SALES or MANAGER user',
       );
     }
 
     return owner;
   }
 
-  private async getUserSnapshots(ids: Array<string | null | undefined>): Promise<Map<string, UserSnapshot>> {
-    const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
+  private async getUserSnapshots(
+    ids: Array<string | null | undefined>,
+  ): Promise<Map<string, UserSnapshot>> {
+    const uniqueIds = Array.from(
+      new Set(ids.filter((id): id is string => Boolean(id))),
+    );
     if (uniqueIds.length === 0) return new Map<string, UserSnapshot>();
 
     const users = await this.prisma.user.findMany({
@@ -323,6 +338,13 @@ export class CustomersService {
     );
   }
 
+  private isCustomerOwner(
+    user: ReqUser,
+    customer: { ownerId?: string | null },
+  ) {
+    return customer.ownerId === user.id;
+  }
+
   private canSeeCustomer(
     user: ReqUser,
     customer: {
@@ -331,7 +353,8 @@ export class CustomersService {
     },
   ) {
     if (this.canSeeAllCustomers(user)) return true;
-    if (this.isManager(user) || this.isSales(user)) return this.ownsCustomer(user, customer);
+    if (this.isManager(user)) return this.ownsCustomer(user, customer);
+    if (this.isSales(user)) return this.isCustomerOwner(user, customer);
     return false;
   }
 
@@ -345,10 +368,31 @@ export class CustomersService {
     return this.canSeeCustomer(user, customer);
   }
 
-  private maskCustomerForLimitedUser(customer: any, canSeeContact: boolean) {
+  private maskCustomerForLimitedUser(
+    customer: any,
+    canSeeContact: boolean,
+    user: ReqUser,
+  ) {
+    const agency =
+      this.isSales(user) &&
+      customer.agency &&
+      customer.agency.assignedSalesId !== user.id
+        ? {
+            ...customer.agency,
+            contactName: null,
+            phone: null,
+            email: null,
+            address: null,
+            website: null,
+            source: null,
+            notesSummary: null,
+          }
+        : customer.agency;
+
     if (canSeeContact) {
       return {
         ...customer,
+        agency,
         canSeeContactDetails: true,
         canEdit: true,
       };
@@ -356,8 +400,11 @@ export class CustomersService {
 
     return {
       ...customer,
+      agency,
       phone: null,
       email: null,
+      city: null,
+      country: null,
       address: null,
       notesSummary: null,
       birthday: null,
@@ -395,21 +442,21 @@ export class CustomersService {
           select: { assignedSalesId: true },
         },
         unitSelections: {
-          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+          orderBy: [{ project: 'asc' }, { unitNumber: 'asc' }],
         },
         documents: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
     return customer;
   }
 
   async listCustomers(user: ReqUser, query: ListCustomersQuery = {}) {
     if (!this.isCrmUser(user)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const where: any = {};
@@ -421,7 +468,7 @@ export class CustomersService {
       where.agencyId = agencyId;
     }
 
-    if (this.canSeeAllCustomers(user)) {
+    if (this.canSeeAllCustomers(user) || this.isSales(user)) {
       if (ownerId) where.ownerId = ownerId;
     } else {
       where.OR = [
@@ -432,19 +479,30 @@ export class CustomersService {
 
     if (q) {
       where.AND = where.AND || [];
+      const publicSearch = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { companyName: { contains: q, mode: 'insensitive' } },
+      ];
+      const privateSearch = [
+        { phone: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { identityNumber: { contains: q, mode: 'insensitive' } },
+        { oldCustomerCode: { contains: q, mode: 'insensitive' } },
+        { oldCariCodes: { contains: q, mode: 'insensitive' } },
+        { city: { contains: q, mode: 'insensitive' } },
+        { country: { contains: q, mode: 'insensitive' } },
+        { nationality: { contains: q, mode: 'insensitive' } },
+      ];
+
       where.AND.push({
-        OR: [
-          { fullName: { contains: q, mode: "insensitive" } },
-          { companyName: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { identityNumber: { contains: q, mode: "insensitive" } },
-        { oldCustomerCode: { contains: q, mode: "insensitive" } },
-        { oldCariCodes: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-        { country: { contains: q, mode: "insensitive" } },
-        { nationality: { contains: q, mode: "insensitive" } },
-      ],
+        OR: this.isSales(user)
+          ? [
+              ...publicSearch,
+              {
+                AND: [{ ownerId: user.id }, { OR: privateSearch }],
+              },
+            ]
+          : [...publicSearch, ...privateSearch],
       });
     }
 
@@ -459,10 +517,10 @@ export class CustomersService {
           select: { assignedSalesId: true },
         },
         unitSelections: {
-          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+          orderBy: [{ project: 'asc' }, { unitNumber: 'asc' }],
         },
         documents: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
         },
         _count: {
           select: {
@@ -472,7 +530,7 @@ export class CustomersService {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (this.isAdmin(user)) {
@@ -484,7 +542,13 @@ export class CustomersService {
     }
 
     return customers.map((customer) =>
-      this.maskCustomerForLimitedUser(customer, this.ownsCustomer(user, customer)),
+      this.maskCustomerForLimitedUser(
+        customer,
+        this.isSales(user)
+          ? this.isCustomerOwner(user, customer)
+          : this.ownsCustomer(user, customer),
+        user,
+      ),
     );
   }
 
@@ -495,11 +559,11 @@ export class CustomersService {
       !this.isSales(user) &&
       !this.isAftersales(user)
     ) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const useAllScope =
-      query.scope === "all" &&
+      query.scope === 'all' &&
       (this.isAdmin(user) || this.isManager(user) || this.isAftersales(user));
 
     const customerWhere = useAllScope
@@ -533,10 +597,10 @@ export class CustomersService {
             select: { assignedSalesId: true },
           },
           unitSelections: {
-            orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+            orderBy: [{ project: 'asc' }, { unitNumber: 'asc' }],
           },
           documents: {
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: 'desc' },
           },
           _count: {
             select: {
@@ -546,7 +610,7 @@ export class CustomersService {
             },
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { updatedAt: 'desc' },
         take: 500,
       }),
       this.prisma.presentation.findMany({
@@ -570,27 +634,38 @@ export class CustomersService {
             select: { id: true, name: true, email: true, role: true },
           },
         },
-        orderBy: { presentationAt: "desc" },
+        orderBy: { presentationAt: 'desc' },
         take: 200,
       }),
     ]);
 
     const now = new Date();
     const visibleCustomers = customers.map((customer) =>
-      this.maskCustomerForLimitedUser(customer, true),
+      this.isSales(user)
+        ? this.maskCustomerForLimitedUser(
+            customer,
+            this.isCustomerOwner(user, customer),
+            user,
+          )
+        : this.withAccessFlags(customer, true),
     );
 
     return {
       stats: {
-        scope: useAllScope ? "ALL" : "MINE",
+        scope: useAllScope ? 'ALL' : 'MINE',
         customers: visibleCustomers.length,
-        potentialCustomers: visibleCustomers.filter((c) => c.type === "POTENTIAL").length,
-        existingCustomers: visibleCustomers.filter((c) => c.type === "EXISTING").length,
+        potentialCustomers: visibleCustomers.filter(
+          (c) => c.type === 'POTENTIAL',
+        ).length,
+        existingCustomers: visibleCustomers.filter((c) => c.type === 'EXISTING')
+          .length,
         presentations: presentations.length,
         upcomingPresentations: presentations.filter(
-          (p) => p.presentationAt >= now && p.status !== "CANCELLED",
+          (p) => p.presentationAt >= now && p.status !== 'CANCELLED',
         ).length,
-        completedPresentations: presentations.filter((p) => p.status === "COMPLETED").length,
+        completedPresentations: presentations.filter(
+          (p) => p.status === 'COMPLETED',
+        ).length,
       },
       customers: visibleCustomers,
       presentations,
@@ -599,11 +674,11 @@ export class CustomersService {
 
   async createCustomer(user: ReqUser, dto: any) {
     if (!this.isCrmUser(user)) {
-      throw new ForbiddenException("No access to create customer");
+      throw new ForbiddenException('No access to create customer');
     }
 
     const fullName = this.cleanStr(dto.fullName);
-    if (!fullName) throw new BadRequestException("Customer name required");
+    if (!fullName) throw new BadRequestException('Customer name required');
 
     const agencyId = this.cleanStr(dto.agencyId);
 
@@ -613,7 +688,7 @@ export class CustomersService {
         select: { id: true },
       });
 
-      if (!agency) throw new BadRequestException("Selected agency not found");
+      if (!agency) throw new BadRequestException('Selected agency not found');
     }
 
     const ownerId = this.resolveOwnerId(user, dto.ownerId);
@@ -641,7 +716,7 @@ export class CustomersService {
         address: this.cleanStr(dto.address),
         source: this.cleanStr(dto.source),
         notesSummary: this.cleanStr(dto.notesSummary),
-        type: dto.type || "POTENTIAL",
+        type: dto.type || 'POTENTIAL',
         agencyId,
         ownerId,
 
@@ -673,7 +748,7 @@ export class CustomersService {
           select: { id: true, name: true, email: true, role: true },
         },
         ownerHistory: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           take: 25,
           include: {
             previousOwner: {
@@ -688,10 +763,10 @@ export class CustomersService {
           },
         },
         unitSelections: {
-          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+          orderBy: [{ project: 'asc' }, { unitNumber: 'asc' }],
         },
         documents: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
         },
         _count: {
           select: {
@@ -704,12 +779,12 @@ export class CustomersService {
     });
 
     await this.notifyCustomerUsers(user, [customer.ownerId], {
-      type: "CUSTOMER_UPDATED",
-      title: "Customer assigned to you",
+      type: 'CUSTOMER_UPDATED',
+      title: 'Customer assigned to you',
       message: `${customer.fullName} is now assigned to you.`,
       customerId: customer.id,
       metaJson: {
-        action: "created",
+        action: 'created',
       },
     });
 
@@ -726,41 +801,52 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canEditCustomer(user, customer)) {
-      throw new ForbiddenException("No access to update customer");
+      throw new ForbiddenException('No access to update customer');
     }
 
     const data: any = {};
 
     if (dto.fullName !== undefined) {
       const fullName = this.cleanStr(dto.fullName);
-      if (!fullName) throw new BadRequestException("Customer name required");
+      if (!fullName) throw new BadRequestException('Customer name required');
       data.fullName = fullName;
     }
 
-    if (dto.companyName !== undefined) data.companyName = this.cleanStr(dto.companyName);
+    if (dto.companyName !== undefined)
+      data.companyName = this.cleanStr(dto.companyName);
     if (dto.phone !== undefined) data.phone = this.cleanStr(dto.phone);
     if (dto.email !== undefined) data.email = this.cleanStr(dto.email);
     if (dto.city !== undefined) data.city = this.cleanStr(dto.city);
     if (dto.country !== undefined) data.country = this.cleanStr(dto.country);
     if (dto.address !== undefined) data.address = this.cleanStr(dto.address);
     if (dto.source !== undefined) data.source = this.cleanStr(dto.source);
-    if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary);
+    if (dto.notesSummary !== undefined)
+      data.notesSummary = this.cleanStr(dto.notesSummary);
     if (dto.type !== undefined) data.type = dto.type;
 
     if (dto.language !== undefined) data.language = this.cleanStr(dto.language);
-    if (dto.nationality !== undefined) data.nationality = this.cleanStr(dto.nationality);
-    if (dto.identityNumber !== undefined) data.identityNumber = this.cleanStr(dto.identityNumber);
-    if (dto.oldCustomerCode !== undefined) data.oldCustomerCode = this.cleanStr(dto.oldCustomerCode);
-    if (dto.oldCariCodes !== undefined) data.oldCariCodes = this.cleanStr(dto.oldCariCodes);
-    if (dto.gender !== undefined) data.gender = this.normalizeGender(dto.gender);
-    if (dto.birthday !== undefined) data.birthday = this.parseDateOrNull(dto.birthday);
+    if (dto.nationality !== undefined)
+      data.nationality = this.cleanStr(dto.nationality);
+    if (dto.identityNumber !== undefined)
+      data.identityNumber = this.cleanStr(dto.identityNumber);
+    if (dto.oldCustomerCode !== undefined)
+      data.oldCustomerCode = this.cleanStr(dto.oldCustomerCode);
+    if (dto.oldCariCodes !== undefined)
+      data.oldCariCodes = this.cleanStr(dto.oldCariCodes);
+    if (dto.gender !== undefined)
+      data.gender = this.normalizeGender(dto.gender);
+    if (dto.birthday !== undefined)
+      data.birthday = this.parseDateOrNull(dto.birthday);
     if (dto.job !== undefined) data.job = this.cleanStr(dto.job);
-    if (dto.project !== undefined) data.project = this.normalizeProject(dto.project);
-    if (dto.idDocumentUrl !== undefined) data.idDocumentUrl = this.cleanStr(dto.idDocumentUrl);
-    if (dto.idDocumentName !== undefined) data.idDocumentName = this.cleanStr(dto.idDocumentName);
+    if (dto.project !== undefined)
+      data.project = this.normalizeProject(dto.project);
+    if (dto.idDocumentUrl !== undefined)
+      data.idDocumentUrl = this.cleanStr(dto.idDocumentUrl);
+    if (dto.idDocumentName !== undefined)
+      data.idDocumentName = this.cleanStr(dto.idDocumentName);
 
     if (
       dto.country !== undefined ||
@@ -771,13 +857,17 @@ export class CustomersService {
       const location = this.normalizeCustomerLocationFields({
         country: dto.country !== undefined ? dto.country : customer.country,
         nationality:
-          dto.nationality !== undefined ? dto.nationality : customer.nationality,
+          dto.nationality !== undefined
+            ? dto.nationality
+            : customer.nationality,
         oldCustomerCode:
           dto.oldCustomerCode !== undefined
             ? dto.oldCustomerCode
             : customer.oldCustomerCode,
         oldCariCodes:
-          dto.oldCariCodes !== undefined ? dto.oldCariCodes : customer.oldCariCodes,
+          dto.oldCariCodes !== undefined
+            ? dto.oldCariCodes
+            : customer.oldCariCodes,
       });
 
       data.country = location.country;
@@ -793,7 +883,7 @@ export class CustomersService {
           select: { id: true },
         });
 
-        if (!agency) throw new BadRequestException("Selected agency not found");
+        if (!agency) throw new BadRequestException('Selected agency not found');
       }
 
       data.agencyId = agencyId;
@@ -804,10 +894,10 @@ export class CustomersService {
         !this.isAdmin(user) &&
         !this.isManager(user) &&
         !this.isAftersales(user) &&
-        !this.ownsCustomer(user, customer)
+        !this.isCustomerOwner(user, customer)
       ) {
         throw new ForbiddenException(
-          "Only owner, manager, aftersales or admin can change owner",
+          'Only owner, manager, aftersales or admin can change owner',
         );
       }
 
@@ -821,7 +911,7 @@ export class CustomersService {
         ? this.normalizeUnitSelections(dto.unitSelections)
         : null;
     const shouldCreateOwnerHistory =
-      Object.prototype.hasOwnProperty.call(data, "ownerId") &&
+      Object.prototype.hasOwnProperty.call(data, 'ownerId') &&
       customer.ownerId !== data.ownerId;
     const ownerSnapshots = shouldCreateOwnerHistory
       ? await this.getUserSnapshots([customer.ownerId, data.ownerId, user.id])
@@ -829,7 +919,9 @@ export class CustomersService {
     const previousOwnerSnapshot = customer.ownerId
       ? ownerSnapshots.get(customer.ownerId)
       : null;
-    const newOwnerSnapshot = data.ownerId ? ownerSnapshots.get(data.ownerId) : null;
+    const newOwnerSnapshot = data.ownerId
+      ? ownerSnapshots.get(data.ownerId)
+      : null;
     const changedBySnapshot = ownerSnapshots.get(user.id);
 
     await this.prisma.$transaction(async (tx) => {
@@ -870,9 +962,7 @@ export class CustomersService {
         const existingByKey = new Map<
           string,
           { id: string; project: ProjectType; unitNumber: string }
-        >(
-          existingUnits.map((row) => [unitKey(row), row]),
-        );
+        >(existingUnits.map((row) => [unitKey(row), row]));
         const staleIds = existingUnits
           .filter((row) => !nextKeys.has(unitKey(row)))
           .map((row) => row.id);
@@ -913,29 +1003,37 @@ export class CustomersService {
     const updated = await this.getCustomerOrThrow(customerId);
 
     await this.notifyCustomerUsers(user, [updated.ownerId], {
-      type: "CUSTOMER_UPDATED",
-      title: shouldCreateOwnerHistory ? "Customer assigned to you" : "Customer updated",
+      type: 'CUSTOMER_UPDATED',
+      title: shouldCreateOwnerHistory
+        ? 'Customer assigned to you'
+        : 'Customer updated',
       message: shouldCreateOwnerHistory
         ? `${updated.fullName} is now assigned to you.`
         : `${updated.fullName} was updated.`,
       customerId: updated.id,
       metaJson: {
-        action: shouldCreateOwnerHistory ? "owner_changed" : "updated",
+        action: shouldCreateOwnerHistory ? 'owner_changed' : 'updated',
         previousOwnerId: customer.ownerId,
         ownerId: updated.ownerId,
       },
     });
 
-    if (this.isAdmin(user)) {
+    if (this.canSeeAllCustomers(user)) {
       return this.withAccessFlags(updated, true);
     }
 
-    return this.maskCustomerForLimitedUser(updated, this.ownsCustomer(user, updated));
+    return this.maskCustomerForLimitedUser(
+      updated,
+      this.isSales(user)
+        ? this.isCustomerOwner(user, updated)
+        : this.ownsCustomer(user, updated),
+      user,
+    );
   }
 
   async deleteCustomer(user: ReqUser, customerId: string) {
     if (!this.isAdmin(user) && !this.isManager(user)) {
-      throw new ForbiddenException("No access to delete customer");
+      throw new ForbiddenException('No access to delete customer');
     }
 
     const customer = await this.prisma.customer.findUnique({
@@ -947,10 +1045,12 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.isAdmin(user) && !this.ownsCustomer(user, customer)) {
-      throw new ForbiddenException("Only owner manager or admin can delete customer");
+      throw new ForbiddenException(
+        'Only owner manager or admin can delete customer',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -980,7 +1080,7 @@ export class CustomersService {
     user: ReqUser,
     customerId: string,
     file: Express.Multer.File,
-    body: { type?: "ID" | "PASSPORT" | "OTHER" },
+    body: { type?: 'ID' | 'PASSPORT' | 'OTHER' },
   ) {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
@@ -991,32 +1091,34 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canEditCustomer(user, customer)) {
-      throw new ForbiddenException("No access to upload customer document");
+      throw new ForbiddenException('No access to upload customer document');
     }
 
     if (!file?.buffer) {
-      throw new BadRequestException("Uploaded file buffer is missing");
+      throw new BadRequestException('Uploaded file buffer is missing');
     }
 
     const bucket = process.env.SUPABASE_STORAGE_BUCKET;
     if (!bucket) {
-      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+      throw new BadRequestException(
+        'SUPABASE_STORAGE_BUCKET is not configured',
+      );
     }
 
-    const ext = file.originalname.includes(".")
-      ? file.originalname.substring(file.originalname.lastIndexOf("."))
-      : "";
+    const ext = file.originalname.includes('.')
+      ? file.originalname.substring(file.originalname.lastIndexOf('.'))
+      : '';
 
     const safeBaseName = file.originalname
-      .replace(ext, "")
-      .replace(/[^a-zA-Z0-9-_]/g, "_");
+      .replace(ext, '')
+      .replace(/[^a-zA-Z0-9-_]/g, '_');
 
     const storagePath = `customers/${customerId}/${Date.now()}-${safeBaseName}${ext}`;
 
-    const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+    const { supabaseAdmin } = await import('../lib/supabase-admin.js');
 
     const { error } = await supabaseAdmin.storage
       .from(bucket)
@@ -1057,17 +1159,17 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canEditCustomer(user, customer)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const fileName = this.cleanStr(body.fileName);
     const storagePath = this.cleanStr(body.storagePath);
 
-    if (!fileName) throw new BadRequestException("fileName is required");
-    if (!storagePath) throw new BadRequestException("storagePath is required");
+    if (!fileName) throw new BadRequestException('fileName is required');
+    if (!storagePath) throw new BadRequestException('storagePath is required');
 
     return this.prisma.customerDocument.create({
       data: {
@@ -1094,25 +1196,27 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canEditCustomer(user, customer)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const doc = await this.prisma.customerDocument.findFirst({
       where: { id: documentId, customerId },
     });
 
-    if (!doc) throw new NotFoundException("Document not found");
+    if (!doc) throw new NotFoundException('Document not found');
 
     const bucket = process.env.SUPABASE_STORAGE_BUCKET;
     if (!bucket) {
-      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+      throw new BadRequestException(
+        'SUPABASE_STORAGE_BUCKET is not configured',
+      );
     }
 
     if (doc.storagePath) {
-      const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+      const { supabaseAdmin } = await import('../lib/supabase-admin.js');
 
       const { error } = await supabaseAdmin.storage
         .from(bucket)
@@ -1125,7 +1229,7 @@ export class CustomersService {
       where: { id: documentId },
     });
 
-    if (doc.type === "ID") {
+    if (doc.type === 'ID') {
       await this.prisma.customer.update({
         where: { id: customerId },
         data: {
@@ -1152,32 +1256,37 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canSeeCustomer(user, customer)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const doc = await this.prisma.customerDocument.findFirst({
       where: { id: documentId, customerId },
     });
 
-    if (!doc) throw new NotFoundException("Document not found");
-    if (!doc.storagePath) throw new BadRequestException("Document storagePath is missing");
+    if (!doc) throw new NotFoundException('Document not found');
+    if (!doc.storagePath)
+      throw new BadRequestException('Document storagePath is missing');
 
     const bucket = process.env.SUPABASE_STORAGE_BUCKET;
     if (!bucket) {
-      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+      throw new BadRequestException(
+        'SUPABASE_STORAGE_BUCKET is not configured',
+      );
     }
 
-    const { supabaseAdmin } = await import("../lib/supabase-admin.js");
+    const { supabaseAdmin } = await import('../lib/supabase-admin.js');
 
     const { data, error } = await supabaseAdmin.storage
       .from(bucket)
       .createSignedUrl(doc.storagePath, 60 * 10);
 
     if (error || !data?.signedUrl) {
-      throw new BadRequestException(error?.message || "Could not create signed URL");
+      throw new BadRequestException(
+        error?.message || 'Could not create signed URL',
+      );
     }
 
     return { url: data.signedUrl };
@@ -1193,19 +1302,19 @@ export class CustomersService {
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (!this.canEditCustomer(user, customer)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const title = dto.title?.trim();
-    if (!title) throw new BadRequestException("Title required");
-    if (!dto.presentationAt) throw new BadRequestException("Date required");
+    if (!title) throw new BadRequestException('Title required');
+    if (!dto.presentationAt) throw new BadRequestException('Date required');
 
     const presentationAt = new Date(dto.presentationAt);
     if (Number.isNaN(presentationAt.getTime())) {
-      throw new BadRequestException("Invalid presentationAt");
+      throw new BadRequestException('Invalid presentationAt');
     }
 
     let assignedSalesId = this.cleanStr(dto.assignedSalesId);
@@ -1214,7 +1323,7 @@ export class CustomersService {
     if (this.isManager(user) && !assignedSalesId) assignedSalesId = user.id;
 
     if (!assignedSalesId) {
-      throw new BadRequestException("Assigned user is required");
+      throw new BadRequestException('Assigned user is required');
     }
 
     await this.validateAssignableOwner(assignedSalesId);
@@ -1236,19 +1345,23 @@ export class CustomersService {
       },
     });
 
-    await this.notifyCustomerUsers(user, [presentation.assignedSalesId, customer.ownerId], {
-      type: "PRESENTATION_CREATED",
-      title: "Presentation scheduled",
-      message: `${presentation.title} was scheduled for ${customer.fullName}.`,
-      customerId,
-      entityType: "Presentation",
-      entityId: presentation.id,
-      metaJson: {
-        presentationId: presentation.id,
-        assignedSalesId: presentation.assignedSalesId,
-        presentationAt: presentation.presentationAt,
+    await this.notifyCustomerUsers(
+      user,
+      [presentation.assignedSalesId, customer.ownerId],
+      {
+        type: 'PRESENTATION_CREATED',
+        title: 'Presentation scheduled',
+        message: `${presentation.title} was scheduled for ${customer.fullName}.`,
+        customerId,
+        entityType: 'Presentation',
+        entityId: presentation.id,
+        metaJson: {
+          presentationId: presentation.id,
+          assignedSalesId: presentation.assignedSalesId,
+          presentationAt: presentation.presentationAt,
+        },
       },
-    });
+    );
 
     return presentation;
   }
@@ -1262,7 +1375,7 @@ export class CustomersService {
           select: { id: true, name: true, email: true, role: true },
         },
         ownerHistory: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           take: 25,
           include: {
             previousOwner: {
@@ -1277,26 +1390,34 @@ export class CustomersService {
           },
         },
         unitSelections: {
-          orderBy: [{ project: "asc" }, { unitNumber: "asc" }],
+          orderBy: [{ project: 'asc' }, { unitNumber: 'asc' }],
         },
         documents: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
         },
         presentations: {
-          orderBy: { presentationAt: "desc" },
+          orderBy: { presentationAt: 'desc' },
           include: {
-            assignedSales: true,
-            createdBy: true,
+            assignedSales: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            createdBy: {
+              select: { id: true, name: true, email: true, role: true },
+            },
             notes: {
-              include: { createdBy: true },
-              orderBy: { createdAt: "desc" },
+              include: {
+                createdBy: {
+                  select: { id: true, name: true, email: true, role: true },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
             },
           },
         },
       },
     });
 
-    if (!customer) throw new NotFoundException("Customer not found");
+    if (!customer) throw new NotFoundException('Customer not found');
 
     if (this.isAdmin(user)) {
       return this.withAccessFlags(customer, true);
@@ -1306,22 +1427,28 @@ export class CustomersService {
       return this.withAccessFlags(customer, true);
     }
 
-    if (this.isManager(user) || this.isSales(user)) {
-      const canSeeContact = this.ownsCustomer(user, customer);
-
-      if (!canSeeContact) {
-        throw new ForbiddenException("No access");
+    if (this.isManager(user)) {
+      if (!this.ownsCustomer(user, customer)) {
+        throw new ForbiddenException('No access');
       }
 
-      return this.maskCustomerForLimitedUser(customer, canSeeContact);
+      return this.maskCustomerForLimitedUser(customer, true, user);
     }
 
-    throw new ForbiddenException("No access");
+    if (this.isSales(user)) {
+      return this.maskCustomerForLimitedUser(
+        customer,
+        this.isCustomerOwner(user, customer),
+        user,
+      );
+    }
+
+    throw new ForbiddenException('No access');
   }
 
   async getNationalityReport(user: ReqUser) {
     if (!this.isCrmUser(user)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const where: any = {};
@@ -1368,7 +1495,7 @@ export class CustomersService {
         extractOldNationalityCode(customer.oldCariCodes) ||
         customer.nationality ||
         customer.country ||
-        "(blank)";
+        '(blank)';
 
       if (!info) {
         unmapped.set(rawCode, (unmapped.get(rawCode) || 0) + 1);
@@ -1384,9 +1511,9 @@ export class CustomersService {
       };
 
       existing.count += 1;
-      if (customer.type === "EXISTING") existing.existing += 1;
-      if (customer.type === "POTENTIAL") existing.potential += 1;
-      if (rawCode && rawCode !== "(blank)") existing.rawCodes.add(rawCode);
+      if (customer.type === 'EXISTING') existing.existing += 1;
+      if (customer.type === 'POTENTIAL') existing.potential += 1;
+      if (rawCode && rawCode !== '(blank)') existing.rawCodes.add(rawCode);
       countries.set(info.country, existing);
     }
 
@@ -1427,7 +1554,7 @@ export class CustomersService {
 
   async getDemographicsReport(user: ReqUser) {
     if (!this.isCrmUser(user)) {
-      throw new ForbiddenException("No access");
+      throw new ForbiddenException('No access');
     }
 
     const where: any = {};
@@ -1493,8 +1620,8 @@ export class CustomersService {
     };
 
     for (const customer of customers) {
-      if (customer.type === "EXISTING") existing += 1;
-      if (customer.type === "POTENTIAL") potential += 1;
+      if (customer.type === 'EXISTING') existing += 1;
+      if (customer.type === 'POTENTIAL') potential += 1;
 
       this.incrementBucket(types, customer.type);
       this.incrementBucket(gender, customer.gender);
@@ -1539,7 +1666,7 @@ export class CustomersService {
       .map(([field, filled]) => ({
         field,
         label: field
-          .replace(/([A-Z])/g, " $1")
+          .replace(/([A-Z])/g, ' $1')
           .replace(/^./, (letter) => letter.toUpperCase()),
         filled,
         missing: totalCustomers - filled,
@@ -1579,7 +1706,7 @@ export class CustomersService {
 
   async addPresentationNote(user: ReqUser, presentationId: string, dto: any) {
     const note = dto.note?.trim();
-    if (!note) throw new BadRequestException("Note required");
+    if (!note) throw new BadRequestException('Note required');
 
     const presentation = await this.prisma.presentation.findUnique({
       where: { id: presentationId },
@@ -1591,11 +1718,12 @@ export class CustomersService {
       },
     });
 
-    if (!presentation) throw new NotFoundException("Presentation not found");
+    if (!presentation) throw new NotFoundException('Presentation not found');
 
-    const canEdit = this.isAdmin(user) || presentation.assignedSalesId === user.id;
+    const canEdit =
+      this.isAdmin(user) || presentation.assignedSalesId === user.id;
 
-    if (!canEdit) throw new ForbiddenException("No access");
+    if (!canEdit) throw new ForbiddenException('No access');
 
     const created = await this.prisma.presentationNote.create({
       data: {
@@ -1609,11 +1737,11 @@ export class CustomersService {
     });
 
     await this.notifyCustomerUsers(user, [presentation.assignedSalesId], {
-      type: "PRESENTATION_NOTE_ADDED",
-      title: "Presentation note added",
+      type: 'PRESENTATION_NOTE_ADDED',
+      title: 'Presentation note added',
       message: `A note was added to ${presentation.title}.`,
       customerId: presentation.customerId,
-      entityType: "Presentation",
+      entityType: 'Presentation',
       entityId: presentation.id,
       metaJson: {
         presentationId: presentation.id,
@@ -1629,26 +1757,28 @@ export class CustomersService {
       where: { id },
     });
 
-    if (!presentation) throw new NotFoundException("Presentation not found");
+    if (!presentation) throw new NotFoundException('Presentation not found');
 
-    const canEdit = this.isAdmin(user) || presentation.assignedSalesId === user.id;
+    const canEdit =
+      this.isAdmin(user) || presentation.assignedSalesId === user.id;
 
-    if (!canEdit) throw new ForbiddenException("No access");
+    if (!canEdit) throw new ForbiddenException('No access');
 
     const data: any = {};
 
     if (dto.title !== undefined) {
       const title = dto.title?.trim();
-      if (!title) throw new BadRequestException("Title required");
+      if (!title) throw new BadRequestException('Title required');
       data.title = title;
     }
 
-    if (dto.projectName !== undefined) data.projectName = this.cleanStr(dto.projectName);
+    if (dto.projectName !== undefined)
+      data.projectName = this.cleanStr(dto.projectName);
 
     if (dto.presentationAt !== undefined) {
       const presentationAt = new Date(dto.presentationAt);
       if (Number.isNaN(presentationAt.getTime())) {
-        throw new BadRequestException("Invalid presentationAt");
+        throw new BadRequestException('Invalid presentationAt');
       }
       data.presentationAt = presentationAt;
     }
@@ -1656,7 +1786,8 @@ export class CustomersService {
     if (dto.location !== undefined) data.location = this.cleanStr(dto.location);
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.outcome !== undefined) data.outcome = dto.outcome || null;
-    if (dto.notesSummary !== undefined) data.notesSummary = this.cleanStr(dto.notesSummary);
+    if (dto.notesSummary !== undefined)
+      data.notesSummary = this.cleanStr(dto.notesSummary);
 
     if (dto.assignedSalesId !== undefined) {
       const assignedSalesId = this.cleanStr(dto.assignedSalesId);
@@ -1678,11 +1809,11 @@ export class CustomersService {
       updated.assignedSalesId !== presentation.assignedSalesId
     ) {
       await this.notifyCustomerUsers(user, [updated.assignedSalesId], {
-        type: "PRESENTATION_CREATED",
-        title: "Presentation assigned to you",
+        type: 'PRESENTATION_CREATED',
+        title: 'Presentation assigned to you',
         message: `${updated.title} is now assigned to you.`,
         customerId: updated.customerId,
-        entityType: "Presentation",
+        entityType: 'Presentation',
         entityId: updated.id,
         metaJson: {
           presentationId: updated.id,
