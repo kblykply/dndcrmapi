@@ -18,13 +18,8 @@ import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
 import { emailAttachmentUploadConfig } from "../common/upload.config";
+import type { ProjectType } from "../common/projects";
 import { UnitsService } from "./units.service";
-
-type ProjectType =
-  | "LA_JOYA"
-  | "LA_JOYA_PERLA"
-  | "LA_JOYA_PERLA_II"
-  | "LAGOON_VERDE";
 
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 type UnitCompanyStatus = "UNKNOWN" | "DND" | "OTHER";

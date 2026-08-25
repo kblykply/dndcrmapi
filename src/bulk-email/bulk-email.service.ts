@@ -3,6 +3,11 @@ import { promises as fs } from "fs";
 import * as path from "path";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  PROJECT_LABELS,
+  PROJECT_TYPES as PROJECTS,
+  type ProjectType,
+} from "../common/projects";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -10,12 +15,6 @@ type ReqUser = {
   email?: string | null;
   role?: Role;
 };
-
-type ProjectType =
-  | "LA_JOYA"
-  | "LA_JOYA_PERLA"
-  | "LA_JOYA_PERLA_II"
-  | "LAGOON_VERDE";
 
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 
@@ -114,20 +113,6 @@ type CampaignSendOutcome = {
     units: string[];
     error: string;
   }>;
-};
-
-const PROJECTS: ProjectType[] = [
-  "LA_JOYA",
-  "LA_JOYA_PERLA",
-  "LA_JOYA_PERLA_II",
-  "LAGOON_VERDE",
-];
-
-const PROJECT_LABELS: Record<ProjectType, string> = {
-  LA_JOYA: "La Joya",
-  LA_JOYA_PERLA: "La Joya Perla",
-  LA_JOYA_PERLA_II: "La Joya Perla II",
-  LAGOON_VERDE: "Lagoon Verde",
 };
 
 const DELIVERY_STATUSES: UnitDeliveryStatus[] = [

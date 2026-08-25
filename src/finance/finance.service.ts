@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { PROJECT_TYPES as PROJECTS, type ProjectType } from "../common/projects";
 import type { Role } from "../common/types";
 
 type ReqUser = { id: string; role: Role; email: string };
@@ -19,12 +20,6 @@ const PAYMENT_TYPES = [
 ] as const;
 const STATUSES = ["PLANNED", "PAID", "OVERDUE", "CANCELED"] as const;
 const CURRENCIES = ["GBP", "USD", "EUR", "TRY"] as const;
-const PROJECTS = [
-  "LA_JOYA",
-  "LA_JOYA_PERLA",
-  "LA_JOYA_PERLA_II",
-  "LAGOON_VERDE",
-] as const;
 const SETTLEMENT_METHODS = [
   "CASH",
   "CHECK",
@@ -37,7 +32,6 @@ type FinanceEntryKind = (typeof KINDS)[number];
 type FinancePaymentType = (typeof PAYMENT_TYPES)[number];
 type FinancePaymentStatus = (typeof STATUSES)[number];
 type FinanceCurrency = (typeof CURRENCIES)[number];
-type ProjectType = (typeof PROJECTS)[number];
 type FinanceSettlementMethod = (typeof SETTLEMENT_METHODS)[number];
 
 const entryInclude = {

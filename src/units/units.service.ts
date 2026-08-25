@@ -7,6 +7,7 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { EmailService } from "../email/email.service";
+import { PROJECT_TYPES, type ProjectType } from "../common/projects";
 import type { Role } from "../common/types";
 
 type ReqUser = {
@@ -14,12 +15,6 @@ type ReqUser = {
   role: Role;
   email: string;
 };
-
-type ProjectType =
-  | "LA_JOYA"
-  | "LA_JOYA_PERLA"
-  | "LA_JOYA_PERLA_II"
-  | "LAGOON_VERDE";
 
 type UnitDeliveryStatus = "NOT_READY" | "READY_TO_DELIVER" | "DELIVERED";
 type UnitCompanyStatus = "UNKNOWN" | "DND" | "OTHER";
@@ -161,14 +156,7 @@ export class UnitsService {
   private normalizeProject(v?: string | null): ProjectType | null {
     if (!v) return null;
     const value = String(v).trim().toUpperCase();
-    const allowed: ProjectType[] = [
-      "LA_JOYA",
-      "LA_JOYA_PERLA",
-      "LA_JOYA_PERLA_II",
-      "LAGOON_VERDE",
-    ];
-
-    if (!allowed.includes(value as ProjectType)) {
+    if (!PROJECT_TYPES.includes(value as ProjectType)) {
       throw new BadRequestException("Invalid project");
     }
 

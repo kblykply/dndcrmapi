@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  PROJECT_TYPES,
+  projectLabel as getProjectLabel,
+  type ProjectType,
+} from '../common/projects';
 import type { Role } from '../common/types';
 import {
   extractOldNationalityCode,
@@ -25,11 +30,6 @@ type UserSnapshot = {
 };
 
 type Gender = 'MALE' | 'FEMALE' | 'OTHER';
-type ProjectType =
-  | 'LA_JOYA'
-  | 'LA_JOYA_PERLA'
-  | 'LA_JOYA_PERLA_II'
-  | 'LAGOON_VERDE';
 
 type CustomerDocumentType = 'ID' | 'PASSPORT' | 'OTHER';
 
@@ -141,14 +141,7 @@ export class CustomersService {
     if (!v) return null;
     const value = String(v).trim().toUpperCase();
 
-    const allowed: ProjectType[] = [
-      'LA_JOYA',
-      'LA_JOYA_PERLA',
-      'LA_JOYA_PERLA_II',
-      'LAGOON_VERDE',
-    ];
-
-    if (!allowed.includes(value as ProjectType)) {
+    if (!PROJECT_TYPES.includes(value as ProjectType)) {
       throw new BadRequestException('Invalid project');
     }
 
@@ -238,14 +231,7 @@ export class CustomersService {
   }
 
   private projectLabel(project?: string | null) {
-    const labels: Record<string, string> = {
-      LA_JOYA: 'La Joya',
-      LA_JOYA_PERLA: 'La Joya Perla',
-      LA_JOYA_PERLA_II: 'La Joya Perla II',
-      LAGOON_VERDE: 'Lagoon Verde',
-    };
-
-    return project ? labels[project] || project : '';
+    return getProjectLabel(project);
   }
 
   private normalizeUnitSelections(input: any): Array<{

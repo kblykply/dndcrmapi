@@ -19,6 +19,7 @@ import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { RolesGuard } from "../common/roles.guard";
 import { Roles } from "../common/roles.decorator";
 import { customerUploadConfig } from "../common/upload.config";
+import type { ProjectType } from "../common/projects";
 
 type CustomerDocumentType = "ID" | "PASSPORT" | "OTHER";
 
@@ -100,22 +101,13 @@ export class CustomersController {
       birthday?: string | null;
       job?: string | null;
 
-      project?:
-        | "LA_JOYA"
-        | "LA_JOYA_PERLA"
-        | "LA_JOYA_PERLA_II"
-        | "LAGOON_VERDE"
-        | null;
+      project?: ProjectType | null;
 
       idDocumentUrl?: string | null;
       idDocumentName?: string | null;
 
       unitSelections?: Array<{
-        project:
-          | "LA_JOYA"
-          | "LA_JOYA_PERLA"
-          | "LA_JOYA_PERLA_II"
-          | "LAGOON_VERDE";
+        project: ProjectType;
         unitNumber: string;
       }>;
     },
@@ -154,22 +146,13 @@ export class CustomersController {
       birthday?: string | null;
       job?: string | null;
 
-      project?:
-        | "LA_JOYA"
-        | "LA_JOYA_PERLA"
-        | "LA_JOYA_PERLA_II"
-        | "LAGOON_VERDE"
-        | null;
+      project?: ProjectType | null;
 
       idDocumentUrl?: string | null;
       idDocumentName?: string | null;
 
       unitSelections?: Array<{
-        project:
-          | "LA_JOYA"
-          | "LA_JOYA_PERLA"
-          | "LA_JOYA_PERLA_II"
-          | "LAGOON_VERDE";
+        project: ProjectType;
         unitNumber: string;
       }>;
     },

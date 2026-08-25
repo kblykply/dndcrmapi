@@ -14,6 +14,7 @@ import {
 import { JwtAuthGuard } from "../common/jwt-auth.guard";
 import { Roles } from "../common/roles.decorator";
 import { RolesGuard } from "../common/roles.guard";
+import type { ProjectType } from "../common/projects";
 import { FinanceService } from "./finance.service";
 
 type FinanceEntryKind = "INCOME" | "EXPENSE";
@@ -30,12 +31,6 @@ type FinancePaymentType =
   | "SALARY";
 type FinancePaymentStatus = "PLANNED" | "PAID" | "OVERDUE" | "CANCELED";
 type FinanceCurrency = "GBP" | "USD" | "EUR" | "TRY";
-type ProjectType =
-  | "LA_JOYA"
-  | "LA_JOYA_PERLA"
-  | "LA_JOYA_PERLA_II"
-  | "LAGOON_VERDE";
-
 type FinanceEntryBody = {
   kind?: FinanceEntryKind | null;
   paymentType?: FinancePaymentType | null;
