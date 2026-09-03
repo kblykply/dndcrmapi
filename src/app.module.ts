@@ -1,37 +1,36 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
-import { join } from "path";
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { join } from 'path';
 
-import { PrismaModule } from "./prisma/prisma.module";
-import { AuthModule } from "./auth/auth.module";
-import { UsersModule } from "./users/users.module";
-import { LeadsModule } from "./leads/leads.module";
-import { TasksModule } from "./tasks/tasks.module";
-import { MetaModule } from "./integrations/meta/meta.module";
-import { HealthController } from "./health.controller";
-import { AdminModule } from "./admin/admin.module";
-import { AgenciesModule } from "./agencies/agencies.module";
-import { CustomersModule } from "./customers/customers.module";
-import { CalendarModule } from "./calendar/calendar.module";
-import { NotificationsModule } from "./notifications/notifications.module";
-import { MeetingsModule } from "./meetings/meetings.module";
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { LeadsModule } from './leads/leads.module';
+import { TasksModule } from './tasks/tasks.module';
+import { MetaModule } from './integrations/meta/meta.module';
+import { HealthController } from './health.controller';
+import { AdminModule } from './admin/admin.module';
+import { AgenciesModule } from './agencies/agencies.module';
+import { CustomersModule } from './customers/customers.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { MeetingsModule } from './meetings/meetings.module';
 
-import { PdcaModule } from "./pdca/pdca.module";
+import { PdcaModule } from './pdca/pdca.module';
 
-import { OrgChartModule } from "./org-chart/org-chart.module";
-import { UserActivityModule } from "./user-activity/user-activity.module";
-import { UnitsModule } from "./units/units.module";
-import { FinanceModule } from "./finance/finance.module";
-import { QualityControlModule } from "./quality-control/quality-control.module";
-import { BulkEmailModule } from "./bulk-email/bulk-email.module";
-
-
+import { OrgChartModule } from './org-chart/org-chart.module';
+import { UserActivityModule } from './user-activity/user-activity.module';
+import { UnitsModule } from './units/units.module';
+import { FinanceModule } from './finance/finance.module';
+import { QualityControlModule } from './quality-control/quality-control.module';
+import { BulkEmailModule } from './bulk-email/bulk-email.module';
+import { AgentWheelModule } from './agent-wheel/agent-wheel.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: join(process.cwd(), ".env"),
+      envFilePath: join(process.cwd(), '.env'),
     }),
     PrismaModule,
     AuthModule,
@@ -44,16 +43,15 @@ import { BulkEmailModule } from "./bulk-email/bulk-email.module";
     CustomersModule,
     CalendarModule,
     NotificationsModule,
-        MeetingsModule,
-        OrgChartModule,
-PdcaModule,
-UserActivityModule,
-UnitsModule,
-FinanceModule,
-QualityControlModule,
-BulkEmailModule,
-        
-
+    MeetingsModule,
+    OrgChartModule,
+    PdcaModule,
+    UserActivityModule,
+    UnitsModule,
+    FinanceModule,
+    QualityControlModule,
+    BulkEmailModule,
+    AgentWheelModule,
   ],
   controllers: [HealthController],
 })

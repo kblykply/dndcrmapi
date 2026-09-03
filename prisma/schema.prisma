@@ -153,6 +153,7 @@ model User {
   qualityDocumentsUpdated QualityDocument[]      @relation("QualityDocumentUpdatedBy")
   qualityLogsAuthored     QualityProcessLog[]    @relation("QualityProcessLogAuthor")
   bulkEmailCampaigns      BulkEmailCampaign[]    @relation("BulkEmailCampaignCreatedBy")
+  agentWheelSpins         AgentWheelSpin[]       @relation("AgentWheelSpunBy")
   notifications           Notification[]
   agencyMeetingsAssigned  AgencyMeeting[]        @relation("AgencyMeetingSales")
 
@@ -388,13 +389,14 @@ model Agency {
   assignedSales User?                @relation("AgencySales", fields: [assignedSalesId], references: [id])
   salesHistory  AgencySalesHistory[]
 
-  notes         AgencyNote[]
-  meetings      AgencyMeeting[]
-  tasks         Task[]          @relation("AgencyTasks")
-  customers     Customer[]
-  crmTasks      CrmTask[]
-  agencyTasks   AgencyTask[]
-  presentations Presentation[]
+  notes           AgencyNote[]
+  meetings        AgencyMeeting[]
+  tasks           Task[]           @relation("AgencyTasks")
+  customers       Customer[]
+  crmTasks        CrmTask[]
+  agencyTasks     AgencyTask[]
+  presentations   Presentation[]
+  agentWheelSpins AgentWheelSpin[]
 }
 
 model AgencySalesHistory {
@@ -551,6 +553,7 @@ model Customer {
   agencyMeetings         AgencyMeeting[]
   financeEntries         FinanceEntry[]
   bulkEmailRecipients    BulkEmailRecipient[]
+  agentWheelSpins        AgentWheelSpin[]
 
   @@unique([oldCustomerCode])
   @@index([identityNumber])
@@ -623,6 +626,7 @@ model CustomerUnitSelection {
   logs           CustomerUnitSelectionLog[]
   financeEntries FinanceEntry[]
   financeSplits  FinanceEntrySplit[]
+  agentWheelSpin AgentWheelSpin?
 
   @@unique([customerId, project, unitNumber])
   @@index([customerId])
@@ -656,12 +660,12 @@ model CustomerUnitSelectionLog {
 model BulkEmailCampaign {
   id String @id @default(cuid())
 
-  name              String
-  project           ProjectType
-  subject           String
-  message           String
+  name               String
+  project            ProjectType
+  subject            String
+  message            String
   attachmentFileName String?
-  status            BulkEmailCampaignStatus @default(SENDING)
+  status             BulkEmailCampaignStatus @default(SENDING)
 
   totalUnits        Int @default(0)
   uniqueCustomers   Int @default(0)
@@ -926,6 +930,51 @@ enum ProjectType {
   LA_JOYA_PERLA_II
   LAGOON_VERDE
   GECITKALE_1_ETAP
+}
+
+enum AgentWheelSaleType {
+  DIRECT
+  AGENCY
+}
+
+model AgentWheelSpin {
+  id String @id @default(cuid())
+
+  spunById    String?
+  spunBy      User?   @relation("AgentWheelSpunBy", fields: [spunById], references: [id], onDelete: SetNull)
+  spunByName  String
+  spunByEmail String?
+  spunByRole  String
+
+  saleType   AgentWheelSaleType
+  agencyId   String?
+  agency     Agency?            @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  agencyName String?
+
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName String
+
+  unitSelectionId  String?                @unique
+  unitSelection    CustomerUnitSelection? @relation(fields: [unitSelectionId], references: [id], onDelete: SetNull)
+  unitSelectionKey String                 @unique
+  project          ProjectType
+  block            String?
+  unitNumber       String
+
+  prizeId     String
+  prizeNameTr String
+  prizeNameEn String
+
+  createdAt DateTime @default(now())
+
+  @@index([spunById, createdAt])
+  @@index([agencyId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([project, createdAt])
+  @@index([prizeId, createdAt])
+  @@index([saleType, createdAt])
+  @@index([createdAt])
 }
 
 enum CustomerDocumentType {
