@@ -930,6 +930,7 @@ enum ProjectType {
   LA_JOYA_PERLA_II
   LAGOON_VERDE
   GECITKALE_1_ETAP
+  NEOCITY
 }
 
 enum AgentWheelSaleType {
