@@ -1,0 +1,1 @@
+ALTER TYPE public."ProjectType" ADD VALUE IF NOT EXISTS 'NEOCITY';
