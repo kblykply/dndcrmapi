@@ -5,6 +5,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { join } from "path";
 import { PreviewDataInterceptor } from "./common/preview-data.interceptor";
+import { DatabaseExceptionFilter } from "./common/database-exception.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -16,16 +17,23 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new PreviewDataInterceptor());
+  app.useGlobalFilters(new DatabaseExceptionFilter());
 
   app.enableCors({
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001",
       "https://dndcrmweb.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   });
+
+  // Project aggregates may contain bounded workstreams and external factors.
+  // Parse only this module up to 1 MiB before the existing default JSON parser.
+  app.use('/digital-team', bodyParser.json({ limit: '1mb' }));
 
   app.use(
     bodyParser.json({

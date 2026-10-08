@@ -3,6 +3,13 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      {
+        "include": "iso-2026/iso-2026-source.json",
+        "outDir": "dist/src",
+        "watchAssets": true
+      }
+    ]
   }
 }

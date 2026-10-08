@@ -21,10 +21,14 @@ import { PdcaModule } from './pdca/pdca.module';
 import { OrgChartModule } from './org-chart/org-chart.module';
 import { UserActivityModule } from './user-activity/user-activity.module';
 import { UnitsModule } from './units/units.module';
-import { FinanceModule } from './finance/finance.module';
 import { QualityControlModule } from './quality-control/quality-control.module';
+import { Iso2026Module } from './iso-2026/iso-2026.module';
 import { BulkEmailModule } from './bulk-email/bulk-email.module';
 import { AgentWheelModule } from './agent-wheel/agent-wheel.module';
+import { DigitalMapModule } from './digital-map/digital-map.module';
+import { DigitalTeamModule } from './digital-team/digital-team.module';
+import { ItSupportModule } from './it-support/it-support.module';
+import { PaymentTrackingModule } from './payment-tracking/payment-tracking.module';
 
 @Module({
   imports: [
@@ -48,10 +52,14 @@ import { AgentWheelModule } from './agent-wheel/agent-wheel.module';
     PdcaModule,
     UserActivityModule,
     UnitsModule,
-    FinanceModule,
     QualityControlModule,
+    Iso2026Module,
     BulkEmailModule,
     AgentWheelModule,
+    DigitalMapModule,
+    DigitalTeamModule,
+    ItSupportModule,
+    PaymentTrackingModule,
   ],
   controllers: [HealthController],
 })

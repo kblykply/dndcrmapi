@@ -16,20 +16,6 @@ type LeadInterestFilter = "active" | "notInterested" | "all";
 
 type LeadRow = Prisma.LeadGetPayload<{}>;
 
-type LeadListRow = Prisma.LeadGetPayload<{
-  include: {
-    ownerCallCenter: {
-      select: { id: true; name: true; email: true };
-    };
-    assignedManager: {
-      select: { id: true; name: true; email: true };
-    };
-    assignedSales: {
-      select: { id: true; name: true; email: true };
-    };
-  };
-}>;
-
 type LeadDetailRow = Prisma.LeadGetPayload<{
   include: {
     activities: true;
@@ -354,6 +340,7 @@ export class LeadsService {
       pageSize?: number;
       q?: string;
       interest?: string;
+      includeTotal?: boolean;
     },
   ) {
     const page = Math.max(1, Number(opts?.page || 1));
@@ -413,29 +400,25 @@ export class LeadsService {
       where.AND = and;
     }
 
-    const items = await this.withRetry<LeadListRow[]>(() =>
+    // List screens only use scalar fields; owner details belong to getLead.
+    const items = await this.withRetry<LeadRow[]>(() =>
       this.prisma.lead.findMany({
         where,
-        include: {
-          ownerCallCenter: {
-            select: { id: true, name: true, email: true },
-          },
-          assignedManager: {
-            select: { id: true, name: true, email: true },
-          },
-          assignedSales: {
-            select: { id: true, name: true, email: true },
-          },
-        },
         orderBy: [
           { nextFollowUpAt: "asc" },
           { lastActivityAt: "desc" },
           { createdAt: "desc" },
+          { id: "asc" },
         ],
         skip,
         take: pageSize,
       }),
     );
+
+    // A caller with a recent total can page without another database round trip.
+    if (opts?.includeTotal === false) {
+      return { items, page, pageSize };
+    }
 
     const total = await this.withRetry<number>(() =>
       this.prisma.lead.count({
@@ -975,13 +958,7 @@ async sendToManager(user: ReqUser, leadId: string, managerId: string) {
           },
         });
 
-        if ((tx as any).crmTask) {
-          await (tx as any).crmTask.deleteMany({
-            where: {
-              leadId: { in: existingIds },
-            },
-          });
-        }
+        // Work items remain independent; the lead FK detaches them on deletion.
 
         if ((tx as any).task) {
           await (tx as any).task.deleteMany({

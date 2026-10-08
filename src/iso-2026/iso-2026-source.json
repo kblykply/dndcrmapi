@@ -1,0 +1,2614 @@
+{
+  "document": {
+    "title": "Quality management systems — Requirements",
+    "reference": "ISO 9001:2026(en)",
+    "status": "Sixth edition · 2026-09",
+    "language": "en",
+    "sourceFile": "ISO_9001_2026(en) (1).pdf",
+    "totalPages": 48,
+    "sha256": "3f82f862814c3f4ddd4386787fd967a742a9bc36bb70913978c377d5ae5729d2"
+  },
+  "clauses": [
+    {
+      "code": "foreword",
+      "title": "Foreword",
+      "titleTr": "Önsöz",
+      "parentCode": null,
+      "kind": "front-matter",
+      "body": "ISO (the International Organization for Standardization) is a worldwide federation of national standards bodies (ISO member bodies). The work of preparing International Standards is normally carried out through ISO technical committees. Each member body interested in a subject for which a technical committee has been established has the right to be represented on that committee. International organizations, governmental and non-governmental, in liaison with ISO, also take part in the work. ISO collaborates closely with the International Electrotechnical Commission (IEC) on all matters of electrotechnical standardization.\n\nThe procedures used to develop this document and those intended for its further maintenance are described in the ISO/IEC Directives, Part 1. In particular, the different approval criteria needed for the different types of ISO document should be noted. This document was drafted in accordance with the editorial rules of the ISO/IEC Directives, Part 2 (see www.iso.org/directives).\n\nISO draws attention to the possibility that the implementation of this document may involve the use of (a) patent(s). ISO takes no position concerning the evidence, validity or applicability of any claimed patent rights in respect thereof. As of the date of publication of this document, ISO had not received notice of (a) patent(s) which may be required to implement this document. However, implementers are cautioned that this may not represent the latest information, which may be obtained from the patent database available at www.iso.org/patents. ISO shall not be held responsible for identifying any or all such patent rights.\n\nAny trade name used in this document is information given for the convenience of users and does not constitute an endorsement.\n\nFor an explanation of the voluntary nature of standards, the meaning of ISO specific terms and expressions related to conformity assessment, as well as information about ISO’s adherence to the World Trade Organization (WTO) principles in the Technical Barriers to Trade (TBT), see www.iso.org/iso/foreword.html.\n\nThis document was prepared by Technical Committee ISO/TC 176, Quality management and quality assurance, Subcommittee SC 2, Quality systems, in collaboration with the European Committee for Standardization (CEN), in accordance with the Agreement on technical cooperation between ISO and CEN (Vienna Agreement).\n\nThis sixth edition cancels and replaces the fifth edition (ISO 9001:2015), which has been technically revised. It also incorporates the Amendment ISO 9001:2015/Amd 1:2024.\n\nThe main changes are as follows:\n\n— Inclusion of core ISO management system terms and definitions: Clause 3 of the document now includes a limited number of terms and definitions. ISO 9000 remains the normative reference for all quality management terms and definitions.\n\n— Introduction of quality culture and ethical behaviour: Quality culture and ethical behaviour are now addressed within the requirements, particularly in relation to leadership, awareness and the environment for the operation of processes.\n\n— Separation of risks and opportunities: Risks and opportunities are more clearly distinguished, with separate consideration of actions to address each.\n\n— Strengthened management of change: Requirements related to changes to the quality management system have been reinforced to support the achievement of intended results.\n\n— Enhanced explanatory content in Annex A: It has been revised to provide enhanced clarification of the structure, terminology and intent of the requirements as informative text, without introducing additional requirements.\n\n— Removal of Annex B: It previously provided information on other ISO/TC 176 standards. References to these standards are now included in Annex A and on the ISO/TC 176 website.\n\nAny feedback or questions on this document should be directed to the user’s national standards body. A complete listing of these bodies can be found at www.iso.org/members.html.",
+      "sourcePages": [
+        5
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0",
+      "title": "Introduction",
+      "titleTr": "Giriş",
+      "parentCode": null,
+      "kind": "introduction",
+      "body": "",
+      "sourcePages": [
+        6,
+        7,
+        8,
+        9
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "0",
+      "kind": "introduction",
+      "body": "Establishing and implementing a quality management system is a strategic decision for an organization that supports improved performance, enhances customer satisfaction, and provides a foundation for sustained success and sustainable development initiatives.\n\nThe potential benefits to an organization of implementing a quality management system based on the requirements in this document are:\n\na) the ability to consistently provide products and services that meet customer and applicable statutory and regulatory requirements;\n\nb) facilitating opportunities to enhance customer satisfaction;\n\nc) addressing risks and opportunities associated with its context and objectives;\n\nd) the ability to demonstrate conformity to quality management system requirements.\n\nThis document can be used by internal and external parties.\n\nThis document does not imply the need for:\n\n— uniformity in the structure of different quality management systems;\n\n— alignment of documentation to the clause structure of this document;\n\n— the use of the specific terminology of this document within the organization.\n\nThe quality management system requirements in this document are complementary to requirements for products and services.\n\nConsistently meeting requirements and addressing future needs and expectations of customers and other relevant interested parties poses a challenge for organizations in an increasingly dynamic and complex environment. To achieve this objective, the organization can pursue continual improvement in various ways, such as incremental or breakthrough change, innovation or reorganization initiatives.\n\nAnnex A provides information and clarifications that can support understanding of the structure, terms and clauses of this document. It does not contain any additional requirements.\n\nFor guidance on the application of all clauses in this document, see ISO 9002 [1].",
+      "sourcePages": [
+        6
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.2",
+      "title": "Quality management principles",
+      "titleTr": "Kalite yönetim ilkeleri",
+      "parentCode": "0",
+      "kind": "introduction",
+      "body": "This document is based on the quality management principles described in ISO 9000 [2]. The descriptions include a statement of each principle, a rationale of why the principle is important for the organization, some examples of benefits associated with the principle and examples of actions to improve the organization’s performance when applying the principle.\n\nThe quality management principles are:\n\n— customer focus;\n\n— leadership;\n\n— engagement of people;\n\n— process approach;\n\n— improvement;\n\n— evidence-based decision-making;\n\n— relationship management.",
+      "sourcePages": [
+        6,
+        7
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.3",
+      "title": "Process approach",
+      "titleTr": "Süreç yaklaşımı",
+      "parentCode": "0",
+      "kind": "introduction",
+      "body": "",
+      "sourcePages": [
+        7,
+        8
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.3.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "0.3",
+      "kind": "introduction",
+      "body": "This document promotes the adoption of a process approach when establishing, implementing and improving the effectiveness of a quality management system, to enhance customer satisfaction by meeting customer requirements. Specific requirements considered essential to the application of a process approach are included in 4.4.\n\nUnderstanding and managing interrelated processes as a system contributes to the organization’s effectiveness and efficiency in achieving its intended results. This approach enables the organization to control the interrelationships and interdependencies among the processes of the system, so that the overall performance of the organization can be enhanced.\n\nThe process approach involves the systematic determination and management of processes, and their interactions, so as to achieve the intended results in accordance with the quality policy and strategic direction of the organization. Management of the processes and the system as a whole can be achieved using the Plan-Do-Check-Act (PDCA) cycle (see 0.3.2) with an overall focus on risk-based thinking (see A.6.1.2) aimed at preventing undesired results, and opportunity-based thinking (see A.6.1.3) aimed at pursuing desired results by taking advantage of opportunities.\n\nThe application of the process approach in a quality management system enables:\n\na) understanding and consistency in meeting requirements;\n\nb) consideration of processes in terms of risk, opportunity and added value;\n\nc) achievement of effective process performance;\n\nd) improvement of processes based on the results of evaluation of data and information.\n\nFigure 1 gives a schematic representation of any single process and shows the interaction of its elements. The monitoring and measuring check points, which are necessary for control, are specific to each process and will vary depending on the process steps and related risks.\n\nFigure 1 — Schematic representation of the elements of a single process",
+      "sourcePages": [
+        7
+      ],
+      "relatedCodes": [
+        "4.4",
+        "0.3.2",
+        "A.6.1.2",
+        "A.6.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.3.2",
+      "title": "Plan-Do-Check-Act cycle",
+      "titleTr": "Planla–Uygula–Kontrol Et–Önlem Al döngüsü",
+      "parentCode": "0.3",
+      "kind": "introduction",
+      "body": "The PDCA cycle can be briefly described as follows:\n\n— Plan: Establish the objectives of the system and its processes, and the resources needed to deliver results in accordance with customer and other relevant interested party requirements and the organization’s policies, and determine and address risks and opportunities.\n\n— Do: Implement what was planned.\n\n— Check: Monitor and, as applicable, measure processes and the resulting products and services against policies, objectives, requirements and planned activities, and report the results.\n\n— Act: Take actions to improve the performance of the quality management system.\n\nThe PDCA cycle can be applied to all processes and to the quality management system as a whole. Figure 2 illustrates how Clause 4 to Clause 10 can be grouped in relation to the PDCA cycle.\n\nNOTE Numbers in brackets refer to the clauses in this document.\n\nFigure 2 — Representation of the structure of this document in the PDCA cycle",
+      "sourcePages": [
+        8
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "0.4",
+      "title": "Relationship with other management system standards",
+      "titleTr": "Diğer yönetim sistemi standartlarıyla ilişki",
+      "parentCode": "0",
+      "kind": "introduction",
+      "body": "This document applies the harmonized approach as published in the ISO/IEC Directives related to the development of management system standards. The intention is to support alignment and facilitate the integration of the requirements and recommendations of one or more management system standards into an organization’s management system.\n\nFor more information, see https://www.iso.org/management-system-standards.html.\n\nThis document provides a basis for an organization to apply the process approach, coupled with the PDCA cycle, risk-based thinking and opportunity-based thinking, in order to align or integrate its quality management system with the requirements of other management system standards. This document relates to the following standards:\n\n— ISO 9000 [2] provides the fundamental concepts and vocabulary essential for understanding the requirements of this document;\n\n— ISO 9002 [1] provides guidance on the application of the requirements of this document;\n\n— ISO 9004 [3] provides guidance on enhancing the quality of an organization and its ability to achieve sustained success.\n\nThis document does not include requirements specific to other management systems, such as those for environmental management, occupational health and safety management, or asset management.\n\nSector-specific ISO quality management system standards based on the requirements of this document have been developed. Some of these standards specify additional quality management system requirements, while others are limited to providing guidance to the application of this document within the particular sector.",
+      "sourcePages": [
+        8,
+        9
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "1",
+      "title": "Scope",
+      "titleTr": "Kapsam",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "This document specifies requirements for a quality management system when an organization:\n\na) needs to demonstrate its ability to consistently provide products and services that meet customer and applicable statutory and regulatory requirements;\n\nb) aims to enhance customer satisfaction through the effective application of the system, including processes for improvement of the system and the assurance of conformity to customer and applicable statutory and regulatory requirements.\n\nAll the requirements of this document are generic.\n\nThis document is applicable to any organization, regardless of its type or size, or the products and services it provides.\n\nNOTE 1 In this document, the terms “product” or “service” only apply to products and services intended for, or required by, a customer.\n\nNOTE 2 Statutory and regulatory requirements can be expressed as legal requirements.",
+      "sourcePages": [
+        11
+      ],
+      "relatedCodes": [
+        "A.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "2",
+      "title": "Normative references",
+      "titleTr": "Normatif atıflar",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "The following documents are referred to in the text in such a way that some or all of their content constitutes requirements of this document. For dated references, only the edition cited applies. For undated references, the latest edition of the referenced document (including any amendments) applies.\n\nISO 9000, Quality management — Fundamentals and vocabulary",
+      "sourcePages": [
+        11
+      ],
+      "relatedCodes": [
+        "A.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3",
+      "title": "Terms and definitions",
+      "titleTr": "Terimler ve tanımlar",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "For the purposes of this document, the terms and definitions given in ISO 9000 and the following apply.\n\nISO and IEC maintain terminology databases for use in standardization at the following addresses:\n\n— ISO Online browsing platform: available at https://​www​.iso​.org/​obp\n\n— IEC Electropedia: available at https://​www​.electropedia​.org",
+      "sourcePages": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "relatedCodes": [
+        "A.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.1",
+      "title": "organization",
+      "titleTr": "kuruluş",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "person or group of people that has its own functions with responsibilities, authorities and relationships to achieve its objectives (3.6)\n\nNote 1 to entry: The concept of organization includes, but is not limited to, sole-trader, company, corporation, firm, enterprise, authority, partnership, charity or institution, or part or combination thereof, whether incorporated or not, public or private.\n\nNote 2 to entry: If the organization is part of a larger entity, the term “organization” refers only to the part of the larger entity that is within the scope of the quality management system (3.4.1).",
+      "sourcePages": [
+        11
+      ],
+      "relatedCodes": [
+        "3.6",
+        "3.4.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.2",
+      "title": "interested party",
+      "titleTr": "ilgili taraf",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "stakeholder person or organization (3.1) that can affect, be affected by, or perceive itself to be affected by a decision or activity\n\nEXAMPLE Customers, owners, people in an organization, providers, bankers, regulatory authorities, unions, partners or society that can include competitors or opposing pressure groups.",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.3",
+      "title": "top management",
+      "titleTr": "üst yönetim",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "person or group of people who directs and controls an organization (3.1) at the highest level\n\nNote 1 to entry: Top management has the power to delegate authority and provide resources within the organization.\n\nNote 2 to entry: If the scope of the management system (3.4) covers only part of an organization, then top management refers to those who direct and control that part of the organization.",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.4",
+      "title": "management system",
+      "titleTr": "yönetim sistemi",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "set of interrelated or interacting elements of an organization (3.1) to establish policies (3.5) and objectives (3.6), as well as processes (3.8) to achieve those objectives\n\nNote 1 to entry: A management system can address a single discipline or several disciplines.\n\nNote 2 to entry: The management system elements include the organization’s structure, roles and responsibilities, planning and operation.\n\nNote 3 to entry: The management system elements can include the organization’s policies, practices, rules and beliefs.\n\nNote 4 to entry: An organization manages its interrelated elements in an orderly manner to achieve its objectives.\n\nNote 5 to entry: The scope of a management system can include the whole of the organization, specific and identified functions of the organization, specific and identified sections of the organization, or one or more functions across a group of organizations.",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.5",
+        "3.6",
+        "3.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.4.1",
+      "title": "quality management system",
+      "titleTr": "kalite yönetim sistemi",
+      "parentCode": "3.4",
+      "kind": "term",
+      "body": "part of the overall management system (3.4) of an organization (3.1) related to quality",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.4",
+        "3.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.5",
+      "title": "policy",
+      "titleTr": "politika",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "intentions and direction of an organization (3.1) as formally expressed by its top management (3.3)",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.5.1",
+      "title": "quality policy",
+      "titleTr": "kalite politikası",
+      "parentCode": "3.5",
+      "kind": "term",
+      "body": "policy (3.5) related to quality\n\nNote 1 to entry: The quality policy:\n\n— is generally consistent with the overall policy of the organization (3.1);\n\n— can be aligned with the organization’s vision and mission;\n\n— provides a framework for the setting of quality objectives.\n\nNote 2 to entry: The quality management principles presented in ISO 9000 [2] can form a basis for the establishment of a quality policy.",
+      "sourcePages": [
+        12
+      ],
+      "relatedCodes": [
+        "3.5",
+        "3.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.6",
+      "title": "objective",
+      "titleTr": "hedef",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "result to be achieved\n\nNote 1 to entry: An objective can be strategic, tactical or operational.\n\nNote 2 to entry: Objectives can relate to different disciplines (e.g. finance, health and safety, environment). They can be, for example, organization-wide or specific to a project, product, service or process (3.8).\n\nNote 3 to entry: An objective can be expressed in other ways, such as an intended result, as a purpose, as an operational criterion, as a quality objective (3.6.1) or by the use of other words with similar meaning (e.g. aim, goal, target).\n\nNote 4 to entry: In the context of quality management systems (3.4.1), quality objectives (3.6.1) are set by the organization (3.1), consistent with the quality policy (3.5.1), to achieve specific results.",
+      "sourcePages": [
+        12,
+        13
+      ],
+      "relatedCodes": [
+        "3.8",
+        "3.6.1",
+        "3.4.1",
+        "3.1",
+        "3.5.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.6.1",
+      "title": "quality objective",
+      "titleTr": "kalite hedefi",
+      "parentCode": "3.6",
+      "kind": "term",
+      "body": "objective (3.6) related to quality\n\nNote 1 to entry: Quality objectives are generally based on the organization’s (3.1) quality policy (3.5.1).\n\nNote 2 to entry: Quality objectives are generally specified for relevant functions, levels and processes (3.8) in the organization.",
+      "sourcePages": [
+        13
+      ],
+      "relatedCodes": [
+        "3.6",
+        "3.1",
+        "3.5.1",
+        "3.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.7",
+      "title": "risk",
+      "titleTr": "risk",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "effect of uncertainty\n\nNote 1 to entry: An effect is a deviation from the expected — positive or negative.\n\nNote 2 to entry: Uncertainty is the state, even partial, of deficiency of information related to, understanding or knowledge of, an event, its consequence, or likelihood.\n\nNote 3 to entry: Risk is often characterized by reference to potential events and consequences, or a combination of these.\n\nNote 4 to entry: Risk is often expressed in terms of a combination of the consequences of an event (including changes in circumstances) and the associated likelihood of occurrence.\n\nNote 5 to entry: The word “risk” is sometimes used when there is the possibility of only negative consequences.",
+      "sourcePages": [
+        13
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.8",
+      "title": "process",
+      "titleTr": "süreç",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "set of interrelated or interacting activities that uses or transforms inputs to deliver a result\n\nNote 1 to entry: Whether the result of a process is called an output, a product or a service depends on the context of the reference.\n\nNote 2 to entry: Inputs to a process are generally the outputs of other processes and outputs of a process are generally the inputs to other processes.\n\nNote 3 to entry: Two or more interrelated and interacting processes in series can also be referred to as a “process”.\n\nNote 4 to entry: Processes in an organization (3.1) are generally planned and carried out under controlled conditions to ensure that intended results can be achieved.\n\nNote 5 to entry: A process where the conformity (3.15) of the resulting output cannot be readily or economically validated is frequently referred to as a “special process”.",
+      "sourcePages": [
+        13
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.15"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.9",
+      "title": "competence",
+      "titleTr": "yetkinlik",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "ability to apply knowledge and skills to achieve intended results",
+      "sourcePages": [
+        13
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.10",
+      "title": "documented information",
+      "titleTr": "dokümante edilmiş bilgi",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "information required to be controlled and maintained by an organization (3.1) and the medium on which it is contained\n\nNote 1 to entry: Documented information can be in any format and media and from any source.\n\nNote 2 to entry: Documented information can refer to:\n\n— the management system (3.4), including related processes (3.8);\n\n— information created in order for the organization to operate (documentation);\n\n— evidence of results achieved (records).",
+      "sourcePages": [
+        13,
+        14
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.4",
+        "3.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.11",
+      "title": "performance",
+      "titleTr": "performans",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "measurable result\n\nNote 1 to entry: Performance can relate either to quantitative or qualitative findings.\n\nNote 2 to entry: Performance can relate to managing activities, processes (3.8), products, services, systems or organizations (3.1).",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.8",
+        "3.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.12",
+      "title": "continual improvement",
+      "titleTr": "sürekli iyileştirme",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "recurring activity to enhance performance (3.11)",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.11"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.13",
+      "title": "effectiveness",
+      "titleTr": "etkinlik",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "extent to which planned activities are realized and planned results are achieved",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.14",
+      "title": "requirement",
+      "titleTr": "şart",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "need or expectation that is stated, generally implied or obligatory\n\nNote 1 to entry: “Generally implied” means that it is custom or common practice for the organization (3.1) and interested parties (3.2) that the need or expectation under consideration is implied.\n\nNote 2 to entry: A specified requirement is one that is stated, e.g. in documented information (3.10).\n\nNote 3 to entry: A qualifier can be used to denote a specific type of requirement, e.g. product requirement, service requirement, quality management requirement, customer requirement, quality requirement.\n\nNote 4 to entry: Requirements can be generated by different interested parties or by the organization itself.\n\nNote 5 to entry: It can be necessary for achieving high customer satisfaction to fulfil an expectation of a customer even if it is neither stated nor generally implied or obligatory.",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.1",
+        "3.2",
+        "3.10"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.15",
+      "title": "conformity",
+      "titleTr": "uygunluk",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "fulfilment of a requirement (3.14)\n\nNote 1 to entry: The term “conformance” is synonymous but deprecated.",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.14"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.16",
+      "title": "nonconformity",
+      "titleTr": "uygunsuzluk",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "non-fulfilment of a requirement (3.14)",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.14"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.17",
+      "title": "corrective action",
+      "titleTr": "düzeltici faaliyet",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "action to eliminate the cause(s) of a nonconformity (3.16) and to prevent recurrence\n\nNote 1 to entry: Corrective action is taken to prevent recurrence whereas preventive action is taken to prevent occurrence.",
+      "sourcePages": [
+        14
+      ],
+      "relatedCodes": [
+        "3.16"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.18",
+      "title": "audit",
+      "titleTr": "tetkik",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "systematic and independent process (3.8) for obtaining evidence and evaluating it objectively to determine the extent to which the audit criteria are fulfilled\n\nNote 1 to entry: An audit can be an internal audit (first party) or an external audit (second party or third party), and it can be a combined audit (combining two or more disciplines).\n\nNote 2 to entry: An internal audit is conducted by the organization (3.1) itself, or by an external party on its behalf.\n\nNote 3 to entry: “Audit evidence” and “audit criteria” are defined in ISO 19011 [4].\n\nNote 4 to entry: The fundamental elements of an audit include the determination of the conformity (3.15) of an object according to a procedure carried out by people selected to ensure impartiality and objectivity of the audit process.\n\nNote 5 to entry: Internal audits are conducted for management review and other internal purposes and can form the basis for an organization’s declaration of conformity. Independence can be demonstrated by the freedom from responsibility for the activity being audited.\n\nNote 6 to entry: Second-party audits are conducted by parties having an interest in the organization, such as customers, or by other persons on their behalf. Third-party audits are conducted by external, independent auditing organizations such as those providing certification or registration of conformity or governmental agencies.\n\nNote 7 to entry: An audit can also be a joint audit conducted by two or more auditing organizations.",
+      "sourcePages": [
+        14,
+        15
+      ],
+      "relatedCodes": [
+        "3.8",
+        "3.1",
+        "3.15"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.19",
+      "title": "measurement",
+      "titleTr": "ölçme",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "process (3.8) to determine a value\n\nNote 1 to entry: According to ISO 3534-2:2006 [5], 3.2.1, the value determined is generally the value of a quantity.",
+      "sourcePages": [
+        15
+      ],
+      "relatedCodes": [
+        "3.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "3.20",
+      "title": "monitoring",
+      "titleTr": "izleme",
+      "parentCode": "3",
+      "kind": "term",
+      "body": "determining the status of a system, a process (3.8) or an activity\n\nNote 1 to entry: To determine the status, there can be a need to check, supervise or critically observe.\n\nNote 2 to entry: Monitoring can also determine the status of a product or a service.\n\nNote 3 to entry: Monitoring is generally a determination of the status of an object, carried out at different stages or at different times.",
+      "sourcePages": [
+        15
+      ],
+      "relatedCodes": [
+        "3.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4",
+      "title": "Context of the organization",
+      "titleTr": "Kuruluşun bağlamı",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        15,
+        16,
+        17
+      ],
+      "relatedCodes": [
+        "A.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4.1",
+      "title": "Understanding the organization and its context",
+      "titleTr": "Kuruluşun ve bağlamının anlaşılması",
+      "parentCode": "4",
+      "kind": "clause",
+      "body": "The organization shall determine external and internal issues that are relevant to its purpose and its strategic direction and that affect its ability to achieve the intended result(s) of its quality management system.\n\nThe organization shall determine whether climate change is a relevant issue.\n\nThe organization shall monitor and review information about these external and internal issues.\n\nNOTE 1 Issues can include positive and negative factors or conditions for consideration.\n\nNOTE 2 Understanding the external context can be facilitated by considering legal, technological, competitive, market, cultural, political, social, economic and environmental issues at the international, national, regional or local level.\n\nNOTE 3 Understanding the internal context can be facilitated by considering issues related to the organization’s strategic direction, values, culture, resources, knowledge and performance.",
+      "sourcePages": [
+        15
+      ],
+      "relatedCodes": [
+        "A.4.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4.2",
+      "title": "Understanding the needs and expectations of interested parties",
+      "titleTr": "İlgili tarafların ihtiyaç ve beklentileri",
+      "parentCode": "4",
+      "kind": "clause",
+      "body": "The organization shall determine:\n\na) the interested parties that are relevant to the quality management system;\n\nb) the relevant requirements of these interested parties;\n\nc) which of these requirements will be addressed through the quality management system.\n\nThe organization shall monitor and review information about these interested parties and their relevant requirements.\n\nNOTE Relevant interested parties can have requirements related to climate change.",
+      "sourcePages": [
+        15,
+        16
+      ],
+      "relatedCodes": [
+        "A.4.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4.3",
+      "title": "Determining the scope of the quality management system",
+      "titleTr": "Kalite yönetim sisteminin kapsamı",
+      "parentCode": "4",
+      "kind": "clause",
+      "body": "The organization shall determine the boundaries and applicability of the quality management system to establish its scope.\n\nWhen determining this scope, the organization shall consider:\n\na) the external and internal issues referred to in 4.1;\n\nb) the requirements referred to in 4.2;\n\nc) the products and services of the organization.\n\nThe organization shall apply all the requirements of this document if they are applicable within the determined scope of its quality management system.\n\nThe scope shall state the types of products and services covered.\n\nThe scope shall include justification for any requirement of this document that the organization determines is not applicable to its quality management system.\n\nThe scope shall be available as documented information.\n\nConformity to this document can only be claimed if the requirements determined as not being applicable do not affect the organization’s ability or responsibility to ensure the conformity of its products and services and the enhancement of customer satisfaction.",
+      "sourcePages": [
+        16
+      ],
+      "relatedCodes": [
+        "A.4.3",
+        "4.1",
+        "4.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4.4",
+      "title": "Quality management system",
+      "titleTr": "Kalite yönetim sistemi",
+      "parentCode": "4",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        16,
+        17
+      ],
+      "relatedCodes": [
+        "A.4.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "4.4.1",
+      "title": "Quality management system",
+      "titleTr": "Kalite yönetim sistemi",
+      "parentCode": "4.4",
+      "kind": "clause",
+      "body": "The organization shall establish, implement, maintain and continually improve a quality management system, including the processes needed and their interactions, in accordance with the requirements of this document.\n\nThe organization shall:\n\na) determine the processes needed for the quality management system and their application throughout the organization;\n\nb) determine the inputs required and the outputs expected from these processes;\n\nc) determine the sequence and interaction of these processes;\n\nd) determine and apply the criteria and methods needed (including monitoring, measurements and related performance indicators) to ensure the effective operation and control of these processes;\n\ne) determine the resources needed for these processes and ensure their availability;\n\nf) assign the responsibilities and authorities for these processes;\n\ng) address the risks and opportunities as determined in accordance with the requirements of 6.1;\n\nh) evaluate these processes and implement any changes needed to ensure that these processes achieve their intended results;\n\ni) improve the processes and the quality management system.",
+      "sourcePages": [
+        16
+      ],
+      "relatedCodes": [
+        "6.1"
+      ],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "4.4.2",
+      "title": "Quality management system",
+      "titleTr": "Kalite yönetim sistemi",
+      "parentCode": "4.4",
+      "kind": "clause",
+      "body": "Documented information shall be available to the extent necessary:\n\na) to support the operation of the organization’s processes;\n\nb) as evidence that the processes are being carried out as planned.",
+      "sourcePages": [
+        17
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "5",
+      "title": "Leadership",
+      "titleTr": "Liderlik",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        17,
+        18
+      ],
+      "relatedCodes": [
+        "A.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "5.1",
+      "title": "Leadership and commitment",
+      "titleTr": "Liderlik ve taahhüt",
+      "parentCode": "5",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        17
+      ],
+      "relatedCodes": [
+        "A.5.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "5.1.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "5.1",
+      "kind": "clause",
+      "body": "Top management shall demonstrate leadership and commitment with respect to the quality management system by:\n\na) ensuring that the quality policy and quality objectives are established and are compatible with the strategic direction of the organization;\n\nb) ensuring the integration of the quality management system requirements into the organization’s business processes;\n\nc) ensuring that the resources needed for the quality management system are available;\n\nd) communicating the importance of effective quality management and of conforming to the quality management system requirements;\n\ne) ensuring that the quality management system achieves its intended result(s);\n\nf) directing and supporting persons to contribute to the effectiveness of the quality management system;\n\ng) promoting continual improvement;\n\nh) supporting other relevant roles to demonstrate their leadership, as it applies to their areas of responsibility;\n\ni) promoting quality culture and ethical behaviour;\n\nj) promoting the use of the process approach;\n\nk) promoting risk-based thinking and opportunity-based thinking;\n\nl) taking accountability for the effectiveness of the quality management system.\n\nNOTE 1 Reference to “business” in this document can be interpreted broadly to mean those activities that are core to the purposes of the organization’s existence.\n\nNOTE 2 An organization’s quality culture and ethical behaviour are reflected in its shared values, attitudes, practices and actions.",
+      "sourcePages": [
+        17
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "5.1.2",
+      "title": "Customer focus",
+      "titleTr": "Müşteri odaklılık",
+      "parentCode": "5.1",
+      "kind": "clause",
+      "body": "Top management shall demonstrate leadership and commitment with respect to customer focus by ensuring that:\n\na) customer and applicable statutory and regulatory requirements are determined, understood and consistently met;\n\nb) the risks and opportunities that can affect conformity of products and services and the ability to enhance customer satisfaction are determined and addressed;\n\nc) the focus on enhancing customer satisfaction is maintained.",
+      "sourcePages": [
+        17
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "5.2",
+      "title": "Quality policy",
+      "titleTr": "Kalite politikası",
+      "parentCode": "5",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        18
+      ],
+      "relatedCodes": [
+        "A.5.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "5.2.1",
+      "title": "Quality policy",
+      "titleTr": "Kalite politikası",
+      "parentCode": "5.2",
+      "kind": "clause",
+      "body": "Top management shall establish a quality policy that:\n\na) is appropriate to the purpose of the organization;\n\nb) provides a framework for setting quality objectives;\n\nc) includes a commitment to meet applicable requirements;\n\nd) includes a commitment to continual improvement of the quality management system;\n\ne) takes into account the context of the organization and supports its strategic direction.",
+      "sourcePages": [
+        18
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "5.2.2",
+      "title": "Quality policy",
+      "titleTr": "Kalite politikası",
+      "parentCode": "5.2",
+      "kind": "clause",
+      "body": "The quality policy shall:\n\na) be available as documented information;\n\nb) be communicated within the organization;\n\nc) be available to interested parties, as appropriate;\n\nd) be implemented, understood and applied within the organization.",
+      "sourcePages": [
+        18
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "5.3",
+      "title": "Roles, responsibilities and authorities",
+      "titleTr": "Roller, sorumluluklar ve yetkiler",
+      "parentCode": "5",
+      "kind": "clause",
+      "body": "Top management shall ensure that the responsibilities and authorities for relevant roles are assigned and communicated within the organization.\n\nTop management shall assign the responsibility and authority for:\n\na) ensuring that the quality management system conforms to the requirements of this document;\n\nb) reporting on the performance of the quality management system to top management;\n\nc) ensuring that the processes are delivering their intended results;\n\nd) ensuring the promotion of customer focus throughout the organization;\n\ne) reporting on opportunities for improvement to top management;\n\nf) ensuring that the integrity of the quality management system is maintained, including when changes to the quality management system are planned and implemented.",
+      "sourcePages": [
+        18
+      ],
+      "relatedCodes": [
+        "A.5.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6",
+      "title": "Planning",
+      "titleTr": "Planlama",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        18,
+        19,
+        20
+      ],
+      "relatedCodes": [
+        "A.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.1",
+      "title": "Actions to address risks and opportunities",
+      "titleTr": "Risk ve fırsatlara yönelik faaliyetler",
+      "parentCode": "6",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        18,
+        19
+      ],
+      "relatedCodes": [
+        "A.6.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.1.1",
+      "title": "Determining risks and opportunities",
+      "titleTr": "Risk ve fırsatların belirlenmesi",
+      "parentCode": "6.1",
+      "kind": "clause",
+      "body": "When planning for the quality management system, the organization shall consider the issues referred to in 4.1 and the requirements referred to in 4.2 and determine the risks and opportunities that need to be addressed to:\n\na) give assurance that the quality management system can achieve its intended result(s);\n\nb) prevent, or reduce, undesired effects;\n\nc) achieve continual improvement;\n\nd) enhance desired effects.",
+      "sourcePages": [
+        18
+      ],
+      "relatedCodes": [
+        "A.6.1.1",
+        "4.1",
+        "4.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.1.2",
+      "title": "Actions to address risks",
+      "titleTr": "Risklere yönelik faaliyetler",
+      "parentCode": "6.1",
+      "kind": "clause",
+      "body": "The organization shall determine, analyse and evaluate risks that can have an undesired effect on its ability to continually and consistently provide conforming products and services and enhance customer satisfaction.\n\nThe organization shall plan:\n\na) actions to address these risks;\n\nb) how to:\n\n1) integrate and implement the actions into its quality management system processes;\n\n2) evaluate the effectiveness of these actions.\n\nActions taken shall be proportionate to the potential impact of the risks on the intended results of the quality management system.\n\nNOTE 1 Determined risks can include risks related to the ability to provide conforming products and services during and after a disruption.\n\nNOTE 2 Actions to address risks can include avoiding risk, taking risk in order to pursue an opportunity, eliminating the risk source, changing the likelihood or consequences, sharing the risk or retaining risk by informed decision.",
+      "sourcePages": [
+        19
+      ],
+      "relatedCodes": [
+        "A.6.1.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.1.3",
+      "title": "Actions to address opportunities",
+      "titleTr": "Fırsatlara yönelik faaliyetler",
+      "parentCode": "6.1",
+      "kind": "clause",
+      "body": "The organization shall determine, analyse and evaluate opportunities that can have a desired effect on its ability to continually and consistently provide conforming products and services and enhance customer satisfaction.\n\nThe organization shall plan:\n\na) actions to address these opportunities;\n\nb) how to:\n\n1) integrate and implement the actions into its quality management system processes;\n\n2) evaluate the effectiveness of these actions.\n\nActions taken to address opportunities shall be appropriate to the organization’s context and support the achievement of desired results.\n\nNOTE Actions to address opportunities can include adopting new practices, launching new products or services, creating new partnerships, leveraging emerging technologies, implementing initiatives, and other actions to address the current and changing needs and expectations of an organization’s customers and other relevant interested parties.",
+      "sourcePages": [
+        19
+      ],
+      "relatedCodes": [
+        "A.6.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.2",
+      "title": "Quality objectives and planning to achieve them",
+      "titleTr": "Kalite hedefleri ve bunlara ulaşmak için planlama",
+      "parentCode": "6",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        19,
+        20
+      ],
+      "relatedCodes": [
+        "A.6.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "6.2.1",
+      "title": "Quality objectives and planning to achieve them",
+      "titleTr": "Kalite hedefleri ve bunlara ulaşmak için planlama",
+      "parentCode": "6.2",
+      "kind": "clause",
+      "body": "The organization shall establish quality objectives at relevant functions, levels and processes.\n\nThe quality objectives shall:\n\na) be consistent with the quality policy;\n\nb) be measurable;\n\nc) take into account applicable requirements;\n\nd) be monitored;\n\ne) be communicated;\n\nf) be updated as appropriate;\n\ng) be available as documented information;\n\nh) be relevant to the conformity of products and services and the ability to enhance customer satisfaction.",
+      "sourcePages": [
+        19,
+        20
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "6.2.2",
+      "title": "Quality objectives and planning to achieve them",
+      "titleTr": "Kalite hedefleri ve bunlara ulaşmak için planlama",
+      "parentCode": "6.2",
+      "kind": "clause",
+      "body": "When planning how to achieve its quality objectives, the organization shall determine:\n\na) what will be done;\n\nb) what resources will be required;\n\nc) who will be responsible;\n\nd) when it will be completed;\n\ne) how the results will be evaluated.",
+      "sourcePages": [
+        20
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "6.3",
+      "title": "Planning of changes",
+      "titleTr": "Değişikliklerin planlanması",
+      "parentCode": "6",
+      "kind": "clause",
+      "body": "When the organization determines the need for changes to the quality management system, the changes shall be carried out in a planned manner.\n\nTo ensure changes are implemented effectively to achieve intended results, the organization shall consider:\n\na) the purpose of the changes and their potential consequences;\n\nb) the potential impact on the integrity of the quality management system;\n\nc) the availability of resources and information;\n\nd) the allocation or reallocation of responsibilities and authorities;\n\ne) the communication of the changes;\n\nf) how the effectiveness of the changes will be monitored and evaluated;\n\ng) how the results of the changes will be reviewed.",
+      "sourcePages": [
+        20
+      ],
+      "relatedCodes": [
+        "A.6.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7",
+      "title": "Support",
+      "titleTr": "Destek",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        20,
+        21,
+        22,
+        23
+      ],
+      "relatedCodes": [
+        "A.7"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1",
+      "title": "Resources",
+      "titleTr": "Kaynaklar",
+      "parentCode": "7",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        20,
+        21,
+        22
+      ],
+      "relatedCodes": [
+        "A.7.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "The organization shall determine and provide the resources needed for the establishment, implementation, maintenance and continual improvement of the quality management system.\n\nThe organization shall consider:\n\na) the capabilities of, and constraints on, existing internal resources;\n\nb) what needs to be obtained from external providers.",
+      "sourcePages": [
+        20
+      ],
+      "relatedCodes": [
+        "A.7.1.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.2",
+      "title": "People",
+      "titleTr": "Kişiler",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "The organization shall determine and provide the persons necessary for the effective implementation of its quality management system and for the operation and control of its processes.",
+      "sourcePages": [
+        20
+      ],
+      "relatedCodes": [
+        "A.7.1.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.3",
+      "title": "Infrastructure",
+      "titleTr": "Altyapı",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "The organization shall determine, provide and maintain the infrastructure necessary for the operation of its processes and to achieve conformity of products and services.\n\nNOTE For all types of work (e.g. on site, remote or a combination thereof) infrastructure can include:\n\na) buildings and associated utilities;\n\nb) equipment, including hardware and software;\n\nc) transportation resources;\n\nd) information and communication technology.",
+      "sourcePages": [
+        21
+      ],
+      "relatedCodes": [
+        "A.7.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.4",
+      "title": "Environment for the operation of processes",
+      "titleTr": "Süreçlerin işletimi için ortam",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "The organization shall determine, provide and maintain the environment necessary for the operation of its processes and to achieve conformity of products and services.\n\nNOTE A suitable environment can include a combination of factors, which can differ depending on the products and services provided. Relevant factors can include:\n\na) social (e.g. non-discriminatory, calm, non-confrontational);\n\nb) psychological (e.g. stress-reducing, burnout prevention, emotionally protective);\n\nc) physical (e.g. temperature, heat, humidity, light, airflow, hygiene, noise).\n\nSome factors can be influenced by the organizational quality culture and ethical behaviour.",
+      "sourcePages": [
+        21
+      ],
+      "relatedCodes": [
+        "A.7.1.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.5",
+      "title": "Monitoring and measuring resources",
+      "titleTr": "İzleme ve ölçme kaynakları",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        21
+      ],
+      "relatedCodes": [
+        "A.7.1.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.5.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "7.1.5",
+      "kind": "clause",
+      "body": "The organization shall determine and provide the resources needed to ensure valid and reliable results when monitoring or measuring is used to verify the conformity of products and services to requirements.\n\nThe organization shall ensure that the resources provided:\n\na) are suitable for the specific type of monitoring and measurement activities being undertaken;\n\nb) are maintained to ensure their continuing fitness for their purpose.\n\nAppropriate documented information shall be available as evidence of fitness for purpose of the monitoring and measurement resources.",
+      "sourcePages": [
+        21
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.5.2",
+      "title": "Traceability of measurement results",
+      "titleTr": "Ölçüm sonuçlarının izlenebilirliği",
+      "parentCode": "7.1.5",
+      "kind": "clause",
+      "body": "When traceability of measurement results is a requirement, or is considered by the organization to be an essential part of providing confidence in the validity of measurement results, measuring equipment shall be:\n\na) calibrated or verified, or both, at specified intervals, or prior to use, against measurement standards traceable to international or national measurement standards; when no such measurement standards exist, the basis used for calibration or verification shall be available as documented information;\n\nb) identified in order to determine its calibration or verification status;\n\nc) safeguarded from adjustments, damage or deterioration that can invalidate measurement results.\n\nWhen measuring equipment is found to be unfit for its intended purpose, the organization shall determine whether the validity of previous measurement results has been adversely affected and shall take appropriate action as necessary.",
+      "sourcePages": [
+        21
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.1.6",
+      "title": "Organizational knowledge",
+      "titleTr": "Kurumsal bilgi",
+      "parentCode": "7.1",
+      "kind": "clause",
+      "body": "The organization shall determine the knowledge necessary for the operation of its processes and to achieve the intended results of its quality management system.\n\nThis knowledge shall be retained, applied and shared to the extent necessary.\n\nWhen addressing changing needs and trends, the organization shall consider its current knowledge and determine how to acquire or access any necessary additional knowledge and required updates.\n\nNOTE Organizational knowledge can take different forms, such as:\n\n— experience-based knowledge held by people;\n\n— knowledge acquired through education, training and learning from others;\n\n— knowledge embedded in methods, processes and products;\n\n— knowledge represented in documented information, digital systems and other media.",
+      "sourcePages": [
+        22
+      ],
+      "relatedCodes": [
+        "A.7.1.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.2",
+      "title": "Competence",
+      "titleTr": "Yetkinlik",
+      "parentCode": "7",
+      "kind": "clause",
+      "body": "The organization shall:\n\na) determine the necessary competence of person(s) doing work under its control that affects its quality management system performance;\n\nb) ensure that these persons are competent on the basis of appropriate education, training or experience;\n\nc) where applicable, take actions to acquire the necessary competence, and evaluate the effectiveness of the actions taken.\n\nAppropriate documented information shall be available as evidence of competence.\n\nNOTE Applicable actions can include, for example: the provision of training to, the mentoring of or the re- assignment of currently employed persons; or the hiring or contracting of competent persons.",
+      "sourcePages": [
+        22
+      ],
+      "relatedCodes": [
+        "A.7.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.3",
+      "title": "Awareness",
+      "titleTr": "Farkındalık",
+      "parentCode": "7",
+      "kind": "clause",
+      "body": "The organization shall ensure that persons doing work under the organization’s control are aware of:\n\na) the quality policy;\n\nb) their contribution to the effectiveness of the quality management system, including the benefits of improved performance;\n\nc) the implications of not conforming to the quality management system requirements;\n\nd) relevant quality objectives;\n\ne) the organizational quality culture and ethical behaviour.",
+      "sourcePages": [
+        22
+      ],
+      "relatedCodes": [
+        "A.7.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.4",
+      "title": "Communication",
+      "titleTr": "İletişim",
+      "parentCode": "7",
+      "kind": "clause",
+      "body": "The organization shall determine the internal and external communications relevant to the quality management system, including:\n\na) on what it will communicate;\n\nb) when to communicate;\n\nc) with whom to communicate;\n\nd) how to communicate;\n\ne) who communicates.",
+      "sourcePages": [
+        22,
+        23
+      ],
+      "relatedCodes": [
+        "A.7.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.5",
+      "title": "Documented information",
+      "titleTr": "Dokümante edilmiş bilgi",
+      "parentCode": "7",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [
+        "A.7.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.5.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "7.5",
+      "kind": "clause",
+      "body": "The organization’s quality management system shall include:\n\na) documented information required by this document;\n\nb) documented information determined by the organization as being necessary for the effectiveness of the quality management system.\n\nNOTE The extent of documented information for a quality management system can differ from one organization to another due to:\n\n— the size of organization and its type of activities, processes, products and services;\n\n— the complexity of processes and their interactions;\n\n— the competence of persons.",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.5.2",
+      "title": "Creating and updating documented information",
+      "titleTr": "Dokümante edilmiş bilginin oluşturulması ve güncellenmesi",
+      "parentCode": "7.5",
+      "kind": "clause",
+      "body": "When creating and updating documented information, the organization shall ensure appropriate:\n\na) identification and description (e.g. a title, date, author, reference number);\n\nb) format (e.g. language, software version, graphics) and media (e.g. paper, electronic);\n\nc) review and approval for suitability and adequacy.",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.5.3",
+      "title": "Control of documented information",
+      "titleTr": "Dokümante edilmiş bilginin kontrolü",
+      "parentCode": "7.5",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "7.5.3.1",
+      "title": "Control of documented information",
+      "titleTr": "Dokümante edilmiş bilginin kontrolü",
+      "parentCode": "7.5.3",
+      "kind": "clause",
+      "body": "Documented information required by the quality management system and by this document shall be controlled to ensure:\n\na) it is available and suitable for use, where and when it is needed;\n\nb) it is adequately protected (e.g. from loss of confidentiality, improper use or loss of integrity).",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "7.5.3.2",
+      "title": "Control of documented information",
+      "titleTr": "Dokümante edilmiş bilginin kontrolü",
+      "parentCode": "7.5.3",
+      "kind": "clause",
+      "body": "For the control of documented information, the organization shall address the following activities, as applicable:\n\na) distribution, access, retrieval and use;\n\nb) storage and preservation, including preservation of legibility;\n\nc) control of changes (e.g. version control);\n\nd) retention and disposition.\n\nDocumented information of external origin determined by the organization to be necessary for the planning and operation of the quality management system shall be identified as appropriate and controlled.\n\nDocumented information available as evidence of conformity shall be protected from unintended alterations.\n\nNOTE Access can imply a decision regarding the permission to view the documented information only, or the permission and authority to view and change the documented information.",
+      "sourcePages": [
+        23
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "8",
+      "title": "Operation",
+      "titleTr": "Operasyon",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "relatedCodes": [
+        "A.8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.1",
+      "title": "Operational planning and control",
+      "titleTr": "Operasyonel planlama ve kontrol",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "The organization shall plan, implement and control the processes needed to meet requirements for the provision of products and services, and to implement the actions determined in Clause 6, by:\n\na) determining the requirements for products and services (see 8.2);\n\nb) establishing criteria for the acceptance of products and services;\n\nc) establishing criteria for the processes;\n\nd) implementing control of the processes in accordance with the criteria;\n\ne) determining the resources needed to achieve conformity to the product and service requirements.\n\nDocumented information shall be available to the extent necessary to have confidence that the processes have been carried out as planned.\n\nThe organization shall control planned changes and review the consequences of unintended changes, taking action to mitigate any adverse effects, as necessary.\n\nThe organization shall ensure that externally provided processes, products or services that are relevant to the quality management system are controlled (see 8.4).\n\nDocumented information shall be available to the extent necessary as evidence of the conformity of products and services.",
+      "sourcePages": [
+        24
+      ],
+      "relatedCodes": [
+        "A.8.1",
+        "8.2",
+        "8.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.2",
+      "title": "Requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartları",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        24,
+        25
+      ],
+      "relatedCodes": [
+        "A.8.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.2.1",
+      "title": "Customer communication",
+      "titleTr": "Müşteriyle iletişim",
+      "parentCode": "8.2",
+      "kind": "clause",
+      "body": "Communication with customers shall include:\n\na) providing information relating to products and services;\n\nb) handling enquiries, contracts or orders, including changes;\n\nc) obtaining customer feedback relating to products and services, including customer complaints;\n\nd) handling or controlling customer property;\n\ne) providing information related to contingency actions, when relevant, including any related to disruptions to the provision of products or services.\n\nNOTE Customer communication can include direct contacts through meetings, emails and document exchange or indirectly through website content, publications, social media, responses to frequently asked questions and training.",
+      "sourcePages": [
+        24
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.2.2",
+      "title": "Determining requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartlarının belirlenmesi",
+      "parentCode": "8.2",
+      "kind": "clause",
+      "body": "When determining the requirements for the products and services to be offered to customers, the organization shall ensure that:\n\na) the requirements for the products and services are defined, including:\n\n1) any applicable statutory and regulatory requirements;\n\n2) those considered necessary by the organization;\n\nb) it can meet the claims for the products and services it offers.",
+      "sourcePages": [
+        24
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.2.3",
+      "title": "Review of requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartlarının gözden geçirilmesi",
+      "parentCode": "8.2",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        25
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.2.3.1",
+      "title": "Review of requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartlarının gözden geçirilmesi",
+      "parentCode": "8.2.3",
+      "kind": "clause",
+      "body": "The organization shall ensure that it has the ability to meet the requirements for the products and services to be offered to customers. Before committing to supply products and services to a customer, the organization shall conduct a review that includes:\n\na) requirements defined by the customer, including requirements for delivery and post-delivery activities when applicable;\n\nb) requirements not defined by the customer, but necessary for the specified or intended use, when known;\n\nc) requirements specified by the organization;\n\nd) statutory and regulatory requirements applicable to the products and services;\n\ne) contract or order requirements differing from those previously expressed.\n\nThe organization shall ensure that contract or order requirements differing from those previously defined are resolved.\n\nWhen the customer does not provide a documented statement of their requirements, the organization shall confirm the customer requirements before acceptance.\n\nNOTE In some situations, such as internet sales, a formal review is impractical for each order. Instead, the review can cover relevant product or service information, such as websites or catalogues.",
+      "sourcePages": [
+        25
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "8.2.3.2",
+      "title": "Review of requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartlarının gözden geçirilmesi",
+      "parentCode": "8.2.3",
+      "kind": "clause",
+      "body": "Documented information shall be available, as applicable, as evidence of:\n\na) the results of the review;\n\nb) any new or changed requirements for the products and services.",
+      "sourcePages": [
+        25
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "8.2.4",
+      "title": "Changes to requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartlarındaki değişiklikler",
+      "parentCode": "8.2",
+      "kind": "clause",
+      "body": "When requirements for products and services are changed, the organization shall ensure that the relevant documented information is updated and communicated to the relevant interested parties.",
+      "sourcePages": [
+        25
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3",
+      "title": "Design and development of products and services",
+      "titleTr": "Ürün ve hizmetlerin tasarımı ve geliştirilmesi",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        25,
+        26,
+        27
+      ],
+      "relatedCodes": [
+        "A.8.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "The organization shall establish, implement and maintain a design and development process that is appropriate to ensure the subsequent provision of products and services.\n\nNOTE The design and development process can include cycles of review, verification, validation and feedback, allowing for an iterative approach throughout the design and development stages.",
+      "sourcePages": [
+        25
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.2",
+      "title": "Design and development planning",
+      "titleTr": "Tasarım ve geliştirmenin planlanması",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "In determining the stages and controls for design and development, the organization shall consider:\n\na) the nature, duration and complexity of the design and development activities;\n\nb) the required process stages, including applicable design and development reviews;\n\nc) the required design and development verification and validation activities;\n\nd) the responsibilities and authorities involved in the design and development process;\n\ne) the internal and external resource needs for the design and development of products and services;\n\nf) the need to control interfaces between persons involved in the design and development process;\n\ng) the need for involvement of customers and other relevant interested parties in the design and development process;\n\nh) the requirements for the subsequent provision of products and services;\n\ni) the level of control expected for the design and development process by customers and other relevant interested parties;\n\nj) the documented information needed as evidence that design and development requirements have been met.",
+      "sourcePages": [
+        25,
+        26
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.3",
+      "title": "Design and development inputs",
+      "titleTr": "Tasarım ve geliştirme girdileri",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "The organization shall determine the requirements essential for the specific types of products and services to be designed and developed. The organization shall consider:\n\na) functional and performance requirements;\n\nb) information derived from previous similar design and development activities;\n\nc) statutory and regulatory requirements;\n\nd) standards or codes of practice that it has committed to implement;\n\ne) the potential consequences of failure due to the nature of the products and services.\n\nInputs shall be complete, unambiguous and adequate for design and development purposes.\n\nConflicting design and development inputs shall be resolved.\n\nDocumented information shall be available as evidence of design and development inputs.\n\nNOTE Design and development inputs are not always fully defined or known initially. Instead, they can evolve as the design progresses, through repeated cycles of development activity.",
+      "sourcePages": [
+        26
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.4",
+      "title": "Design and development controls",
+      "titleTr": "Tasarım ve geliştirme kontrolleri",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "The organization shall apply controls to the design and development process to ensure that:\n\na) the results to be achieved are defined;\n\nb) reviews are conducted to evaluate the ability of the results of design and development to meet requirements;\n\nc) verification activities are conducted to ensure that the design and development outputs meet the input requirements;\n\nd) validation activities are conducted to ensure that the resulting products and services meet the requirements for the specified application or intended use;\n\ne) necessary actions are taken to address problems determined during the reviews, or verification and validation activities;\n\nf) documented information is available as evidence of these activities.\n\nNOTE Design and development reviews, verification and validation have distinct purposes. They can be conducted separately or in any combination, as is suitable for the products and services of the organization.",
+      "sourcePages": [
+        26
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.5",
+      "title": "Design and development outputs",
+      "titleTr": "Tasarım ve geliştirme çıktıları",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "The organization shall ensure that design and development outputs:\n\na) meet the input requirements;\n\nb) are adequate for the subsequent processes for the provision of products and services;\n\nc) include or reference monitoring and measuring requirements, as appropriate, and acceptance criteria;\n\nd) specify the characteristics of the products and services, and the information on the products and services, that are essential for their intended purpose including their safe and proper provision.\n\nDocumented information shall be available as evidence of design and development outputs.",
+      "sourcePages": [
+        26,
+        27
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.3.6",
+      "title": "Design and development changes",
+      "titleTr": "Tasarım ve geliştirme değişiklikleri",
+      "parentCode": "8.3",
+      "kind": "clause",
+      "body": "The organization shall determine, review and control changes made during, or subsequent to, the design and development of products and services, to the extent necessary to ensure that there is no adverse impact on conformity to requirements.\n\nDocumented information shall be available as evidence of:\n\na) design and development changes;\n\nb) results of reviews;\n\nc) authorization of the changes;\n\nd) actions taken to prevent adverse impacts.",
+      "sourcePages": [
+        27
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.4",
+      "title": "Control of externally provided processes, products and services",
+      "titleTr": "Dışarıdan sağlanan süreç, ürün ve hizmetlerin kontrolü",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        27,
+        28
+      ],
+      "relatedCodes": [
+        "A.8.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.4.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "8.4",
+      "kind": "clause",
+      "body": "The organization shall ensure that externally provided processes, products and services conform to requirements.\n\nThe organization shall determine the controls to be applied to externally provided processes, products and services when:\n\na) products and services from external providers are intended for incorporation into the organization’s own products and services;\n\nb) products and services are provided directly to customers by external providers on behalf of the organization;\n\nc) a process, or part of a process, is provided by an external provider.\n\nThe organization shall determine and apply criteria for the evaluation, selection, monitoring of performance, and re-evaluation of external providers, based on their ability to provide processes, products or services in accordance with requirements.\n\nDocumented information shall be available as evidence of these activities and any necessary actions arising from the evaluations.",
+      "sourcePages": [
+        27
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.4.2",
+      "title": "Type and extent of control",
+      "titleTr": "Kontrolün türü ve kapsamı",
+      "parentCode": "8.4",
+      "kind": "clause",
+      "body": "The organization shall ensure that externally provided processes, products and services do not adversely affect the organization’s ability to consistently deliver conforming products and services to its customers.\n\nThe organization shall:\n\na) ensure that externally provided processes are within the control of its quality management system;\n\nb) define both the controls that it intends to apply to an external provider and those it intends to apply to the resulting output;\n\nc) take into account:\n\n1) the potential impact of the externally provided processes, products and services on the organization’s ability to consistently meet customer and applicable statutory and regulatory requirements;\n\n2) the effectiveness of the controls applied by the external provider;\n\nd) determine the verification, or other activities, necessary to ensure that the externally provided processes, products and services meet the requirements.",
+      "sourcePages": [
+        27,
+        28
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.4.3",
+      "title": "Information for external providers",
+      "titleTr": "Dış tedarikçiler için bilgi",
+      "parentCode": "8.4",
+      "kind": "clause",
+      "body": "The organization shall ensure the adequacy of requirements prior to their communication to the external provider.\n\nThe organization shall communicate its requirements to external providers, as appropriate, for:\n\na) the processes, products and services to be provided;\n\nb) the approval of:\n\n1) products and services;\n\n2) methods, processes and equipment;\n\n3) the release of products and services;\n\nc) competence, including any required qualifications;\n\nd) the external providers’ interactions with the organization and, as applicable, its customers and other relevant interested parties;\n\ne) the control and monitoring it applies to the performance of its external providers;\n\nf) verification or validation activities that the organization, or its customer, intends to perform at the external providers’ premises or other location.",
+      "sourcePages": [
+        28
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5",
+      "title": "Production and service provision",
+      "titleTr": "Üretim ve hizmet sunumu",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        28,
+        29,
+        30
+      ],
+      "relatedCodes": [
+        "A.8.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.1",
+      "title": "Control of production and service provision",
+      "titleTr": "Üretim ve hizmet sunumunun kontrolü",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall implement production and service provision under controlled conditions.\n\nThe controlled conditions shall include, as applicable:\n\na) the availability and use of documented information that defines:\n\n1) the characteristics of the products or services;\n\n2) the activities to be performed;\n\n3) the results to be achieved;\n\nb) the availability and use of suitable monitoring and measuring resources;\n\nc) the implementation of monitoring and measurement activities at appropriate stages to verify that criteria for control of processes or their outputs, and acceptance criteria for products and services, have been met;\n\nd) the use of suitable infrastructure and environment for the operation of processes;\n\ne) the appointment of competent persons, including any required qualifications;\n\nf) the validation, and periodic revalidation, of the ability to achieve planned results of the processes for production and service provision, where the resulting output cannot be verified by subsequent monitoring or measurement;\n\ng) the implementation of actions to prevent human error;\n\nh) the implementation of release, delivery and post-delivery activities.",
+      "sourcePages": [
+        28,
+        29
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.2",
+      "title": "Identification and traceability",
+      "titleTr": "Tanımlama ve izlenebilirlik",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall:\n\na) use suitable means to identify outputs when it is necessary to ensure the conformity of products and services;\n\nb) identify the status of outputs with respect to monitoring and measurement requirements throughout production and service provision;\n\nc) control the unique identification of the outputs when traceability is a requirement;\n\nd) ensure that documented information necessary to enable traceability is available as evidence.",
+      "sourcePages": [
+        29
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.3",
+      "title": "Property belonging to customers or external providers",
+      "titleTr": "Müşterilere veya dış tedarikçilere ait mülkiyet",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall exercise care with property belonging to customers or external providers while it is under the organization’s control or being used by the organization.\n\nThe organization shall identify, verify, protect and safeguard property belonging to customers or external providers that is provided for use or incorporation into the products and services.\n\nWhen the property belonging to a customer or external provider is lost, damaged or otherwise found to be unsuitable for use, the organization shall report this to the customer or external provider. Documented information shall be available as evidence of what has occurred.\n\nNOTE Property belonging to a customer or external provider can include materials, components, tools and equipment, premises, intellectual property and personal data.",
+      "sourcePages": [
+        29
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.4",
+      "title": "Preservation",
+      "titleTr": "Muhafaza",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall preserve the outputs during production and service provision, to the extent necessary to ensure conformity to requirements.\n\nNOTE Preservation can include identification, handling, contamination control, packaging, storage, transmission or transportation, and protection.",
+      "sourcePages": [
+        29
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.5",
+      "title": "Post-delivery activities",
+      "titleTr": "Teslimat sonrası faaliyetler",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall meet the requirements for post-delivery activities associated with the products and services.\n\nIn determining the extent of post-delivery activities that are required, the organization shall consider:\n\na) statutory and regulatory requirements;\n\nb) the potential undesired consequences associated with its products and services;\n\nc) the nature, use and intended lifetime of its products and services;\n\nd) customer requirements;\n\ne) customer feedback.\n\nNOTE Post-delivery activities can include actions under warranty provisions, contractual obligations such as maintenance services, and supplementary services such as recycling or final disposal.",
+      "sourcePages": [
+        29,
+        30
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.5.6",
+      "title": "Control of changes",
+      "titleTr": "Değişikliklerin kontrolü",
+      "parentCode": "8.5",
+      "kind": "clause",
+      "body": "The organization shall review and control changes for production or service provision, to the extent necessary to ensure continuing conformity to requirements.\n\nDocumented information shall be available as evidence of the results of the review of changes, the person(s) authorizing the change and any necessary actions arising from the review.",
+      "sourcePages": [
+        30
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.6",
+      "title": "Release of products and services",
+      "titleTr": "Ürün ve hizmetlerin serbest bırakılması",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "The organization shall implement planned arrangements, at appropriate stages, to verify that the product and service requirements have been met.\n\nThe release of products and services to the customer shall not proceed until the planned arrangements have been satisfactorily completed, unless otherwise approved by a relevant authority and, as applicable, by the customer.\n\nDocumented information shall be available as evidence of the release of products and services. The documented information shall include:\n\na) evidence of conformity to the acceptance criteria;\n\nb) traceability to the person(s) authorizing the release.",
+      "sourcePages": [
+        30
+      ],
+      "relatedCodes": [
+        "A.8.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.7",
+      "title": "Control of nonconforming outputs",
+      "titleTr": "Uygun olmayan çıktıların kontrolü",
+      "parentCode": "8",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        30
+      ],
+      "relatedCodes": [
+        "A.8.7"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "8.7.1",
+      "title": "Control of nonconforming outputs",
+      "titleTr": "Uygun olmayan çıktıların kontrolü",
+      "parentCode": "8.7",
+      "kind": "clause",
+      "body": "The organization shall ensure that outputs that do not conform to requirements are identified and controlled to prevent their unintended use or delivery.\n\nThe organization shall take appropriate action based on the nature of the nonconformity and its effect on the conformity of products and services. This includes nonconformities detected after product delivery or during or after service provision.\n\nThe organization shall deal with nonconforming outputs in one or more of the following ways:\n\na) correction;\n\nb) segregation, containment, return or suspension of provision of products and services;\n\nc) informing the customer;\n\nd) obtaining authorization for acceptance under concession.\n\nWhen nonconforming outputs are corrected, the organization shall verify conformity to the requirements.",
+      "sourcePages": [
+        30
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "8.7.2",
+      "title": "Control of nonconforming outputs",
+      "titleTr": "Uygun olmayan çıktıların kontrolü",
+      "parentCode": "8.7",
+      "kind": "clause",
+      "body": "Documented information shall be available as evidence of:\n\na) the nature of the nonconformity;\n\nb) the actions taken;\n\nc) any concessions obtained;\n\nd) the authority deciding the action in respect of the nonconformity.",
+      "sourcePages": [
+        30
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "9",
+      "title": "Performance evaluation",
+      "titleTr": "Performans değerlendirme",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        31,
+        32,
+        33
+      ],
+      "relatedCodes": [
+        "A.9"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.1",
+      "title": "Monitoring, measurement, analysis and evaluation",
+      "titleTr": "İzleme, ölçme, analiz ve değerlendirme",
+      "parentCode": "9",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        31
+      ],
+      "relatedCodes": [
+        "A.9.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.1.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "9.1",
+      "kind": "clause",
+      "body": "The organization shall determine:\n\na) what needs to be monitored and measured;\n\nb) the methods for monitoring, measurement, analysis and evaluation, as applicable, to ensure valid results;\n\nc) when the monitoring and measuring shall be performed;\n\nd) when the results from monitoring and measurement shall be analysed and evaluated.\n\nThe organization shall evaluate the performance and the effectiveness of the quality management system.\n\nDocumented information shall be available as evidence of the results.",
+      "sourcePages": [
+        31
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.1.2",
+      "title": "Customer satisfaction",
+      "titleTr": "Müşteri memnuniyeti",
+      "parentCode": "9.1",
+      "kind": "clause",
+      "body": "The organization shall monitor customer satisfaction. The organization shall determine the methods for obtaining, monitoring and reviewing customer satisfaction information.\n\nNOTE Sources of information to support understanding of customer satisfaction can include customer surveys, customer feedback on delivered products and services, meetings with customers, market-share analysis, compliments, complaints, warranty claims, dealer reports or social media.",
+      "sourcePages": [
+        31
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.1.3",
+      "title": "Analysis and evaluation",
+      "titleTr": "Analiz ve değerlendirme",
+      "parentCode": "9.1",
+      "kind": "clause",
+      "body": "The organization shall analyse and evaluate relevant data and information arising from monitoring and measurement.\n\nThe results of analysis shall be used to evaluate:\n\na) the conformity of products and services;\n\nb) customer satisfaction;\n\nc) the performance and effectiveness of the quality management system;\n\nd) the effectiveness of planning implementation;\n\ne) the effectiveness of actions taken to address risks;\n\nf) the effectiveness of actions taken to address opportunities;\n\ng) the performance of external providers;\n\nh) the need for improvements to the quality management system.\n\nNOTE Methods to analyse data can include statistical techniques.",
+      "sourcePages": [
+        31
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.2",
+      "title": "Internal audit",
+      "titleTr": "İç tetkik",
+      "parentCode": "9",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        32
+      ],
+      "relatedCodes": [
+        "A.9.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.2.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "9.2",
+      "kind": "clause",
+      "body": "The organization shall conduct internal audits at planned intervals to provide information on whether the quality management system:\n\na) conforms to:\n\n1) the organization’s own requirements for its quality management system;\n\n2) the requirements of this document;\n\nb) is effectively implemented and maintained.",
+      "sourcePages": [
+        32
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.2.2",
+      "title": "Internal audit programme",
+      "titleTr": "İç tetkik programı",
+      "parentCode": "9.2",
+      "kind": "clause",
+      "body": "The organization shall plan, establish, implement and maintain (an) audit programme(s), including the frequency, methods, responsibilities, planning requirements and reporting.\n\nWhen establishing the internal audit programme(s), the organization shall consider the importance of the processes concerned, the results of previous audits and changes affecting the organization.\n\nThe organization shall:\n\na) define the audit objectives, criteria and scope for each audit;\n\nb) select auditors and conduct audits to ensure objectivity and the impartiality of the audit process;\n\nc) ensure that the results of audits are reported to relevant managers;\n\nd) take appropriate correction and corrective actions without undue delay.\n\nDocumented information shall be available as evidence of the implementation of the audit programme(s) and the audit results.\n\nNOTE See ISO 19011 [4] for guidance on auditing management systems.",
+      "sourcePages": [
+        32
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.3",
+      "title": "Management review",
+      "titleTr": "Yönetimin gözden geçirmesi",
+      "parentCode": "9",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        32,
+        33
+      ],
+      "relatedCodes": [
+        "A.9.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.3.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "9.3",
+      "kind": "clause",
+      "body": "Top management shall review the organization’s quality management system, at planned intervals, to ensure its continuing suitability, adequacy, effectiveness and alignment with the strategic direction of the organization.",
+      "sourcePages": [
+        32
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.3.2",
+      "title": "Management review inputs",
+      "titleTr": "Yönetimin gözden geçirmesi girdileri",
+      "parentCode": "9.3",
+      "kind": "clause",
+      "body": "The management review shall include:\n\na) the status of actions from previous management reviews;\n\nb) changes in external and internal issues that are relevant to the quality management system;\n\nc) changes in needs and expectations of interested parties that are relevant to the quality management system;\n\nd) information on the quality management system performance, including trends in:\n\n1) nonconformities and corrective actions;\n\n2) monitoring and measurement results;\n\n3) audit results;\n\n4) customer satisfaction and feedback from relevant interested parties;\n\n5) the extent to which quality objectives have been met;\n\n6) process performance and conformity of products and services;\n\n7) the performance of external providers;\n\ne) opportunities for improvement;\n\nf) the adequacy of resources;\n\ng) the effectiveness of actions taken to address risks (see 6.1.2);\n\nh) the effectiveness of actions taken to address opportunities (see 6.1.3).",
+      "sourcePages": [
+        32,
+        33
+      ],
+      "relatedCodes": [
+        "6.1.2",
+        "6.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "9.3.3",
+      "title": "Management review results",
+      "titleTr": "Yönetimin gözden geçirmesi sonuçları",
+      "parentCode": "9.3",
+      "kind": "clause",
+      "body": "The results of the management review shall include decisions related to continual improvement opportunities and any need for changes to the quality management system and resource needs.\n\nDocumented information shall be available as evidence of the results of management reviews.",
+      "sourcePages": [
+        33
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "10",
+      "title": "Improvement",
+      "titleTr": "İyileştirme",
+      "parentCode": null,
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        33,
+        34
+      ],
+      "relatedCodes": [
+        "A.10"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "10.1",
+      "title": "Continual improvement",
+      "titleTr": "Sürekli iyileştirme",
+      "parentCode": "10",
+      "kind": "clause",
+      "body": "The organization shall continually improve the suitability, adequacy and effectiveness of the quality management system.\n\nThe organization shall consider the results of monitoring, measurement, analysis and evaluation of data and information, and the results of management review, to determine opportunities. The organization shall address these opportunities as part of continual improvement.\n\nActions shall include:\n\na) improving processes, products and services;\n\nb) addressing future needs and expectations;\n\nc) correcting, preventing or reducing undesired effects.\n\nNOTE Improvement can be achieved through incremental or breakthrough change, innovation or reorganization initiatives.",
+      "sourcePages": [
+        33
+      ],
+      "relatedCodes": [
+        "A.10.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "10.2",
+      "title": "Nonconformity and corrective action",
+      "titleTr": "Uygunsuzluk ve düzeltici faaliyet",
+      "parentCode": "10",
+      "kind": "clause",
+      "body": "",
+      "sourcePages": [
+        33,
+        34
+      ],
+      "relatedCodes": [
+        "A.10.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "10.2.1",
+      "title": "Nonconformity and corrective action",
+      "titleTr": "Uygunsuzluk ve düzeltici faaliyet",
+      "parentCode": "10.2",
+      "kind": "clause",
+      "body": "When a nonconformity occurs, the organization shall:\n\na) react to the nonconformity, and as applicable:\n\n1) take action to control and correct it;\n\n2) deal with the consequences;\n\nb) evaluate the need for action to eliminate the cause(s) of the nonconformity, in order that it does not recur or occur elsewhere, by:\n\n1) reviewing the nonconformity;\n\n2) determining the causes of the nonconformity;\n\n3) determining if similar nonconformities exist, or can potentially occur;\n\nc) implement any action needed;\n\nd) review the effectiveness of any corrective action taken;\n\ne) update the risks and opportunities determined during planning, if necessary;\n\nf) make changes to the quality management system, if necessary.\n\nCorrective actions shall be appropriate to the effects of the nonconformities encountered.\n\nNOTE Customer complaints can be a source of nonconformities.",
+      "sourcePages": [
+        33,
+        34
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "10.2.2",
+      "title": "Nonconformity and corrective action",
+      "titleTr": "Uygunsuzluk ve düzeltici faaliyet",
+      "parentCode": "10.2",
+      "kind": "clause",
+      "body": "Documented information shall be available as evidence of:\n\na) the nature of the nonconformities and any subsequent actions taken;\n\nb) the results of any corrective action.",
+      "sourcePages": [
+        34
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": true
+    },
+    {
+      "code": "A",
+      "title": "Clarification of structure, terminology and clauses",
+      "titleTr": "Yapı, terminoloji ve maddelere ilişkin açıklamalar",
+      "parentCode": null,
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "This annex provides clarification to assist users in understanding the requirements in this document. This information is consistent with these requirements, and does not add to, subtract from or in any way modify them.\n\nThis annex does not provide guidance for the implementation of requirements, which is available in ISO 9002 [1], the ISO 9001 Handbook for small enterprises [6] or the other standards referenced in the notes to the relevant paragraphs of this annex.\n\nThe requirements in this document are intended to be considered from a systems perspective rather than in isolation, as there are interrelationships between the requirements in one clause with the requirements in other clauses.",
+      "sourcePages": [
+        35
+      ],
+      "relatedCodes": [
+        "1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.2",
+      "title": "Structure and terminology",
+      "titleTr": "Yapı ve terminoloji",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "The clause structure of the requirements in this document is not intended as a model for documenting an organization’s policies, objectives or processes. The structure and content of documented information related to an organization’s quality management system is more relevant to its users when it reflects the terms and processes used within the organization.\n\nLists within clauses are provided for clarity and ease of reference. The numbering of items in these lists is intended solely to support identification and citation. Unless expressly stated, the order of items in a list does not indicate any prescribed sequence, priority or relative importance. All listed items apply as written, regardless of their position.\n\nTo prevent misunderstanding, the meanings of the following words are clarified:\n\na) “Appropriate” and “applicable” are not interchangeable. “Appropriate” means suitable for the organization’s context and involves judgement in determining what meets the requirement. “Applicable” means that if the requirement is determined to be relevant or possible, it applies to the organization. “As applicable” means that a requirement, even if generally applicable under 4.3, can be determined as not applicable in some situations.\n\nb) “Consider” means the organization thinks about the topic to determine if it will be included in decisions or actions. “Take into account” means thinking about a topic and including it in decisions or actions.\n\nc) “Continual” indicates duration that occurs over a period of time, but with intervals of interruption. The term “continuous” does not appear in this document but indicates duration without interruption. This difference is a common source of misunderstanding. “Continual” is the appropriate word to use when referring to improvement in the context of quality management.\n\nd) “Ensure” means that there is a responsibility for making a specified result exist or occur. It refers to accountability for the result, and not to performing every related activity directly. Actions can be delegated and carried out by persons under the organization’s control.\n\ne) “Shall be available as documented information” refers to availability of information obtained, used or provided by the organization. “Documented information shall be available as evidence of” refers to the retention of objective evidence. “As evidence of” does not imply legal evidential requirements.\n\nf) “Strategic direction” refers to coordinated decisions, plans and actions that guide the organization towards achieving its objectives.\n\nNOTE 1 See ISO 10013 [7] for guidance on documented information.\n\nNOTE 2 See the ISO 9000 Glossary [8] for further information on the terminology used in this document.",
+      "sourcePages": [
+        35,
+        36
+      ],
+      "relatedCodes": [
+        "2",
+        "4.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.3",
+      "title": "Applicability",
+      "titleTr": "Uygulanabilirlik",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "A requirement can be determined as not applicable to the quality management system only if this does not affect the organization’s ability to ensure conformity of products and services, enhance customer satisfaction or fulfil applicable statutory and regulatory obligations. The term “not applicable” reflects that the organization has considered the requirement and determined, with justification, that it does not apply in the context of its quality management system.\n\nSee 4.3 for requirements for applicability and scope.",
+      "sourcePages": [
+        36
+      ],
+      "relatedCodes": [
+        "3",
+        "4.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.4",
+      "title": "Context of the organization",
+      "titleTr": "Kuruluşun bağlamı",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        36,
+        37
+      ],
+      "relatedCodes": [
+        "4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.4.1",
+      "title": "Understanding the organization and its context",
+      "titleTr": "Kuruluşun ve bağlamının anlaşılması",
+      "parentCode": "A.4",
+      "kind": "annex",
+      "body": "External and internal issues form part of the organization’s context. They can arise from factors that influence the organization’s purpose, strategic direction or conditions under which it operates. Understanding these issues can support how the quality management system is established and maintained to consistently achieve its intended results.\n\nExternal and internal issues change over time. Awareness of changes can support maintaining the effectiveness of the quality management system.",
+      "sourcePages": [
+        36
+      ],
+      "relatedCodes": [
+        "4.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.4.2",
+      "title": "Understanding the needs and expectations of interested parties",
+      "titleTr": "İlgili tarafların ihtiyaç ve beklentileri",
+      "parentCode": "A.4",
+      "kind": "annex",
+      "body": "Understanding the needs and expectations of interested parties involves determining which interested parties are relevant to the quality management system and determining their relevant requirements. When these requirements are considered relevant by the organization, they are included within the boundaries of the quality management system. Where externally provided processes, products and services are relevant, requirements of external providers can also apply.\n\nInterested parties and their requirements can change over time, so awareness of these changes is part of maintaining the effectiveness of the quality management system.\n\nExpectations relating to climate change can influence interested party requirements in areas such as regulatory compliance, customer requirements and organizational commitments. Where these expectations are relevant, they form part of the context for planning and operating the quality management system.",
+      "sourcePages": [
+        36
+      ],
+      "relatedCodes": [
+        "4.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.4.3",
+      "title": "Determining the scope of the quality management system",
+      "titleTr": "Kalite yönetim sisteminin kapsamı",
+      "parentCode": "A.4",
+      "kind": "annex",
+      "body": "To enable clear determination, the scope of the quality management system defines the types of activities, products and services covered and related sites where these activities are performed, noting that individual sites can have specific scopes if applicable.\n\nThe boundaries of the quality management system can be influenced by specific customer requirements.\n\nIf the organization is part of a larger entity, the organizational boundaries of the system can be defined. These boundaries can affect the quality management system.",
+      "sourcePages": [
+        36
+      ],
+      "relatedCodes": [
+        "4.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.4.4",
+      "title": "Quality management system",
+      "titleTr": "Kalite yönetim sistemi",
+      "parentCode": "A.4",
+      "kind": "annex",
+      "body": "Subclause 4.4 is linked to the quality management principle of “process approach” which incorporates the PDCA cycle, risk-based thinking and opportunity-based thinking. The processes referred to in 4.4 include all processes necessary to form a coherent and aligned quality management system that fulfils the requirements of this document.\n\nEach process has defined inputs, expected outputs, responsibilities and authorities. Understanding the sequence and interaction of quality management system processes can support alignment with other organizational processes.\n\nEvaluation of processes addresses their continuing suitability, adequacy and effectiveness, which can be influenced by changes in objectives or internal and external circumstances.\n\nProcesses and their interactions can be modified in a controlled manner to maintain and improve quality management system effectiveness.\n\nEvidence that processes operate as intended can be demonstrated through documented information, although such documentation is not always necessary to demonstrate conformity. The organization determines which processes require documented information and the level of detail.",
+      "sourcePages": [
+        36,
+        37
+      ],
+      "relatedCodes": [
+        "4.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.5",
+      "title": "Leadership",
+      "titleTr": "Liderlik",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        37,
+        38
+      ],
+      "relatedCodes": [
+        "5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.5.1",
+      "title": "Leadership and commitment",
+      "titleTr": "Liderlik ve taahhüt",
+      "parentCode": "A.5",
+      "kind": "annex",
+      "body": "Visible support, involvement and commitment from the organization’s top management demonstrate the organization’s priority for quality and support the effective implementation of the quality management system.\n\nTop management plays a key role in promoting quality culture and awareness of the quality management system across the organization.\n\nEthical behaviour can support confidence in the organization’s ability to meet the needs and expectations of relevant interested parties.\n\nEthical behaviour in decisions, actions and interactions can impact all aspects of quality.\n\nMaintaining customer focus, as required in 5.1.2, means ensuring awareness and understanding of customer requirements and that the quality management system supports the organization in consistently meeting those requirements and enhancing customer satisfaction.\n\nNOTE See ISO 10010 [9] for guidance on quality culture.",
+      "sourcePages": [
+        37
+      ],
+      "relatedCodes": [
+        "5.1",
+        "5.1.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.5.2",
+      "title": "Quality policy",
+      "titleTr": "Kalite politikası",
+      "parentCode": "A.5",
+      "kind": "annex",
+      "body": "The quality policy expresses the organization’s approach to quality and can reflect its quality culture and expectations for ethical behaviour, as appropriate to its context.\n\nThe communication, understanding and application of the quality policy by people at all levels of the organization supports awareness of the organization’s intent to consistently meet quality requirements and achieve its quality objectives and continual improvement.\n\nCommunicating the quality policy to relevant interested parties including customers and external providers helps ensure understanding of its intent.",
+      "sourcePages": [
+        37
+      ],
+      "relatedCodes": [
+        "5.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.5.3",
+      "title": "Roles, responsibilities and authorities",
+      "titleTr": "Roller, sorumluluklar ve yetkiler",
+      "parentCode": "A.5",
+      "kind": "annex",
+      "body": "Responsibilities and authorities are assigned to ensure that the quality management system achieves its objectives. These responsibilities and authorities can be distributed across one or more roles to reflect how the organization is structured.\n\nReporting on the performance of the quality management system can provide information that is useful when considering actions that preserve its effectiveness when changes occur. When changes to the quality management system are planned or implemented, the effective assignment of responsibilities can support the identification, prevention or management of unintended consequences or inconsistencies within the system.\n\nWhere technologies are used to support the management of the quality management system, confidence in the ongoing integrity of the quality management system is supported by:\n\n— the availability of reliable information on which decisions are based;\n\n— clarity regarding responsibilities and authorities for those decisions.",
+      "sourcePages": [
+        37,
+        38
+      ],
+      "relatedCodes": [
+        "5.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6",
+      "title": "Planning",
+      "titleTr": "Planlama",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        38,
+        39
+      ],
+      "relatedCodes": [
+        "6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.1",
+      "title": "Actions to address risks and opportunities",
+      "titleTr": "Risk ve fırsatlara yönelik faaliyetler",
+      "parentCode": "A.6",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        38,
+        39
+      ],
+      "relatedCodes": [
+        "6.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.1.1",
+      "title": "Determining risks and opportunities",
+      "titleTr": "Risk ve fırsatların belirlenmesi",
+      "parentCode": "A.6.1",
+      "kind": "annex",
+      "body": "In quality management, risk is frequently understood as the effect of uncertainty that can have a negative impact on the ability of the quality management system to achieve its intended results, while opportunity is understood as circumstances that make it possible to achieve beneficial effects on the performance of the quality management system.\n\nRisk-based thinking and opportunity-based thinking are concepts that can support how the organization considers factors that influence the quality management system.\n\nWhen these concepts are used in planning and decision-making, they can support consistency in the quality management system at strategic, tactical and operational levels.\n\nRisks and opportunities are distinct; they can be determined and addressed through separate processes.\n\nNOTE See ISO 31000 [10] for guidance on risk management.",
+      "sourcePages": [
+        38
+      ],
+      "relatedCodes": [
+        "6.1.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.1.2",
+      "title": "Actions to address risks",
+      "titleTr": "Risklere yönelik faaliyetler",
+      "parentCode": "A.6.1",
+      "kind": "annex",
+      "body": "When planning and implementing actions to address risks, the application of risk-based thinking supports decisions on how quality management system processes are planned, implemented and controlled.\n\nRisk-based thinking supports the organization in maintaining a quality management system that consistently achieves intended results, even during disruptive occurrences, by determining and implementing appropriate actions. Disruptive occurrences are incidents that negatively impact the planned provision of products and services.\n\nThe application of risk-based thinking does not imply the use of formal risk management approaches or a documented risk management process.\n\nOrganizations can choose to adopt more extensive risk management approaches, for example, through the application of other guidance or standards.\n\nNOTE See ISO 31000 [10] for guidance on risk management.",
+      "sourcePages": [
+        38
+      ],
+      "relatedCodes": [
+        "6.1.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.1.3",
+      "title": "Actions to address opportunities",
+      "titleTr": "Fırsatlara yönelik faaliyetler",
+      "parentCode": "A.6.1",
+      "kind": "annex",
+      "body": "Opportunities can be determined through assessment of the organization’s external and internal context, including the needs and expectations of interested parties, organizational capability, capacity and competence, and the results of monitoring and measurement activities and related performance indicators.\n\nOpportunity-based thinking can support consideration of factors that can positively influence the intended results of the quality management system and can help the organization recognize where opportunities exist that can have a beneficial effect on the performance of the quality management system and its intended results. Opportunities can come from various sources such as changes in market conditions, emerging technologies or regulatory requirements. These circumstances can enable the organization to improve its quality management system performance.",
+      "sourcePages": [
+        38,
+        39
+      ],
+      "relatedCodes": [
+        "6.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.2",
+      "title": "Quality objectives and planning to achieve them",
+      "titleTr": "Kalite hedefleri ve bunlara ulaşmak için planlama",
+      "parentCode": "A.6",
+      "kind": "annex",
+      "body": "Quality objectives are part of the organization’s overall objectives and are aligned with the quality policy.\n\nObjectives can be established at strategic, tactical and operational levels and can be expressed in quantitative or other suitable forms.\n\nMeasurable, documented objectives can aid clarity and consistency in how objectives are communicated, understood and reported.\n\nCommunication of objectives to those responsible for achieving them, and to relevant interested parties where appropriate, can help maintain awareness and understanding of the quality management system.\n\nWhen objectives are linked to other management system objectives, the integration of management systems can facilitate coherence in planning and decision-making.",
+      "sourcePages": [
+        39
+      ],
+      "relatedCodes": [
+        "6.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.6.3",
+      "title": "Planning of changes",
+      "titleTr": "Değişikliklerin planlanması",
+      "parentCode": "A.6",
+      "kind": "annex",
+      "body": "Changes to the organization, including changes to its quality management system, can affect the organization in different ways, some of which can adversely impact its ability to achieve its objectives, and some of which can indicate a potential opportunity that can drive improvements.\n\nChanges can arise from external or internal issues, decisions taken by the organization or changes in other management systems.\n\nOnce the need for changes to the quality management system is determined, planning approaches can differ depending on the reasons for change, the complexity of the changes to be made and the potential significance of resulting impacts.\n\nNOTE See ISO/TS 10020 [11] for guidance on how to manage change.",
+      "sourcePages": [
+        39
+      ],
+      "relatedCodes": [
+        "6.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7",
+      "title": "Support",
+      "titleTr": "Destek",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        39,
+        40,
+        41,
+        42
+      ],
+      "relatedCodes": [
+        "7"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1",
+      "title": "Resources",
+      "titleTr": "Kaynaklar",
+      "parentCode": "A.7",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        39,
+        40,
+        41
+      ],
+      "relatedCodes": [
+        "7.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.1",
+      "title": "General",
+      "titleTr": "Genel",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "Determining and providing resources relates to what is necessary and appropriate for achieving the intended results of the quality management system. This can include consideration of interactions between resources and processes.",
+      "sourcePages": [
+        39
+      ],
+      "relatedCodes": [
+        "7.1.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.2",
+      "title": "People",
+      "titleTr": "Kişiler",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "The organization determines the people needed to operate the quality management system effectively.\n\nPeople can be internal or external to the organization, with a permanent or temporary relationship.\n\nWhen technologies are used to support people in relevant roles, this can result in risks and opportunities relevant to the quality management system.\n\nNOTE See ISO 30201 [12] for information on human resources management systems.",
+      "sourcePages": [
+        39
+      ],
+      "relatedCodes": [
+        "7.1.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.3",
+      "title": "Infrastructure",
+      "titleTr": "Altyapı",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "Infrastructure includes physical resources and software needed for the operation of the organization’s processes. Infrastructure interacts with other resources and processes; its suitability can affect process performance and customer satisfaction.\n\nInfrastructure maintenance helps to ensure that conformity to requirements is consistently achieved.\n\nHybrid and remote work, as well as emerging technologies, can introduce risks and opportunities for infrastructure management and control.\n\nCustomers and other relevant interested parties can have specific requirements for infrastructure management, including its disposal or recycling.\n\nInfrastructure management can require integration with other management systems, such as those for environmental management, occupational health and safety management, or asset management.",
+      "sourcePages": [
+        40
+      ],
+      "relatedCodes": [
+        "7.1.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.4",
+      "title": "Environment for the operation of processes",
+      "titleTr": "Süreçlerin işletimi için ortam",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "The environment for the operation of processes comprises factors that influence the ability of the organization to achieve conformity to applicable statutory and regulatory requirements and enhance customer satisfaction.\n\nThis environment can evolve due to changes such as emerging technologies and working practices, and its management can become more complex when not under the organization’s direct control. It can also be critical from the customer perspective and affect the perception of satisfaction.\n\nRequirements for the environment for the operation of processes under a quality management system can be related to those in other management systems, such as for occupational health and safety or environmental management. While the needs arising from other management systems are not addressed within the scope of the quality management system, their influence on quality management system processes can be relevant.",
+      "sourcePages": [
+        40
+      ],
+      "relatedCodes": [
+        "7.1.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.5",
+      "title": "Monitoring and measuring resources",
+      "titleTr": "İzleme ve ölçme kaynakları",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "For many organizations, monitoring and measuring resources are essential to demonstrate conformity of their products and services or to ensure control of their processes to achieve intended results. Requirements in 7.1.5 are intended to ensure that the resources provide valid results.\n\nMonitoring determines the status of something and can involve observing, supervising or keeping under review, especially to confirm control and the status of conformity. Measurement is a process that determines the value of a specified characteristic or parameter and can be used for a physical quantity, magnitude or dimension using measuring resources, especially equipment. It can also apply to less tangible aspects, such as customer satisfaction or process performance, using appropriate methods and resources, including information technology (IT) systems for data collection and analysis.\n\nMonitoring and measuring resources can include non-equipment elements, such as defined criteria for evaluation or the competence of people involved in monitoring or measurement activities.\n\nDepending on the specific circumstances, monitoring or measuring equipment can be used for indication, monitoring or measuring purposes. In some cases, the same type of equipment can be used for any or all three functions.\n\nThe level and extent of control applied to monitoring and measuring resources depend on their intended use and can vary according to the nature of processes, their outputs, products, services and related risks. Control can include activities such as verification or calibration at suitable intervals, using a risk-based approach.\n\nTraceability of measurement results (see 7.1.5.2) typically includes calibration or verification of measuring equipment against recognized standards or reference materials when necessary. Traceability can apply to measurements performed by the organization, its external providers or by its products when they include measurement functions.\n\nNOTE See ISO 10012 [13] for requirements for measurement management systems.",
+      "sourcePages": [
+        40,
+        41
+      ],
+      "relatedCodes": [
+        "7.1.5",
+        "7.1.5.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.1.6",
+      "title": "Organizational knowledge",
+      "titleTr": "Kurumsal bilgi",
+      "parentCode": "A.7.1",
+      "kind": "annex",
+      "body": "Organizational knowledge relates to knowledge maintained and applied to support the operation of processes and achieve the intended results of the quality management system.\n\nOrganizational knowledge is dynamic and evolves as the organization’s context changes and knowledge is updated through use and experience. Management of knowledge involves activities such as acquiring or creating new knowledge, applying knowledge appropriately, maintaining knowledge so it remains valid and relevant, and retaining knowledge to reduce risks associated with its loss.\n\nNOTE See ISO 30401 [14] for knowledge management system requirements.",
+      "sourcePages": [
+        41
+      ],
+      "relatedCodes": [
+        "7.1.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.2",
+      "title": "Competence",
+      "titleTr": "Yetkinlik",
+      "parentCode": "A.7",
+      "kind": "annex",
+      "body": "Subclause 7.2 applies to all persons whose work affects the performance of the quality management system, whether they are within the organizational structure or working under the organization’s control.\n\nCompetence requirements can evolve as the organization’s context changes and recognizing this supports the achievement of intended results of the quality management system.\n\nCompetence can influence risks related to process performance and conformity of products and services.\n\nNOTE 1 See ISO 10015 [15] for guidance on competence management and people development.\n\nNOTE 2 See ISO 19011 [4] for further information on competence of auditors for management system standards.",
+      "sourcePages": [
+        41
+      ],
+      "relatedCodes": [
+        "7.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.3",
+      "title": "Awareness",
+      "titleTr": "Farkındalık",
+      "parentCode": "A.7",
+      "kind": "annex",
+      "body": "People are aware when they understand their responsibilities and authorities and how their actions contribute to the achievement of the organization’s quality policy and objectives.\n\nPeople doing work under the organization’s control can demonstrate awareness in their day-to-day activities by recognizing whether their work meets relevant requirements, and taking appropriate action when processes, products or services do not achieve intended results.\n\nAwareness can help people respond appropriately to nonconformities and incorporate risk-based thinking and opportunity-based thinking in their daily activities. Awareness can inform behaviours aligned with the quality policy and objectives, contributing to the organization’s quality culture and ethical behaviour.\n\nNOTE 1 See ISO 10010 [9] for guidance on quality culture.\n\nNOTE 2 See ISO 10018 [16] for guidance on people engagement.",
+      "sourcePages": [
+        41
+      ],
+      "relatedCodes": [
+        "7.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.4",
+      "title": "Communication",
+      "titleTr": "İletişim",
+      "parentCode": "A.7",
+      "kind": "annex",
+      "body": "Communication relevant to a quality management system can relate to the objectives, process inputs and outputs, responsibilities, resources and factors such as risks, opportunities and feedback from internal and external sources.\n\nCommunication can be planned and evaluated for effectiveness, considering risks and opportunities that affect intended results.\n\nCommunication can occur between people or through automated interactions between devices.",
+      "sourcePages": [
+        41
+      ],
+      "relatedCodes": [
+        "7.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.7.5",
+      "title": "Documented information",
+      "titleTr": "Dokümante edilmiş bilgi",
+      "parentCode": "A.7",
+      "kind": "annex",
+      "body": "The requirement for documented information applies to information required by this document, as well as information determined by the organization as necessary for the effectiveness of the quality management system.\n\nDocumented information can exist in any medium or format and can originate from internal or external sources.\n\nDocumented information can serve as evidence that processes operate as intended and that requirements have been fulfilled.\n\nThe management of documented information can include various controls to ensure it remains available, usable and suitably protected.\n\nDocumented information of external origin is included when it is relevant to the planning and operation of the quality management system.\n\nObsolete documented information, if retained, is subject to controls to prevent unintended use.\n\nDocumented information that serves as evidence of conformity is protected from unintended or unauthorized alteration or deletion.\n\nNOTE 1 See Clause A.2 e) for terminology relevant to the term “documented information”.\n\nNOTE 2 See ISO 10013 [7] for guidance on documented information.",
+      "sourcePages": [
+        42
+      ],
+      "relatedCodes": [
+        "7.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8",
+      "title": "Operation",
+      "titleTr": "Operasyon",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        42,
+        43,
+        44
+      ],
+      "relatedCodes": [
+        "8"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.1",
+      "title": "Operational planning and control",
+      "titleTr": "Operasyonel planlama ve kontrol",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Operational planning and controls interact with planning (see Clause 6) and support (see Clause 7) to ensure processes achieve intended results.\n\nControlled conditions for operational activities can be established by applying risk-based thinking and opportunity-based thinking to identify and address factors that can influence the organization’s ability to achieve intended results. Criteria in this context can refer to objective, measurable conditions used to confirm process effectiveness and conformity of products and services. Resources can include people, infrastructure and information required for process operation. Control of externally provided processes means the organization remains accountable for outputs, even when activities are outsourced. Documented information can be appropriate as evidence of conformity and demonstrate that processes operate as intended and that requirements have been fulfilled.\n\nNOTE 1 See ISO 10005 [17] for guidance on how to prepare a quality plan.\n\nNOTE 2 See ISO 10007 [18] for guidance on configuration management.",
+      "sourcePages": [
+        42
+      ],
+      "relatedCodes": [
+        "8.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.2",
+      "title": "Requirements for products and services",
+      "titleTr": "Ürün ve hizmet şartları",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Requirements can originate from customers, statutory and regulatory bodies, or other relevant interested parties.\n\nRequirements for products and services can include those that are mandatory and those defined by the organization.\n\nCommunication with the customer within 8.2.1 refers to the exchange of information needed to determine requirements for products and services and their associated needs and expectations. Customer communication can include information about the organization’s ability to fulfil agreed requirements, information related to contingency actions when relevant, and any claims made regarding product or service performance or characteristics.\n\nNOTE 1 See ISO 10001 [19] for guidance on codes of conduct for organizations relevant to customer communication (see 8.2.1).\n\nNOTE 2 See ISO 10002 [20] for guidance on complaints handling.",
+      "sourcePages": [
+        42,
+        43
+      ],
+      "relatedCodes": [
+        "8.2",
+        "8.2.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.3",
+      "title": "Design and development of products and services",
+      "titleTr": "Ürün ve hizmetlerin tasarımı ve geliştirilmesi",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Design and development of products and services are the set of activities that transform initial requirements for products and services into detailed, defined characteristics.\n\nThese characteristics can include physical, functional or other attributes relevant to meeting customer needs and expectations.\n\nThe approach to design and development can differ depending on whether the outputs are services, physical products or a combination of both.\n\nControls applied to the design and development process can include review, verification and validation. These controls have distinct purposes in confirming the ability of design and development to meet requirements, the conformity of design and development outputs with input requirements, and the suitability of resulting products and services for their intended use or application.\n\nNOTE See ISO 10007 [18] for guidance on configuration management relevant to design and development changes (see 8.3.6).",
+      "sourcePages": [
+        43
+      ],
+      "relatedCodes": [
+        "8.3",
+        "8.3.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.4",
+      "title": "Control of externally provided processes, products and services",
+      "titleTr": "Dışarıdan sağlanan süreç, ürün ve hizmetlerin kontrolü",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Control in 8.4 means measures applied to ensure externally provided processes, products and services conform to agreed requirements.\n\nExternally provided processes, products and services refer to activities or outputs supplied by a provider that is not included within the scope of the organization’s quality management system. This includes purchased products or services, arrangements with an associate organization, or processes performed at the interface between the provider and the organization or customer.\n\nAccountability for conformity remains with the organization, even when provision is outsourced.\n\nFor externally provided processes, products and services, the organization’s competence requirements can include specific qualifications, which are communicated to external providers when relevant.\n\nNOTE See ISO 37500 [21] for guidance on outsourcing.",
+      "sourcePages": [
+        43
+      ],
+      "relatedCodes": [
+        "8.4"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.5",
+      "title": "Production and service provision",
+      "titleTr": "Üretim ve hizmet sunumu",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Controlled conditions for production and service provision can depend on the extent to which supporting elements of the quality management system relevant to production and service provision are already established and effective. When outputs cannot be fully verified by monitoring or measurement of the output itself, process validation can provide confidence that the output will conform to requirements. Validation can be repeated when conditions change.\n\nIdentification and traceability are closely related because traceability requires outputs to be uniquely identified when it is necessary to determine previous stages of processing or post-delivery status. Identification can show the status of control of outputs at each stage, such as whether planned checks have been completed or whether action is still required.\n\nTraceability can be required by the organization, customers or statutory and regulatory requirements. Traceability can enable previous stages of processing or post-delivery status to be determined and communicated to relevant interested parties when required. Provision of products or services can involve the use of property belonging to the customer or external provider such as materials, information, tools or places.\n\nPreservation relates to maintaining conformity of products and services during production, service provision and delivery, and applies to tangible and intangible items.\n\nPost-delivery activities can relate to requirements arising from laws, contractual arrangements or customer needs and expectations and can include activities that maintain the conformity of products or services after delivery.\n\nChanges to planned arrangements can occur due to new circumstances, requests or identified risks and opportunities.\n\nDocumented information can enable decisions and responsibilities to be traced and can support the management of consequences.",
+      "sourcePages": [
+        43,
+        44
+      ],
+      "relatedCodes": [
+        "8.5"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.6",
+      "title": "Release of products and services",
+      "titleTr": "Ürün ve hizmetlerin serbest bırakılması",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Controls for the release of products and services relate to confirming that the product or service meets requirements before delivery. This confirmation can take place during production or service provision as well as prior to release and can relate to the conditions under which the product or service is delivered. Confirmation can occur at different stages to enable progression to the next stage.",
+      "sourcePages": [
+        44
+      ],
+      "relatedCodes": [
+        "8.6"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.8.7",
+      "title": "Control of nonconforming outputs",
+      "titleTr": "Uygun olmayan çıktıların kontrolü",
+      "parentCode": "A.8",
+      "kind": "annex",
+      "body": "Even when processes operate as planned, outputs can still fail to meet requirements.\n\nNonconforming outputs can relate to the final product or provided service, as well as those found during intermediate stages of production and service provision. They can be detected during planned controls, when accidental events occur, or when reported by customers or other interested parties.",
+      "sourcePages": [
+        44
+      ],
+      "relatedCodes": [
+        "8.7"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.9",
+      "title": "Performance evaluation",
+      "titleTr": "Performans değerlendirme",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        44,
+        45
+      ],
+      "relatedCodes": [
+        "9"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.9.1",
+      "title": "Monitoring, measurement, analysis and evaluation",
+      "titleTr": "İzleme, ölçme, analiz ve değerlendirme",
+      "parentCode": "A.9",
+      "kind": "annex",
+      "body": "Monitoring and measurement provide data and information that can be used for analysis and evaluation. The approach to monitoring and measurement can be influenced by changes in external and internal issues, interested party requirements and the organization’s strategic direction.\n\nCustomer satisfaction, as referenced in 9.1, relates to how customers perceive the organization’s ability to meet their needs and expectations. Information about customer satisfaction is used as input for improvement actions and supports the purpose of the quality management system.\n\nNOTE 1 See ISO 10004 [22] for guidance on monitoring and measuring customer satisfaction.\n\nNOTE 2 See ISO 10003 [23] for guidance on dispute resolution external to organizations.\n\nNOTE 3 See ISO 10009 [24] for guidance for quality tools and their application.\n\nNOTE 4 See ISO 10017 [25] for guidance on statistical techniques.",
+      "sourcePages": [
+        44
+      ],
+      "relatedCodes": [
+        "9.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.9.2",
+      "title": "Internal audit",
+      "titleTr": "İç tetkik",
+      "parentCode": "A.9",
+      "kind": "annex",
+      "body": "Internal audit, as referenced in 9.2, involves a programme through which the organization evaluates the status of its processes and their contribution to achieving the objectives of the quality management system. Internal audit applies to all processes within the quality management system.\n\nThe determination of audit frequency and scope is influenced by the organization’s evaluation of relevant risks and changes in external and internal issues. Internal audits can provide information about the effectiveness of the quality management system. Internal audit can highlight aspects of the quality management system that require correction or improvement and can identify opportunities. Internal audit results are considered by top management when making decisions related to the quality management system.\n\nNOTE 1 See ISO 19011 [4] for guidance on auditing management systems.\n\nNOTE 2 See the ISO 9001 Auditing Practices Group [26] for guidance.",
+      "sourcePages": [
+        44,
+        45
+      ],
+      "relatedCodes": [
+        "9.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.9.3",
+      "title": "Management review",
+      "titleTr": "Yönetimin gözden geçirmesi",
+      "parentCode": "A.9",
+      "kind": "annex",
+      "body": "Management review is a process through which top management obtains information on the status of the quality management system and considers this information when making decisions.\n\nTrends in audit results refer to all audits, including first-, second- and third-party audits of the organization’s quality management system.\n\nThe intervals between management reviews are determined by the organization and can be influenced by risks, opportunities and changes in the external and internal context.\n\nManagement review is used by top management to support evidence-based decision-making related to the quality management system, including resource needs and improvement opportunities.",
+      "sourcePages": [
+        45
+      ],
+      "relatedCodes": [
+        "9.3"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.10",
+      "title": "Improvement",
+      "titleTr": "İyileştirme",
+      "parentCode": "A",
+      "kind": "annex",
+      "body": "",
+      "sourcePages": [
+        45
+      ],
+      "relatedCodes": [
+        "10"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.10.1",
+      "title": "Continual improvement",
+      "titleTr": "Sürekli iyileştirme",
+      "parentCode": "A.10",
+      "kind": "annex",
+      "body": "Continual improvement aims to enhance the organization’s performance and the effectiveness of its quality management system.\n\nImprovement can result from changes in context, risks or opportunities, or the adoption of technologies.\n\nThe nature and extent of improvement can be influenced by developments such as increased reliance on data and the integration of technologies within and between organizations.\n\nImprovement activities can involve adapting processes, knowledge and resources in response to internal and external changes.",
+      "sourcePages": [
+        45
+      ],
+      "relatedCodes": [
+        "10.1"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "A.10.2",
+      "title": "Nonconformity and corrective action",
+      "titleTr": "Uygunsuzluk ve düzeltici faaliyet",
+      "parentCode": "A.10",
+      "kind": "annex",
+      "body": "The requirements for nonconformity and corrective action address how the organization responds to nonconforming outputs and other nonconformities identified within the quality management system.\n\nThe organization determines the approach to address nonconformities, including the extent of investigation and the methods used, based on its context and needs.\n\nThe organization considers risk of recurrence, potential or actual impact, and requirements of customers and other relevant interested parties when deciding if corrective action will be applied.\n\nNOTE See ISO 10002 [20] for guidance on complaints handling.",
+      "sourcePages": [
+        45
+      ],
+      "relatedCodes": [
+        "10.2"
+      ],
+      "titleIsEditorial": false
+    },
+    {
+      "code": "bibliography",
+      "title": "Bibliography",
+      "titleTr": "Kaynakça",
+      "parentCode": null,
+      "kind": "bibliography",
+      "body": "[1] ISO 9002, Quality management systems — Guidelines for the application of ISO 9001\n\n[2] ISO 9000, Quality management — Fundamentals and vocabulary\n\n[3] ISO 9004, Quality management — Quality of an organization — Guidance to achieve sustained success\n\n[4] ISO 19011, Guidelines for auditing management systems\n\n[5] ISO 3534-2:2006, Statistics — Vocabulary and symbols — Part 2: Applied statistics\n\n[6] ISO 9001 Handbook for small enterprises. Geneva: ISO\n\n[7] ISO 10013, Quality management systems — Guidance for documented information\n\n[8] ISO 9000 Glossary: Guidance on selected words used in the ISO 9000 family of standards. Geneva: ISO, 2025\n\n[9] ISO 10010, Quality management — Guidance to understand, evaluate and improve organizational quality culture\n\n[10] ISO 31000, Risk management — Guidelines\n\n[11] ISO/TS 10020, Quality management systems — Organizational change management — Processes\n\n[12] ISO 30201, Human resources management systems — Requirements\n\n[13] ISO 10012, Quality management — Requirements for measurement management systems\n\n[14] ISO 30401, Knowledge management systems — Requirements\n\n[15] ISO 10015, Quality management — Guidelines for competence management and people development\n\n[16] ISO 10018, Quality management — Guidance for people engagement\n\n[17] ISO 10005, Quality management — Guidelines for quality plans\n\n[18] ISO 10007, Quality management — Guidelines for configuration management\n\n[19] ISO 10001, Quality management — Customer satisfaction — Guidelines for codes of conduct for organizations\n\n[20] ISO 10002, Quality management — Customer satisfaction — Guidelines for complaints handling in organizations\n\n[21] ISO 37500, Guidance on outsourcing\n\n[22] ISO 10004, Quality management — Customer satisfaction — Guidelines for monitoring and measuring\n\n[23] ISO 10003, Quality management — Customer satisfaction — Guidelines for dispute resolution external to organizations\n\n[24] ISO 10009, Quality management — Guidance for quality tools and their application\n\n[25] ISO 10017, Quality management — Guidance on statistical techniques for ISO 9001:2015\n\n[26] ISO/TC 176. ISO 9001 Auditing Practices Group [online] [viewed 2026-08-07]. Available at: https://​ committee​.iso​.org/​home/​tc176/​iso​-9001​-auditing​-practices​-group​.html",
+      "sourcePages": [
+        46
+      ],
+      "relatedCodes": [],
+      "titleIsEditorial": false
+    }
+  ]
+}

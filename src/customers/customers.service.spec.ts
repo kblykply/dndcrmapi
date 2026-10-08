@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 
 describe('CustomersService sales visibility', () => {
@@ -97,5 +97,34 @@ describe('CustomersService sales visibility', () => {
         fullName: 'Changed',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe('CustomersService customer owner assignment', () => {
+  const actor = { id: 'manager-1', role: 'MANAGER' as const, email: 'manager@example.com' };
+
+  it.each(['SALES', 'MANAGER', 'ADMIN'])('creates a customer assigned to an active %s', async (role) => {
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 'owner-1', role, isActive: true }) },
+      customer: { create: jest.fn().mockResolvedValue({ id: 'customer-1', fullName: 'Test', ownerId: 'owner-1' }) },
+    };
+    const notifications = { createManyForUsers: jest.fn().mockResolvedValue(undefined) };
+    const service = new CustomersService(prisma as any, notifications as any);
+
+    await expect(service.createCustomer(actor, { fullName: 'Test', ownerId: 'owner-1' })).resolves.toMatchObject({ ownerId: 'owner-1' });
+    expect(prisma.customer.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ownerId: 'owner-1' }) }));
+  });
+
+  it.each([
+    { role: 'ADMIN', isActive: false },
+    { role: 'ACCOUNTING', isActive: true },
+  ])('rejects an ineligible owner: %j', async (owner) => {
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 'owner-1', ...owner }) },
+      customer: { create: jest.fn() },
+    };
+    const service = new CustomersService(prisma as any, {} as any);
+    await expect(service.createCustomer(actor, { fullName: 'Test', ownerId: 'owner-1' })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.customer.create).not.toHaveBeenCalled();
   });
 });

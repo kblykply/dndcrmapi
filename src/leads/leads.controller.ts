@@ -60,13 +60,22 @@ export class LeadsController {
     @Query("pageSize") pageSize?: string,
     @Query("q") q?: string,
     @Query("interest") interest?: string,
+    @Query("includeTotal") includeTotal?: string,
   ) {
+    if (
+      includeTotal !== undefined &&
+      includeTotal !== "true" &&
+      includeTotal !== "false"
+    ) {
+      throw new BadRequestException("includeTotal must be true or false");
+    }
     return this.leads.listLeads(req.user, {
       status,
       page: this.toPositiveNumber(page, 1),
       pageSize: this.toPositiveNumber(pageSize, 25),
       q: q || "",
       interest,
+      includeTotal: includeTotal !== "false",
     });
   }
 

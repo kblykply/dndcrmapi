@@ -3,13 +3,14 @@ import {
   INestApplication,
   OnModuleDestroy,
   OnModuleInit,
-} from "@nestjs/common";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import fs from "fs";
-import path from "path";
+} from '@nestjs/common';
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import fs from 'fs';
+import path from 'path';
+import { poolOptions, transactionOptions } from './pool-options';
 
-const prismaPkg: any = require("@prisma/client");
+const prismaPkg: any = require('@prisma/client');
 
 @Injectable()
 export class PrismaService
@@ -18,13 +19,14 @@ export class PrismaService
 {
   private pool: Pool;
   private isShuttingDown = false;
+  private statusTimer?: ReturnType<typeof setInterval>;
 
   constructor() {
-    const caPath = path.join(process.cwd(), "supabase-ca.crt");
+    const caPath = path.join(process.cwd(), 'supabase-ca.crt');
 
     const ssl = fs.existsSync(caPath)
       ? {
-          ca: fs.readFileSync(caPath, "utf8"),
+          ca: fs.readFileSync(caPath, 'utf8'),
           rejectUnauthorized: true,
         }
       : {
@@ -34,57 +36,52 @@ export class PrismaService
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl,
-      max: Number(process.env.PG_POOL_MAX || 2),
-      min: Number(process.env.PG_POOL_MIN || 0),
-      idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 10000),
-      connectionTimeoutMillis: Number(
-        process.env.PG_CONNECTION_TIMEOUT_MS || 5000,
-      ),
-      allowExitOnIdle: process.env.NODE_ENV === "development",
+      ...poolOptions(process.env),
+      allowExitOnIdle: process.env.NODE_ENV === 'development',
     });
 
-    pool.on("connect", () => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[PG POOL] client connected");
+    pool.on('connect', () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PG POOL] client connected');
       }
     });
 
-    pool.on("acquire", () => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[PG POOL] client acquired");
+    pool.on('acquire', () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PG POOL] client acquired');
       }
     });
 
-    pool.on("remove", () => {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[PG POOL] client removed");
+    pool.on('remove', () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PG POOL] client removed');
       }
     });
 
-    pool.on("error", (err) => {
-      console.error("[PG POOL ERROR]", err);
+    pool.on('error', (err) => {
+      console.error('[PG POOL ERROR]', err);
     });
 
     const adapter = new PrismaPg(pool);
 
     super({
       adapter,
+      transactionOptions: transactionOptions(process.env),
       log:
-        process.env.NODE_ENV === "development"
-          ? ["error", "warn"]
-          : ["error"],
+        process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     });
 
     this.pool = pool;
 
-    if (process.env.NODE_ENV === "development") {
-      setInterval(() => {
-        console.log("[PG POOL STATUS]", {
+    if (process.env.NODE_ENV === 'development') {
+      this.statusTimer = setInterval(() => {
+        console.log('[PG POOL STATUS]', {
           total: this.pool.totalCount,
           idle: this.pool.idleCount,
           waiting: this.pool.waitingCount,
         });
       }, 10000);
+      this.statusTimer.unref();
     }
   }
 
@@ -92,9 +89,9 @@ export class PrismaService
     try {
       await this.$connect();
       await this.$queryRaw`SELECT 1`;
-      console.log("[Prisma] connected");
+      console.log('[Prisma] connected');
     } catch (error) {
-      console.error("[Prisma] failed to connect on module init", error);
+      console.error('[Prisma] failed to connect on module init', error);
       throw error;
     }
   }
@@ -102,17 +99,18 @@ export class PrismaService
   async onModuleDestroy() {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
+    if (this.statusTimer) clearInterval(this.statusTimer);
 
     try {
       await this.$disconnect();
     } catch (error) {
-      console.error("[Prisma] disconnect error", error);
+      console.error('[Prisma] disconnect error', error);
     }
 
     try {
       await this.pool.end();
     } catch (error) {
-      console.error("[PG POOL] end error", error);
+      console.error('[PG POOL] end error', error);
     }
   }
 
@@ -129,12 +127,12 @@ export class PrismaService
       }
     };
 
-    process.once("SIGINT", () => {
-      void shutdown("SIGINT");
+    process.once('SIGINT', () => {
+      void shutdown('SIGINT');
     });
 
-    process.once("SIGTERM", () => {
-      void shutdown("SIGTERM");
+    process.once('SIGTERM', () => {
+      void shutdown('SIGTERM');
     });
   }
 }

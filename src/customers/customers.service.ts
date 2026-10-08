@@ -274,10 +274,10 @@ export class CustomersService {
     if (
       !owner ||
       !owner.isActive ||
-      (owner.role !== 'SALES' && owner.role !== 'MANAGER')
+      !['SALES', 'MANAGER', 'ADMIN'].includes(owner.role)
     ) {
       throw new BadRequestException(
-        'Selected owner must be an active SALES or MANAGER user',
+        'Selected owner must be an active SALES, MANAGER or ADMIN user',
       );
     }
 

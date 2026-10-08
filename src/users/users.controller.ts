@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -271,6 +272,7 @@ export class UsersController {
 
         crmTasksCreated: { select: { id: true } },
         crmTasksAssigned: { select: { id: true } },
+        workProjectsOwned: { select: { id: true } },
 
         agenciesManaged: { select: { id: true } },
         agenciesAssigned: { select: { id: true } },
@@ -308,6 +310,7 @@ export class UsersController {
 
       crmTasksCreated: user.crmTasksCreated.length,
       crmTasksAssigned: user.crmTasksAssigned.length,
+      workProjectsOwned: user.workProjectsOwned.length,
 
       agenciesManaged: user.agenciesManaged.length,
       agenciesAssigned: user.agenciesAssigned.length,
@@ -393,6 +396,23 @@ export class UsersController {
     // }
 
     await this.prisma.$transaction(async (tx) => {
+      const hasWork = await tx.user.count({
+        where: {
+          id,
+          OR: [
+            { crmTasksCreated: { some: {} } },
+            { crmTasksAssigned: { some: {} } },
+            { workProjectsOwned: { some: {} } },
+          ],
+        },
+      });
+      if (hasWork) {
+        throw new ConflictException({
+          code: "WORK_USER_HAS_RECORDS",
+          message: "This user has work items or owns work projects. Deactivate the account to preserve work history.",
+        });
+      }
+
       await tx.user.updateMany({
         where: { managerId: id },
         data: { managerId: null },
@@ -439,12 +459,6 @@ export class UsersController {
           data: { createdById: currentUserId },
         });
       }
-
-      await tx.crmTask.deleteMany({
-        where: {
-          OR: [{ createdById: id }, { assignedToId: id }],
-        },
-      });
 
       await tx.task.deleteMany({
         where: {
