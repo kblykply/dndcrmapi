@@ -315,6 +315,7 @@ describe('Payment main-project filtering and response contract', () => {
         label: PROJECT_LABELS.GECITKALE_1_ETAP,
         caseCount: 0,
       },
+      { value: 'NEOCITY', label: PROJECT_LABELS.NEOCITY, caseCount: 0 },
       { value: 'UNKNOWN', label: 'Belirsiz / Diğer', caseCount: 0 },
     ]);
     const tl = list(cases, {
@@ -431,7 +432,7 @@ describe('Payment main-project filtering and response contract', () => {
     ).toBe(30);
     const empty = list(cases, { paymentKind: 'deposit' });
     expect(empty.total).toBe(0);
-    expect(empty.projectGroups).toHaveLength(6);
+    expect(empty.projectGroups).toHaveLength(7);
     expect(empty.projectGroups.every((group) => group.caseCount === 0)).toBe(
       true,
     );

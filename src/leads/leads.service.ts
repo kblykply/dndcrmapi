@@ -191,7 +191,7 @@ export class LeadsService {
       return lead;
     }
 
-    if (user.role === "CALLCENTER" && lead.ownerCallCenterId === user.id) {
+    if (user.role === "CALLCENTER") {
       return lead;
     }
 
@@ -209,7 +209,7 @@ export class LeadsService {
     if (user.role === "ADMIN" || user.role === "MANAGER") {
       // full access
     } else if (user.role === "CALLCENTER") {
-      where.ownerCallCenterId = user.id;
+      // Callcenter handles the shared lead queue, regardless of the original owner.
     } else if (user.role === "SALES") {
       where.assignedSalesId = user.id;
     } else {
@@ -360,7 +360,7 @@ export class LeadsService {
     if (user.role === "ADMIN" || user.role === "MANAGER") {
       // full access
     } else if (user.role === "CALLCENTER") {
-      where.ownerCallCenterId = user.id;
+      // Callcenter handles the shared lead queue, regardless of the original owner.
     } else if (user.role === "SALES") {
       where.assignedSalesId = user.id;
     } else {

@@ -82,7 +82,6 @@ describe('Lead list pagination and count contract', () => {
   });
 
   it.each([
-    ['CALLCENTER', 'ownerCallCenterId'],
     ['SALES', 'assignedSalesId'],
   ] as const)(
     'preserves %s row permissions with and without a total',
@@ -197,4 +196,27 @@ describe('Lead list query parsing', () => {
       expect(listLeads).not.toHaveBeenCalled();
     },
   );
+});
+
+
+describe('Callcenter shared lead queue', () => {
+  const actor = user('CALLCENTER');
+  it('lists other owners and unassigned leads without removing pagination or filters', async () => {
+    const db = {lead: {findMany: jest.fn().mockResolvedValue([{id:'other-owner',ownerCallCenterId:'other'},{id:'unassigned',ownerCallCenterId:null}]),count: jest.fn().mockResolvedValue(2)}};
+    const service = new LeadsService(db as any, {} as any, {} as any);
+    const result = await service.listLeads(actor, {pageSize:25,status:'NEW',includeTotal:true});
+    expect(result.items).toHaveLength(2);
+    expect(db.lead.findMany.mock.calls[0][0].where.ownerCallCenterId).toBeUndefined();
+    expect(db.lead.findMany.mock.calls[0][0].where).toMatchObject({archivedAt:null,status:'NEW'});
+  });
+  it('can open and schedule followups for another owner while sales stays scoped', async () => {
+    const lead = {id:'other-owner',ownerCallCenterId:'other',assignedSalesId:'other',status:'WORKING'};
+    const db = {lead:{findUnique:jest.fn().mockResolvedValue(lead),update:jest.fn().mockResolvedValue(lead),findMany:jest.fn().mockResolvedValue([lead])}};
+    const audit = {log:jest.fn()};
+    const service = new LeadsService(db as any,audit as any,{} as any);
+    await expect(service.updateLeadFollowUp(actor,lead.id,{nextFollowUpAt:'2026-10-10T12:00:00Z'})).resolves.toEqual(lead);
+    await expect(service.updateLeadFollowUp(user('SALES'),lead.id,{nextFollowUpAt:'2026-10-10T12:00:00Z'})).rejects.toBeInstanceOf(ForbiddenException);
+    await service.listFollowups(actor,'today');
+    expect(db.lead.findMany.mock.calls[0][0].where.ownerCallCenterId).toBeUndefined();
+  });
 });

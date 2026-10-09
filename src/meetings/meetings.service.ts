@@ -142,7 +142,7 @@ export class MeetingsService {
   }
 
   private ensureCrmUser(user: ReqUser) {
-    if (!["ADMIN", "MANAGER", "SALES"].includes(user.role)) {
+    if (!["ADMIN", "MANAGER", "SALES", "CALLCENTER"].includes(user.role)) {
       throw new ForbiddenException("No access");
     }
   }
@@ -222,6 +222,7 @@ export class MeetingsService {
   }
 
   private canSeeAgencyMeeting(user: ReqUser, row: any) {
+    if (user.role === "CALLCENTER") return row.createdById === user.id || row.assignedSalesId === user.id;
     if (user.role === "ADMIN" || user.role === "MANAGER") return true;
 
     return (
@@ -233,6 +234,7 @@ export class MeetingsService {
   }
 
   private canSeePresentation(user: ReqUser, row: any) {
+    if (user.role === "CALLCENTER") return row.createdById === user.id || row.assignedSalesId === user.id;
     if (user.role === "ADMIN" || user.role === "MANAGER") return true;
 
     return (
@@ -242,6 +244,7 @@ export class MeetingsService {
   }
 
   private canSeeOtherMeeting(user: ReqUser, row: any) {
+    if (user.role === "CALLCENTER") return row.createdById === user.id || row.assignedSalesId === user.id;
     if (user.role === "ADMIN" || user.role === "MANAGER") return true;
 
     return (
@@ -425,6 +428,13 @@ export class MeetingsService {
     if (agencyId) {
       agencyWhere.agencyId = agencyId;
       presentationWhere.agencyId = agencyId;
+    }
+
+    if (user.role === "CALLCENTER") {
+      const own = { OR: [{ assignedSalesId: user.id }, { createdById: user.id }] };
+      agencyAnd.push(own);
+      presentationAnd.push(own);
+      otherAnd.push(own);
     }
 
     if (user.role === "SALES") {

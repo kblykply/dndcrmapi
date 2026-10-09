@@ -85,7 +85,7 @@ export class MeetingsController {
   constructor(private readonly meetings: MeetingsService) {}
 
   @Get()
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   list(
     @Req() req: any,
     @Query("q") q?: string,
@@ -112,7 +112,7 @@ export class MeetingsController {
   }
 
   @Get(":kind/:id")
-  @Roles("ADMIN", "MANAGER", "SALES")
+  @Roles("ADMIN", "MANAGER", "SALES", "CALLCENTER")
   getOne(
     @Req() req: any,
     @Param("kind") kind: string,

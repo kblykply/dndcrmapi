@@ -364,6 +364,7 @@ export class CalendarService {
       const meetings = await this.prisma.agencyMeeting.findMany({
         where: {
           meetingAt: { gte: from, lte: to },
+          ...(user.role === "CALLCENTER" ? { OR: [{ createdById: user.id }, { assignedSalesId: user.id }] } : {}),
         },
         select: {
           id: true,
@@ -411,9 +412,7 @@ export class CalendarService {
           this.canSeeAll(user) ||
           m.createdById === user.id ||
           m.assignedSalesId === user.id ||
-          m.agency?.assignedSalesId === user.id ||
-          m.agency?.managerId === user.id ||
-          m.customer?.ownerId === user.id;
+          (user.role !== "CALLCENTER" && (m.agency?.assignedSalesId === user.id || m.agency?.managerId === user.id || m.customer?.ownerId === user.id));
 
         if (!canSee) continue;
 
@@ -434,7 +433,7 @@ export class CalendarService {
         const entityId = m.agencyId || m.customerId || m.id;
         const entityLabel = m.agency?.name || m.customer?.fullName || m.title || "Meeting";
 
-        const href = m.agencyId
+        const href = user.role === "CALLCENTER" ? `/meetings/${m.id}?kind=AGENCY` : m.agencyId
           ? `/agencies/${m.agencyId}`
           : m.customerId
             ? `/customers/${m.customerId}`
@@ -473,7 +472,7 @@ export class CalendarService {
       }
     }
 
-    if (filters.types.length === 0 || filters.types.includes("AGENCY_TASK")) {
+    if (user.role !== "CALLCENTER" && (filters.types.length === 0 || filters.types.includes("AGENCY_TASK"))) {
       const tasks = await this.prisma.agencyTask.findMany({
         where: {
           dueAt: { gte: from, lte: to },
@@ -548,6 +547,7 @@ export class CalendarService {
       const presentations = await this.prisma.presentation.findMany({
         where: {
           presentationAt: { gte: from, lte: to },
+          ...(user.role === "CALLCENTER" ? { OR: [{ createdById: user.id }, { assignedSalesId: user.id }] } : {}),
         },
         select: {
           id: true,
@@ -581,7 +581,7 @@ export class CalendarService {
           this.canSeeAll(user) ||
           p.assignedSalesId === user.id ||
           p.createdById === user.id ||
-          p.customer?.ownerId === user.id;
+          (user.role !== "CALLCENTER" && p.customer?.ownerId === user.id);
 
         if (!canSee) continue;
 
@@ -606,7 +606,7 @@ export class CalendarService {
             entityLabel: p.customer?.fullName || "-",
             subtitle: p.projectName || p.location || p.customer?.agency?.name || null,
             notesPreview: this.preview(p.notesSummary),
-            href: `/customers/${p.customerId}`,
+            href: user.role === "CALLCENTER" ? `/meetings/${p.id}?kind=PRESENTATION` : `/customers/${p.customerId}`,
             meta: {
               presentationId: p.id,
               assignedSalesId: p.assignedSalesId,
@@ -618,6 +618,29 @@ export class CalendarService {
           },
           filters,
         );
+      }
+    }
+
+    if (filters.types.length === 0 || filters.types.includes("OTHER_MEETING")) {
+      const ownMeetings = await this.prisma.otherMeeting.findMany({
+        where: {
+          meetingAt: { gte: from, lte: to },
+          ...(!this.canSeeAll(user) ? { OR: [{ createdById: user.id }, { assignedSalesId: user.id }] } : {}),
+        },
+        include: {
+          createdBy: { select: { id: true, name: true, email: true, role: true } },
+          assignedSales: { select: { id: true, name: true, email: true, role: true } },
+        },
+        orderBy: { meetingAt: "asc" },
+      });
+      for (const meeting of ownMeetings) {
+        this.pushEvent(events, {
+          id: `other-meeting-${meeting.id}`, type: "OTHER_MEETING", title: meeting.title,
+          start: meeting.meetingAt.toISOString(), end: meeting.meetingAt.toISOString(), allDay: false,
+          status: meeting.status, entityId: meeting.id, entityType: "meeting", entityLabel: meeting.title,
+          notesPreview: this.preview(meeting.notes), href: `/meetings/${meeting.id}?kind=OTHER`,
+          ...this.buildUserMeta(this.buildUsers([meeting.createdBy, meeting.assignedSales])),
+        }, filters);
       }
     }
 

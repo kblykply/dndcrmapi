@@ -9,7 +9,7 @@ export class MeController {
 
   @Get("me")
   async me(@Req() req: any) {
-    const userId = req.user?.sub; // subject = user.id from JWT
+    const userId = req.user?.id; // subject = user.id from JWT
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -663,7 +663,7 @@ describe('Collection report filters and detail pagination', () => {
     expect(report.detail.rows.map((row) => row.key)).toEqual([
       data.cases[0].key,
     ]);
-    expect(report.projectGroups).toHaveLength(6);
+    expect(report.projectGroups).toHaveLength(7);
     expect(
       report.projectGroups.find((row) => row.value === 'LA_JOYA')?.caseCount,
     ).toBe(1);

@@ -128,6 +128,7 @@ export class TasksService {
     return actor;
   }
   private projectWhere(actor: WorkUser): Prisma.WorkProjectWhereInput {
+    if (actor.role === 'CALLCENTER') return { tasks: { some: { assignedToId: actor.id } } };
     return manager(actor)
       ? {}
       : {
@@ -138,6 +139,7 @@ export class TasksService {
         };
   }
   private accessWhere(actor: WorkUser): Prisma.CrmTaskWhereInput {
+    if (actor.role === 'CALLCENTER') return { assignedToId: actor.id };
     if (manager(actor)) return {};
     const personal: Prisma.CrmTaskWhereInput[] = [
       { assignedToId: actor.id },
@@ -159,6 +161,7 @@ export class TasksService {
     };
   }
   private canManageProject(actor: WorkUser, project: Project) {
+    if (actor.role === 'CALLCENTER') return false;
     return (
       manager(actor) ||
       project.ownerId === actor.id ||
@@ -167,6 +170,7 @@ export class TasksService {
   }
   private canEdit(actor: WorkUser, task: Item) {
     if (task.archivedAt || task.project?.archivedAt) return false;
+    if (actor.role === 'CALLCENTER') return task.assignedToId === actor.id;
     if (manager(actor)) return true;
     if (task.project)
       return (
@@ -183,6 +187,7 @@ export class TasksService {
     );
   }
   private canArchive(actor: WorkUser, task: Item) {
+    if (actor.role === 'CALLCENTER') return false;
     return (
       manager(actor) ||
       (task.project
@@ -192,6 +197,10 @@ export class TasksService {
   }
   private present(task: Item, actor: WorkUser) {
     const { timeEntries, ...rest } = task;
+    if (actor.role === 'CALLCENTER') {
+      if (rest.parent?.assignedToId !== actor.id) rest.parent = null;
+      rest.blockers = rest.blockers.filter((link) => link.blocker.assignedToId === actor.id);
+    }
     return {
       ...rest,
       spentMinutes: timeEntries.reduce((sum, entry) => sum + entry.minutes, 0),
@@ -268,7 +277,7 @@ export class TasksService {
     });
     if (projectId) {
       for (const task of tasks)
-        audience.set(task.id, new Set(users.map((u) => u.id)));
+        audience.set(task.id, new Set(users.filter((u) => u.role !== 'CALLCENTER' || task.assignedToId === u.id).map((u) => u.id)));
       return audience;
     }
     // A watcher may have lost access after reassignment or a CRM ownership change.
@@ -290,7 +299,7 @@ export class TasksService {
           users
             .filter(
               (u) =>
-                manager(u) ||
+                u.role === 'CALLCENTER' ? task.assignedToId === u.id : manager(u) ||
                 [
                   task.assignedToId,
                   task.createdById,
@@ -505,9 +514,9 @@ export class TasksService {
     return {
       projects: projects.map((p) => ({
         ...p,
-        canManage: this.canManageProject(actor, p),
+        canManage: actor.role !== 'CALLCENTER' && this.canManageProject(actor, p),
         canEdit:
-          !p.archivedAt &&
+          actor.role !== 'CALLCENTER' && !p.archivedAt &&
           (this.canManageProject(actor, p) ||
             p.members.some(
               (m) => m.userId === actor.id && m.role === 'MEMBER',
@@ -1507,7 +1516,7 @@ export class TasksService {
   async references(user: WorkUser, kind: string, search: string) {
     if (this.preview(user)) return [];
     const actor = await this.actor(user);
-    if (actor.role === 'ACCOUNTING' || search.trim().length < 2) return [];
+    if (actor.role === 'ACCOUNTING' || (actor.role === 'CALLCENTER' && kind !== 'lead') || search.trim().length < 2) return [];
     const filter = {
       contains: search.trim().slice(0, 100),
       mode: 'insensitive' as const,

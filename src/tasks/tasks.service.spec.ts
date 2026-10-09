@@ -133,7 +133,6 @@ describe('Work access and notifications', () => {
     );
     expect([...audience.get('a')!]).toEqual([
       'current',
-      'parent-owner',
       'sales',
       'admin',
     ]);
