@@ -1,3 +1,4 @@
+import { PaymentInstallmentTableController } from './payment-installment-table.controller';
 import { PaymentSnapshotDatabaseService } from './payment-snapshot-database.service';
 import { LogoDatabaseService } from '../logo-database/logo-database.service';
 import { Module } from '@nestjs/common';
@@ -12,7 +13,11 @@ import { PaymentCollectionReportService } from './payment-collection-report.serv
 
 @Module({
   imports: [LogoDatabaseModule],
-  controllers: [PaymentTrackingController, PaymentCollectionReportController],
+  controllers: [
+    PaymentTrackingController,
+    PaymentCollectionReportController,
+    PaymentInstallmentTableController,
+  ],
   providers: [
     { provide: LogoDatabaseService, useClass: PaymentSnapshotDatabaseService },
     PaymentTrackingService,
