@@ -26,6 +26,8 @@ export function buildInstallmentTable(
   const sort = String(raw.sort || 'dueDate');
   const direction = raw.direction === 'desc' ? -1 : 1;
   const requestedPage = Number(raw.page || 1);
+  const year = String(raw.year || '');
+  const month = String(raw.month || '');
   if (
     !['all', 'open', 'overdue', 'paid'].includes(status) ||
     ![
@@ -39,7 +41,10 @@ export function buildInstallmentTable(
     !Number.isSafeInteger(requestedPage) ||
     requestedPage < 1 ||
     search.length > 200 ||
-    currency.length > 32
+    currency.length > 32 ||
+    (year !== '' && year !== 'undated' && !/^\d{4}$/.test(year)) ||
+    (month !== '' &&
+      (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month.slice(0, 4) !== year))
   )
     throw new BadRequestException('Invalid installment table filters');
   const projects = paymentProjectGroups(snapshot.cases);
@@ -53,8 +58,12 @@ export function buildInstallmentTable(
   const currencies = [
     ...new Set(eligible.map((item) => item.identity.currency)),
   ];
-  const rows = eligible
-    .filter((item) => (item.identity.currency ?? '__NULL__') === currency)
+  const matchingRows = eligible
+    .filter(
+      (item) =>
+        currency === '__ALL__' ||
+        (item.identity.currency ?? '__NULL__') === currency,
+    )
     .flatMap((item) =>
       item.installments
         .filter((line) => line.paymentKind === 'sale')
@@ -64,6 +73,8 @@ export function buildInstallmentTable(
           caseKey: item.key,
           customerCode: item.identity.customerCode,
           customerName: item.customerName,
+          representatives: item.representatives ?? [],
+          brokers: item.brokers ?? [],
           unitCode: item.identity.unitCode,
           unitName: item.unitName,
           currency: item.identity.currency,
@@ -83,6 +94,80 @@ export function buildInstallmentTable(
           (status === 'paid' && row.outstanding === 0) ||
           (status === 'overdue' && row.status === 'overdue')),
     );
+  type Row = (typeof matchingRows)[number];
+  const totalsFor = (rows: Row[]) => {
+    const sum = (field: 'amount' | 'paid' | 'outstanding') =>
+      rows.some((row) => row[field] === null)
+        ? null
+        : rows.reduce((sum, row) => sum + (row[field] ?? 0), 0);
+    return {
+      count: rows.length,
+      amount: sum('amount'),
+      paid: sum('paid'),
+      outstanding: sum('outstanding'),
+    };
+  };
+  const currentMonthStart = `${snapshot.asOf.slice(0, 7)}-01`;
+  const previousMonthEnd = new Date(
+    Date.parse(`${currentMonthStart}T00:00:00Z`) - 86400000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const overview = [...new Set(matchingRows.map((row) => row.currency))].map(
+    (currency) => {
+      const all = matchingRows.filter((row) => row.currency === currency);
+      return {
+        currency,
+        overall: totalsFor(all),
+        throughPreviousMonth: totalsFor(
+          all.filter(
+            (row) => row.dueDate !== null && row.dueDate < currentMonthStart,
+          ),
+        ),
+        undated: totalsFor(all.filter((row) => row.dueDate === null)),
+      };
+    },
+  );
+  const grouped = new Map<string, Row[]>();
+  for (const row of matchingRows) {
+    const key = JSON.stringify([
+      row.dueDate?.slice(0, 4) ?? 'undated',
+      row.currency,
+    ]);
+    const group = grouped.get(key) ?? [];
+    group.push(row);
+    grouped.set(key, group);
+  }
+  const years = [...grouped]
+    .sort(([a], [b]) =>
+      a.includes('undated')
+        ? 1
+        : b.includes('undated')
+          ? -1
+          : a.localeCompare(b),
+    )
+    .map(([key, entries]) => ({
+      year: JSON.parse(key)[0] as string,
+      currency: JSON.parse(key)[1] as string | null,
+      ...totalsFor(entries),
+      months: [
+        ...new Set(
+          entries.flatMap((row) =>
+            row.dueDate ? [row.dueDate.slice(0, 7)] : [],
+          ),
+        ),
+      ]
+        .sort()
+        .map((month) => ({
+          month,
+          ...totalsFor(entries.filter((row) => row.dueDate?.startsWith(month))),
+        })),
+    }));
+  const rows = matchingRows.filter(
+    (row) =>
+      (!year || (row.dueDate?.slice(0, 4) ?? 'undated') === year) &&
+      (!month || row.dueDate?.startsWith(month)),
+  );
   rows.sort((a, b) => {
     const left = a[sort as keyof typeof a],
       right = b[sort as keyof typeof b];
@@ -99,6 +184,7 @@ export function buildInstallmentTable(
     totalPages = Math.max(1, Math.ceil(total / pageSize)),
     page = Math.min(requestedPage, totalPages);
   const sum = (field: 'amount' | 'paid' | 'outstanding') =>
+    new Set(rows.map((row) => row.currency)).size > 1 ||
     rows.some((row) => row[field] === null)
       ? null
       : rows.reduce((value, row) => value + (row[field] ?? 0), 0);
@@ -112,6 +198,11 @@ export function buildInstallmentTable(
     sort,
     direction: direction === 1 ? 'asc' : 'desc',
     currencies,
+    year,
+    month,
+    years,
+    overview,
+    previousMonthEnd,
     rows: rows.slice((page - 1) * pageSize, page * pageSize),
     total,
     page,

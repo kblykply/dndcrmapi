@@ -3,6 +3,7 @@ import type { PaymentSourceSnapshot } from './payment-tracking.types';
 
 function snapshot(): PaymentSourceSnapshot {
   return {
+    asOf: '2026-10-14',
     authorizationSource: { status: 'available' },
     cases: [
       {
@@ -116,6 +117,157 @@ describe('installment table', () => {
     expect(result.total).toBe(51);
     expect(result.rows).toHaveLength(1);
     expect(result.totals.outstanding).toBe(4080);
+  });
+  it('groups all installments by year and month before pagination, preserving undated rows', () => {
+    const data = snapshot();
+    data.cases[0].installments.push({
+      ...data.cases[0].installments[0],
+      sequence: 5,
+      dueDate: '2027-01-01',
+    });
+    const result = buildInstallmentTable(data);
+    expect(result.years.map((group) => group.year)).toEqual([
+      '2026',
+      '2027',
+      'undated',
+    ]);
+    expect(result.years[0].count).toBe(2);
+    expect(result.years[0].months[0]).toMatchObject({
+      month: '2026-10',
+      count: 2,
+      amount: 150,
+      paid: 70,
+      outstanding: 80,
+    });
+    expect(result.years[2].months).toEqual([]);
+    expect(
+      buildInstallmentTable(data, { year: '2027', month: '2027-01' }).rows.map(
+        (row) => row.sequence,
+      ),
+    ).toEqual([5]);
+    expect(
+      buildInstallmentTable(data, { year: 'undated' }).rows.map(
+        (row) => row.sequence,
+      ),
+    ).toEqual([3]);
+    expect(() =>
+      buildInstallmentTable(data, { year: '2026', month: '2027-01' }),
+    ).toThrow();
+  });
+  it('shows all currencies as separate year groups and does not add their money together', () => {
+    const result = buildInstallmentTable(snapshot(), { currency: '__ALL__' });
+    expect(result.total).toBe(4);
+    expect(
+      result.years
+        .filter((group) => group.year === '2026')
+        .map((group) => group.currency)
+        .sort(),
+    ).toEqual(['EUR', 'GBP']);
+    expect(result.totals).toEqual({
+      amount: null,
+      paid: null,
+      outstanding: null,
+    });
+    expect(
+      result.years.find((group) => group.currency === 'EUR')?.outstanding,
+    ).toBe(10000);
+  });
+  it('overview excludes the entire current month, includes all older years, and remains independent of drilling and pagination', () => {
+    const data = snapshot();
+    data.cases[0].installments = [
+      {
+        ...data.cases[0].installments[0],
+        sequence: 1,
+        dueDate: '2024-01-01',
+        amount: 100,
+        paid: 80,
+        outstanding: 20,
+      },
+      {
+        ...data.cases[0].installments[0],
+        sequence: 2,
+        dueDate: '2026-09-30',
+        amount: 200,
+        paid: 50,
+        outstanding: 150,
+      },
+      {
+        ...data.cases[0].installments[0],
+        sequence: 3,
+        dueDate: '2026-10-01',
+        amount: 300,
+        paid: 10,
+        outstanding: 290,
+      },
+      {
+        ...data.cases[0].installments[0],
+        sequence: 4,
+        dueDate: '2027-01-01',
+        amount: 400,
+        paid: 0,
+        outstanding: 400,
+      },
+    ];
+    const result = buildInstallmentTable(data, {
+      year: '2027',
+      month: '2027-01',
+      page: 2,
+    });
+    expect(result.previousMonthEnd).toBe('2026-09-30');
+    expect(result.overview[0].throughPreviousMonth).toEqual({
+      count: 2,
+      amount: 300,
+      paid: 130,
+      outstanding: 170,
+    });
+    expect(result.overview[0].overall).toEqual({
+      count: 4,
+      amount: 1000,
+      paid: 140,
+      outstanding: 860,
+    });
+    data.asOf = '2027-01-01';
+    expect(buildInstallmentTable(data).previousMonthEnd).toBe('2026-12-31');
+  });
+  it('uses DND and strictly blank authorization codes for rows, years and overview totals', () => {
+    const data = snapshot();
+    const baseline = buildInstallmentTable(data, { currency: '__ALL__' });
+    const excluded = [
+      { invoiceOk: { status: 'matched', values: ['OTHER'], hasBlank: false } },
+      {
+        invoiceOk: {
+          status: 'matched',
+          values: ['DND', 'OTHER'],
+          hasBlank: false,
+        },
+      },
+      {
+        authorization: {
+          status: 'matched',
+          codes: ['INTERNAL'],
+          hasBlank: false,
+        },
+      },
+      {
+        authorization: {
+          status: 'matched',
+          codes: ['INTERNAL'],
+          hasBlank: true,
+        },
+      },
+      { authorization: { status: 'unmatched', codes: [], hasBlank: true } },
+    ];
+    for (const [index, overrides] of excluded.entries()) {
+      data.cases.push({
+        ...structuredClone(data.cases[0]),
+        key: `excluded-${index}`,
+        ...overrides,
+      } as (typeof data.cases)[number]);
+    }
+    const result = buildInstallmentTable(data, { currency: '__ALL__' });
+    expect(result.rows).toEqual(baseline.rows);
+    expect(result.years).toEqual(baseline.years);
+    expect(result.overview).toEqual(baseline.overview);
   });
   it('rejects invalid scopes and unavailable invoice metadata', () => {
     expect(() => buildInstallmentTable(snapshot(), { page: -1 })).toThrow();
