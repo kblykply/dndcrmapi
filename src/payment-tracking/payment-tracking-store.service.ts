@@ -24,6 +24,8 @@ export interface PaymentTrackingStoreInput extends PaymentTrackingAction {
   key: string;
   sourceIdentity: PaymentIdentity;
   actor: PaymentActor;
+  /** Set internally only after verifying salesperson ownership against a fresh snapshot. */
+  salesScoped?: boolean;
 }
 
 const eligibleRoles = ['ADMIN', 'ACCOUNTING'] as const;
@@ -222,10 +224,12 @@ export class PaymentTrackingStoreService {
       (!input.channel || !channels.includes(input.channel))
     )
       invalid('İletişim kanalı geçersiz.');
-    if (
-      !input.actor?.id ||
-      !eligibleRoles.some((role) => role === input.actor.role)
-    )
+    const canAct = (role: string) =>
+      eligibleRoles.some((allowed) => allowed === role) ||
+      (input.salesScoped === true &&
+        role === 'SALES' &&
+        ['defer', 'reset', 'note', 'contact'].includes(input.type));
+    if (!input.actor?.id || !canAct(input.actor.role))
       throw new ForbiddenException(
         'Bu işlem için muhasebe yetkisi gereklidir.',
       );
@@ -236,10 +240,7 @@ export class PaymentTrackingStoreService {
           where: { id: input.actor.id },
           select: userSelect,
         });
-        if (
-          !actor?.isActive ||
-          !eligibleRoles.some((role) => role === actor.role)
-        )
+        if (!actor?.isActive || !canAct(actor.role))
           throw new ForbiddenException('Aktif bir muhasebe hesabı gereklidir.');
 
         const current = await tx.paymentTrackingCase.findUnique({

@@ -1,3 +1,8 @@
+import {
+  SalesLedgerController,
+  SalesLedgerMappingsController,
+} from './sales-ledger.controller';
+import { SalesLedgerService } from './sales-ledger.service';
 import { PaymentInstallmentTableController } from './payment-installment-table.controller';
 import { PaymentSnapshotDatabaseService } from './payment-snapshot-database.service';
 import { LogoDatabaseService } from '../logo-database/logo-database.service';
@@ -14,12 +19,15 @@ import { PaymentCollectionReportService } from './payment-collection-report.serv
 @Module({
   imports: [LogoDatabaseModule],
   controllers: [
+    SalesLedgerController,
+    SalesLedgerMappingsController,
     PaymentTrackingController,
     PaymentCollectionReportController,
     PaymentInstallmentTableController,
   ],
   providers: [
     { provide: LogoDatabaseService, useClass: PaymentSnapshotDatabaseService },
+    SalesLedgerService,
     PaymentTrackingService,
     PaymentTrackingSourceService,
     PaymentTrackingStoreService,

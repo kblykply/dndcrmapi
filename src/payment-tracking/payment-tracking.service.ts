@@ -939,7 +939,7 @@ export class PaymentTrackingService {
     return { states, history, assignees };
   }
 
-  private async describe(
+  async describe(
     snapshot: PaymentSourceSnapshot,
     item: PaymentSourceCase,
     forceFresh = false,
@@ -1007,11 +1007,13 @@ export class PaymentTrackingService {
     key: string,
     input: unknown,
     actor: PaymentActor,
+    restrict?: (snapshot: PaymentSourceSnapshot) => Promise<PaymentSourceSnapshot>,
   ): Promise<PaymentTrackingDetail> {
     this.key(key);
     const action = parseTrackingAction(input);
     // Re-read the source before a write; a paid/changed obligation must not be deferred from an old screen.
-    const snapshot = await this.source.snapshot(true);
+    const fullSnapshot = await this.source.snapshot(true);
+    const snapshot = restrict ? await restrict(fullSnapshot) : fullSnapshot;
     const item = snapshot.cases.find((item) => item.key === key);
     if (!item)
       throw new NotFoundException({
@@ -1043,6 +1045,7 @@ export class PaymentTrackingService {
       sourceIdentity: item.identity,
       actor,
       ...action,
+      ...(restrict && actor.role === 'SALES' ? { salesScoped: true } : {}),
     });
     return this.describe(snapshot, item, true);
   }

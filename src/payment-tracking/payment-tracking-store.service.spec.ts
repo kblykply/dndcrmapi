@@ -392,6 +392,40 @@ describe('PaymentTrackingStoreService', () => {
     ).toMatchObject({ assigneeId: null, assigneeName: null, version: 2 });
   });
 
+  it('allows only ownership-verified sales follow-up notes, never assignment or priority', async () => {
+    const { store, rows, events } = fixture();
+    await store.apply(
+      input({
+        actor: { id: 'sales', role: 'SALES' },
+        type: 'note',
+        body: 'Owned case note',
+        salesScoped: true,
+      }),
+    );
+    expect(rows()).toHaveLength(1);
+    expect(events()[0].actorId).toBe('sales');
+    await expect(
+      store.apply(
+        input({
+          actor: { id: 'sales', role: 'SALES' },
+          type: 'priority',
+          priority: 'high',
+          salesScoped: true,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      store.apply(
+        input({
+          actor: { id: 'sales', role: 'SALES' },
+          type: 'assign',
+          assigneeId: null,
+          salesScoped: true,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('checks token role and fresh database account before writes', async () => {
     const { store, db, rows } = fixture();
     for (const role of ['SALES', 'PREVIEW', 'MANAGER']) {

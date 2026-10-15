@@ -88,6 +88,7 @@ model User {
   passwordHash String
   isActive     Boolean @default(true)
 
+  salesLedgerRepresentatives SalesLedgerRepresentative[]
   digitalTeamMember DigitalTeamMember?
   itTicketsRequested ItTicket[] @relation("ItRequester")
   itTicketsAssigned ItTicket[] @relation("ItAssignee")
@@ -2132,4 +2133,12 @@ model PaymentSourceDataset {
   payload Json
   batch   PaymentSourceBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   @@id([batchId, key])
+}
+
+model SalesLedgerRepresentative {
+  code String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+  @@index([userId])
 }
