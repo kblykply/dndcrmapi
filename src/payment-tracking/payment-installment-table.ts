@@ -12,6 +12,7 @@ import type { PaymentSourceSnapshot } from './payment-tracking.types';
 export function buildInstallmentTable(
   snapshot: PaymentSourceSnapshot,
   raw: Record<string, unknown> = {},
+  options: { allRows?: boolean } = {},
 ) {
   requireInvoiceOkSource(snapshot, 'value:DND');
   if (snapshot.authorizationSource.status !== 'available')
@@ -180,9 +181,9 @@ export function buildInstallmentTable(
     return compared * direction || a.id.localeCompare(b.id);
   });
   const total = rows.length,
-    pageSize = 50,
+    pageSize = options.allRows ? Math.max(1, rows.length) : 50,
     totalPages = Math.max(1, Math.ceil(total / pageSize)),
-    page = Math.min(requestedPage, totalPages);
+    page = options.allRows ? 1 : Math.min(requestedPage, totalPages);
   const sum = (field: 'amount' | 'paid' | 'outstanding') =>
     new Set(rows.map((row) => row.currency)).size > 1 ||
     rows.some((row) => row[field] === null)

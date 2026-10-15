@@ -16,4 +16,13 @@ export class PaymentInstallmentTableController {
       query,
     );
   }
+  @Get('export')
+  @Header('Cache-Control', 'private, no-store')
+  async export(@Query() query: Record<string, unknown> = {}) {
+    return buildInstallmentTable(
+      await this.source.snapshot(query.refresh === 'true'),
+      query,
+      { allRows: true },
+    );
+  }
 }

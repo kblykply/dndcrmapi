@@ -269,6 +269,31 @@ describe('installment table', () => {
     expect(result.years).toEqual(baseline.years);
     expect(result.overview).toEqual(baseline.overview);
   });
+  it('exports the complete filtered result from one snapshot instead of the current page', () => {
+    const data = snapshot();
+    data.cases[0].installments = Array.from({ length: 123 }, (_, i) => ({
+      ...data.cases[0].installments[0],
+      sequence: i + 1,
+    }));
+    const paged = buildInstallmentTable(data, { page: 2 });
+    const exported = buildInstallmentTable(
+      data,
+      { page: 2 },
+      { allRows: true },
+    );
+    expect(paged.rows).toHaveLength(50);
+    expect(exported.rows).toHaveLength(123);
+    expect(exported.page).toBe(1);
+    expect(exported.totalPages).toBe(1);
+    expect(exported.totals).toEqual(paged.totals);
+    expect(
+      buildInstallmentTable(
+        data,
+        { currency: 'EUR' },
+        { allRows: true },
+      ).rows.every((row) => row.currency === 'EUR'),
+    ).toBe(true);
+  });
   it('rejects invalid scopes and unavailable invoice metadata', () => {
     expect(() => buildInstallmentTable(snapshot(), { page: -1 })).toThrow();
     expect(() =>
