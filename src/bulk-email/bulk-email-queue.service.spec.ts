@@ -69,6 +69,27 @@ describe("durable bulk email queue", () => {
     process.env = { ...original };
     queue.onModuleDestroy();
   });
+  it("requires exact identifiers for a paused single send", async () => {
+    await expect(queue.sendOnePausedJob("", "job")).rejects.toThrow("exact campaign and job");
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(email.sendMail).not.toHaveBeenCalled();
+  });
+  it("dispatches only one selected job without resuming the campaign", async () => {
+    await queue.sendOnePausedJob("campaign", "job");
+    expect(email.sendMail).toHaveBeenCalledTimes(1);
+    const [query, ...values] = db.$queryRaw.mock.calls[1];
+    expect(values).toEqual(["campaign", "campaign", "job", "job", "job", "job"]);
+    expect(query.join("?")).toContain('AND c."pausedAt" IS NOT NULL');
+    for (const [update] of db.bulkEmailCampaign.update.mock.calls) {
+      expect(update.data).not.toHaveProperty("pausedAt");
+    }
+  });
+  it("never falls back to another job if the selected paused job cannot be claimed", async () => {
+    db.$queryRaw.mockReset().mockResolvedValueOnce([{ nextSendAt: new Date(0), windowStartedAt: new Date(), count: 0, dayStartedAt: new Date(), dayCount: 0 }]).mockResolvedValueOnce([]);
+    await queue.sendOnePausedJob("campaign", "missing-job");
+    expect(email.sendMail).not.toHaveBeenCalled();
+    expect(db.bulkEmailJob.update).not.toHaveBeenCalled();
+  });
   it("does not claim or send until explicitly enabled with quotas", async () => {
     delete process.env.BULK_EMAIL_DAILY_LIMIT;
     await queue.tick();

@@ -58,6 +58,19 @@ export class BulkEmailQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   async tick(campaignId?: string) {
+    return this.processOne(campaignId);
+  }
+
+  // Operator-only CLI path: one exact job while the campaign stays paused.
+  // This is deliberately not exposed by an HTTP controller or the scheduler.
+  async sendOnePausedJob(campaignId: string, jobId: string) {
+    if (!campaignId?.trim() || !jobId?.trim()) {
+      throw new Error("An exact campaign and job are required");
+    }
+    return this.processOne(campaignId, jobId);
+  }
+
+  private async processOne(campaignId?: string, pausedJobId?: string) {
     const policy = queuePolicy();
     if (!policy.enabled || this.running) return;
     this.running = true;
@@ -102,7 +115,7 @@ export class BulkEmailQueueService implements OnModuleInit, OnModuleDestroy {
           dayCount = dayReset ? 0 : state.dayCount;
         if (count >= policy.hourly || dayCount >= policy.daily) return null;
         const jobs =
-          await tx.$queryRaw`SELECT * FROM "BulkEmailJob" WHERE "status" = 'QUEUED' AND "availableAt" <= NOW() AND (${campaignId || null}::text IS NULL OR "campaignId" = ${campaignId || null}) AND EXISTS (SELECT 1 FROM "BulkEmailCampaign" c WHERE c."id" = "BulkEmailJob"."campaignId" AND c."pausedAt" IS NULL AND c."status" = 'SENDING') ORDER BY "createdAt", "id" LIMIT 1 FOR UPDATE SKIP LOCKED`;
+          await tx.$queryRaw`SELECT * FROM "BulkEmailJob" WHERE "status" = 'QUEUED' AND "availableAt" <= NOW() AND (${campaignId || null}::text IS NULL OR "campaignId" = ${campaignId || null}) AND (${pausedJobId || null}::text IS NULL OR "id" = ${pausedJobId || null}) AND EXISTS (SELECT 1 FROM "BulkEmailCampaign" c WHERE c."id" = "BulkEmailJob"."campaignId" AND ((${pausedJobId || null}::text IS NULL AND c."pausedAt" IS NULL) OR (${pausedJobId || null}::text IS NOT NULL AND c."pausedAt" IS NOT NULL)) AND c."status" = 'SENDING') ORDER BY "createdAt", "id" LIMIT 1 FOR UPDATE SKIP LOCKED`;
         if (!jobs.length) return null;
         const next = jobs[0];
         await tx.bulkEmailDispatchState.update({

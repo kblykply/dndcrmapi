@@ -1299,6 +1299,49 @@ export class BulkEmailService {
     return campaign;
   }
 
+  async getCampaignPreview(id: string, language: string) {
+    if (!["tr", "fa", "ru", "en"].includes(language)) {
+      throw new BadRequestException("Unsupported language");
+    }
+    const campaign = await this.getCampaign(id);
+    const recipients = campaign.recipients.filter(
+      (recipient: any) => recipient.deliveryLanguage === language,
+    );
+    const pending = recipients.filter((r: any) => ["QUEUED", "SENDING"].includes(r.status));
+    const job = pending.length ? await this.db().bulkEmailJob.findFirst({
+      where: { campaignId: campaign.id, recipientId: { in: pending.map((r: any) => r.id) }, status: { in: ["QUEUED", "SENDING"] } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { recipientId: true, payload: true },
+    }) : null;
+    const payload = job?.payload as any;
+    if (payload && (payload.html || payload.text)) {
+      let html = String(payload.html || this.toHtml(String(payload.text)));
+      for (const asset of payload.attachments || []) {
+        if (asset.cid && /^image\/(png|jpeg|gif|webp)$/.test(asset.contentType || "") && typeof asset.content === "string") {
+          html = html.replaceAll(`cid:${asset.cid}`, `data:${asset.contentType};base64,${asset.content}`);
+        }
+      }
+      const recipient = recipients.find((r: any) => r.id === job.recipientId);
+      return { subject: payload.subject, html, text: payload.text || "", source: "queued", customerName: recipient?.customerName, unitNumbers: recipient?.unitNumbers };
+    }
+    // Sent jobs discard their payload; use the immutable unit communication log.
+    for (const recipient of recipients.filter((r: any) => r.status === "SENT")) {
+      const unitIds = Array.isArray(recipient.unitSnapshot) ? recipient.unitSnapshot.map((unit: any) => unit.id).filter(Boolean) : [];
+      if (!unitIds.length || !recipient.email) continue;
+      const subject = recipient.subject || campaign.subject;
+      const prefix = `Bulk email\nSubject: ${subject}\nRecipient: ${recipient.email}\n\n`;
+      const log = await this.db().customerUnitSelectionLog.findFirst({
+        where: { unitSelectionId: { in: unitIds }, section: "COMMUNICATION", field: "EMAIL", newValue: { startsWith: prefix }, createdAt: { gte: campaign.createdAt, ...(recipient.sentAt ? { lte: new Date(new Date(recipient.sentAt).getTime() + 60000) } : {}) } },
+        orderBy: { createdAt: "asc" }, select: { newValue: true },
+      });
+      if (log?.newValue) {
+        const text = log.newValue.slice(prefix.length);
+        return { subject, text, html: this.toHtml(text), source: "sent-record", customerName: recipient.customerName, unitNumbers: recipient.unitNumbers };
+      }
+    }
+    throw new NotFoundException("No saved email content available for this language");
+  }
+
   async retryFailedRecipients(user: ReqUser, id?: string | null) {
     const originalCampaign = await this.getCampaign(id);
     const persistedJobs = await this.db().bulkEmailJob.count({

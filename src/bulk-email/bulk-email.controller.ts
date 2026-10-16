@@ -83,6 +83,12 @@ export class BulkEmailController {
   @Roles("ADMIN", "MANAGER", "AFTERSALES")
   resume(@Param("id") id: string) { return this.bulkEmail.resumeCampaign(id); }
 
+  @Get("campaigns/:id/preview/:language")
+  @Roles("ADMIN", "MANAGER", "AFTERSALES")
+  campaignPreview(@Param("id") id: string, @Param("language") language: string) {
+    return this.bulkEmail.getCampaignPreview(id, language);
+  }
+
   @Get("campaigns/:id")
   @Roles("ADMIN", "MANAGER", "AFTERSALES")
   campaignDetail(@Param("id") id: string) {
