@@ -9,6 +9,11 @@
         "include": "iso-2026/iso-2026-source.json",
         "outDir": "dist/src",
         "watchAssets": true
+      },
+      {
+        "include": "bulk-email/templates/**/*",
+        "outDir": "dist/src",
+        "watchAssets": true
       }
     ]
   }

@@ -613,7 +613,13 @@ export class UnitsService {
       throw new ForbiddenException("No access to unit");
     }
 
-    return unit;
+    const emailHistory = await this.prisma.bulkEmailRecipient.findMany({
+      where: { customerId: unit.customerId, unitSnapshot: { array_contains: [{ id: unit.id }] } },
+      select: { id: true, email: true, subject: true, deliveryLanguage: true, status: true, error: true, sentAt: true, createdAt: true,
+        campaign: { select: { id: true, name: true, pausedAt: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return { ...unit, emailHistory };
   }
 
   async deleteUnit(user: ReqUser, id: string) {

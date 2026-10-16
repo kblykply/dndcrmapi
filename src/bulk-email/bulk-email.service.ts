@@ -1,4 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { unitEmailSubject } from "./unit-email-subject";
+import { normalizeRecipientEmail, queuePolicy } from "./email-delivery-policy";
+import { perlaLanguage, perlaTemplate } from "./perla-template";
+import { createHash, randomUUID } from "crypto";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { promises as fs } from "fs";
 import * as path from "path";
 import { EmailService } from "../email/email.service";
@@ -167,7 +175,9 @@ export class BulkEmailService {
   }
 
   private normalizeProject(value?: string | null): ProjectType {
-    const next = String(value || "").trim().toUpperCase();
+    const next = String(value || "")
+      .trim()
+      .toUpperCase();
     if (!PROJECTS.includes(next as ProjectType)) {
       throw new BadRequestException("Project is required");
     }
@@ -175,12 +185,12 @@ export class BulkEmailService {
   }
 
   private normalizeEmail(value?: string | null) {
-    const email = this.cleanStr(value)?.toLowerCase() || null;
-    if (!email || !email.includes("@")) return null;
-    return email;
+    return normalizeRecipientEmail(value);
   }
 
-  private normalizeDeliveryStatus(value?: string | null): UnitDeliveryStatus | null {
+  private normalizeDeliveryStatus(
+    value?: string | null,
+  ): UnitDeliveryStatus | null {
     const next = this.cleanStr(value)?.toUpperCase();
     if (!next) return null;
     if (!DELIVERY_STATUSES.includes(next as UnitDeliveryStatus)) {
@@ -191,7 +201,9 @@ export class BulkEmailService {
 
   private normalizeIdList(value?: string | string[] | null) {
     if (Array.isArray(value)) {
-      return value.map((item) => this.cleanStr(item)).filter(Boolean) as string[];
+      return value
+        .map((item) => this.cleanStr(item))
+        .filter(Boolean) as string[];
     }
 
     const raw = this.cleanStr(value);
@@ -228,7 +240,10 @@ export class BulkEmailService {
   private projectDocumentPath(project: ProjectType, encodedFileName: string) {
     const fileName = decodeURIComponent(encodedFileName);
     const safeFileName = path.basename(fileName);
-    if (fileName !== safeFileName || !safeFileName.toLowerCase().endsWith(".pdf")) {
+    if (
+      fileName !== safeFileName ||
+      !safeFileName.toLowerCase().endsWith(".pdf")
+    ) {
       throw new BadRequestException("Invalid project document");
     }
 
@@ -241,14 +256,19 @@ export class BulkEmailService {
     return { fileName: safeFileName, fullPath: resolved };
   }
 
-  private async listProjectDocuments(project: ProjectType): Promise<AttachmentOption[]> {
+  private async listProjectDocuments(
+    project: ProjectType,
+  ): Promise<AttachmentOption[]> {
     const folder = path.resolve(this.projectDocumentsRoot(), project);
 
     try {
       const entries = await fs.readdir(folder, { withFileTypes: true });
       const docs = await Promise.all(
         entries
-          .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".pdf"))
+          .filter(
+            (entry) =>
+              entry.isFile() && entry.name.toLowerCase().endsWith(".pdf"),
+          )
           .map(async (entry) => {
             const stat = await fs.stat(path.join(folder, entry.name));
             return {
@@ -272,7 +292,9 @@ export class BulkEmailService {
     }
   }
 
-  private normalizeAttachment(file?: Express.Multer.File): EmailAttachment | null {
+  private normalizeAttachment(
+    file?: Express.Multer.File,
+  ): EmailAttachment | null {
     if (!file) return null;
 
     if (!file.buffer?.length) {
@@ -287,7 +309,8 @@ export class BulkEmailService {
     const extension = filename.includes(".")
       ? filename.split(".").pop()?.toLowerCase()
       : null;
-    const contentType = this.cleanStr(file.mimetype) || "application/octet-stream";
+    const contentType =
+      this.cleanStr(file.mimetype) || "application/octet-stream";
 
     if (
       !EMAIL_ATTACHMENT_MIME_TYPES.has(contentType) &&
@@ -309,7 +332,9 @@ export class BulkEmailService {
       .filter(Boolean) as EmailAttachment[];
 
     if (attachments.length > EMAIL_ATTACHMENT_MAX_FILES) {
-      throw new BadRequestException(`You can attach up to ${EMAIL_ATTACHMENT_MAX_FILES} files`);
+      throw new BadRequestException(
+        `You can attach up to ${EMAIL_ATTACHMENT_MAX_FILES} files`,
+      );
     }
 
     const totalSize = attachments.reduce(
@@ -318,7 +343,9 @@ export class BulkEmailService {
     );
 
     if (totalSize > EMAIL_ATTACHMENT_TOTAL_MAX_BYTES) {
-      throw new BadRequestException("Total attachment size must be 25MB or smaller");
+      throw new BadRequestException(
+        "Total attachment size must be 25MB or smaller",
+      );
     }
 
     return attachments;
@@ -331,11 +358,19 @@ export class BulkEmailService {
     );
 
     if (bundle.shared.length > EMAIL_ATTACHMENT_MAX_FILES) {
-      throw new BadRequestException(`You can attach up to ${EMAIL_ATTACHMENT_MAX_FILES} files`);
+      throw new BadRequestException(
+        `You can attach up to ${EMAIL_ATTACHMENT_MAX_FILES} files`,
+      );
     }
 
-    for (const [customerId, privateAttachments] of bundle.byCustomerId.entries()) {
-      if (bundle.shared.length + privateAttachments.length > EMAIL_ATTACHMENT_MAX_FILES) {
+    for (const [
+      customerId,
+      privateAttachments,
+    ] of bundle.byCustomerId.entries()) {
+      if (
+        bundle.shared.length + privateAttachments.length >
+        EMAIL_ATTACHMENT_MAX_FILES
+      ) {
         throw new BadRequestException(
           `Attachments for customer ${customerId} exceed the ${EMAIL_ATTACHMENT_MAX_FILES} file limit`,
         );
@@ -367,7 +402,9 @@ export class BulkEmailService {
       this.cleanStr(recipient.companyName) ||
       "Customer";
     const companyName =
-      this.cleanStr(recipient.companyName) || this.cleanStr(recipient.fullName) || "";
+      this.cleanStr(recipient.companyName) ||
+      this.cleanStr(recipient.fullName) ||
+      "";
     const salesName = this.cleanStr(recipient.owner?.name) || "DND Cyprus";
 
     return text
@@ -387,22 +424,30 @@ export class BulkEmailService {
   }
 
   private readableMailError(error: any) {
-    const message = String(error?.message || error || "Email could not be sent");
+    const message = String(
+      error?.message || error || "Email could not be sent",
+    );
     const code = String(error?.code || error?.responseCode || "").toUpperCase();
     const response = String(error?.response || "").trim();
     const text = `${code} ${message} ${response}`.toLowerCase();
 
     let friendly = "Email could not be sent.";
 
-    if (text.includes("auth") || text.includes("535") || text.includes("login")) {
-      friendly = "SMTP login failed. Please check the mail username or password.";
+    if (
+      text.includes("auth") ||
+      text.includes("535") ||
+      text.includes("login")
+    ) {
+      friendly =
+        "SMTP login failed. Please check the mail username or password.";
     } else if (
       text.includes("connection") ||
       text.includes("timeout") ||
       text.includes("econn") ||
       text.includes("etimedout")
     ) {
-      friendly = "SMTP connection failed. Please check the mail server and port.";
+      friendly =
+        "SMTP connection failed. Please check the mail server and port.";
     } else if (
       text.includes("recipient") ||
       text.includes("mailbox") ||
@@ -418,7 +463,11 @@ export class BulkEmailService {
       text.includes("552")
     ) {
       friendly = "Email is too large. Reduce attachment size and try again.";
-    } else if (text.includes("rate") || text.includes("limit") || text.includes("throttle")) {
+    } else if (
+      text.includes("rate") ||
+      text.includes("limit") ||
+      text.includes("throttle")
+    ) {
       friendly = "Mail server rate limit was reached. Try again later.";
     }
 
@@ -427,18 +476,22 @@ export class BulkEmailService {
       : `${friendly} (${message})`;
   }
 
-  private sortUnitNumbers<T extends { unitNumber: string }>(rows: readonly T[]) {
+  private sortUnitNumbers<T extends { unitNumber: string }>(
+    rows: readonly T[],
+  ) {
     const collator = new Intl.Collator("en", {
       numeric: true,
       sensitivity: "base",
     });
-    return [...rows].sort((a, b) => collator.compare(a.unitNumber, b.unitNumber));
+    return [...rows].sort((a, b) =>
+      collator.compare(a.unitNumber, b.unitNumber),
+    );
   }
 
   private campaignRecipientData(
     campaignId: string,
     recipient: BulkRecipient,
-    status: "SENT" | "FAILED" | "MISSING_EMAIL",
+    status: "SENT" | "FAILED" | "MISSING_EMAIL" | "QUEUED",
     options: { error?: string | null; sentAt?: Date | null } = {},
   ) {
     return {
@@ -501,7 +554,8 @@ export class BulkEmailService {
     };
 
     if (ownerId) customerWhere.ownerId = ownerId;
-    if (language) customerWhere.language = { equals: language, mode: "insensitive" };
+    if (language)
+      customerWhere.language = { equals: language, mode: "insensitive" };
     if (nationality) {
       customerWhere.nationality = { equals: nationality, mode: "insensitive" };
     }
@@ -581,10 +635,32 @@ export class BulkEmailService {
         units: this.sortUnitNumbers(recipient.units),
       }))
       .filter((recipient) => this.recipientMatchesSearch(recipient, filters.q));
-    const withEmail = recipients.filter((recipient) => recipient.email);
+    const emailCounts = new Map<string, number>();
+    recipients.forEach((r) => {
+      if (r.email)
+        emailCounts.set(r.email, (emailCounts.get(r.email) || 0) + 1);
+    });
+    const suppressionRows = await this.db().bulkEmailSuppression.findMany({
+      where: { email: { in: [...emailCounts.keys()] } },
+      select: { email: true },
+    });
+    const suppressed = new Set(suppressionRows.map((r: any) => r.email));
+    // Shared addresses can belong to distinct people with private attachments: require review instead of merging.
+    const blockedRecipients = recipients.filter(
+      (r) =>
+        r.email &&
+        ((emailCounts.get(r.email) || 0) > 1 || suppressed.has(r.email)),
+    );
+    const withEmail = recipients.filter(
+      (r) => r.email && !blockedRecipients.includes(r),
+    );
     const missingEmail = recipients.filter((recipient) => !recipient.email);
     const languages = Array.from(
-      new Set(recipients.map((recipient) => this.cleanStr(recipient.language)).filter(Boolean)),
+      new Set(
+        recipients
+          .map((recipient) => this.cleanStr(recipient.language))
+          .filter(Boolean),
+      ),
     ).sort((a, b) => String(a).localeCompare(String(b)));
     const nationalities = Array.from(
       new Set(
@@ -597,6 +673,16 @@ export class BulkEmailService {
     return {
       project,
       projectLabel: PROJECT_LABELS[project],
+      blockedRecipients: blockedRecipients.map((r) => ({
+        ...r,
+        reason: suppressed.has(r.email) ? "SUPPRESSED" : "SHARED_EMAIL",
+      })),
+      languageReview: withEmail
+        .map((r) => ({
+          customerId: r.customerId,
+          ...perlaLanguage(r.language, r.nationality),
+        }))
+        .filter((r) => r.fallback),
       filters: {
         deliveryStatus,
         ownerId,
@@ -691,11 +777,15 @@ export class BulkEmailService {
   }): Promise<EmailAttachment> {
     const bucket = process.env.SUPABASE_STORAGE_BUCKET;
     if (!bucket) {
-      throw new BadRequestException("SUPABASE_STORAGE_BUCKET is not configured");
+      throw new BadRequestException(
+        "SUPABASE_STORAGE_BUCKET is not configured",
+      );
     }
 
     if (!this.cleanStr(doc.storagePath)) {
-      throw new BadRequestException(`Document ${doc.fileName} has no storage path`);
+      throw new BadRequestException(
+        `Document ${doc.fileName} has no storage path`,
+      );
     }
 
     const { supabaseAdmin } = await import("../lib/supabase-admin.js");
@@ -744,7 +834,10 @@ export class BulkEmailService {
           throw new BadRequestException("Invalid project document selection");
         }
 
-        const { fileName, fullPath } = this.projectDocumentPath(project, second);
+        const { fileName, fullPath } = this.projectDocumentPath(
+          project,
+          second,
+        );
         const content = await fs.readFile(fullPath);
         if (content.length > EMAIL_ATTACHMENT_MAX_BYTES) {
           throw new BadRequestException(
@@ -822,79 +915,159 @@ export class BulkEmailService {
     messageTemplate: string,
     recipients: BulkRecipient[],
     attachmentBundle: AttachmentBundle,
+    brandedTemplate = false,
+    transaction?: any,
   ): Promise<CampaignSendOutcome> {
-    const successes: CampaignSendOutcome["successes"] = [];
-    const failures: CampaignSendOutcome["failures"] = [];
+    const payloadBytes = recipients.reduce(
+      (total, r) =>
+        total +
+        attachmentBundle.shared.reduce((n, a) => n + a.content.length, 0) +
+        (attachmentBundle.byCustomerId.get(r.customerId) || []).reduce(
+          (n, a) => n + a.content.length,
+          0,
+        ) +
+        (brandedTemplate ? 100000 : 0),
+      0,
+    );
+    if (payloadBytes > 75 * 1024 * 1024)
+      throw new BadRequestException(
+        "Campaign attachments too large; reduce attachments or recipient count",
+      );
+    const languageOrder = ["tr", "fa", "ru", "en"];
+    const collator = new Intl.Collator("tr", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    const orderedRecipients = brandedTemplate
+      ? [...recipients].sort(
+          (a, b) =>
+            languageOrder.indexOf(
+              perlaLanguage(a.language, a.nationality).language,
+            ) -
+              languageOrder.indexOf(
+                perlaLanguage(b.language, b.nationality).language,
+              ) ||
+            collator.compare(
+              a.units[0]?.unitNumber || "",
+              b.units[0]?.unitNumber || "",
+            ),
+        )
+      : recipients;
+    const jobs = await Promise.all(
+      orderedRecipients.map(async (recipient) => {
+        const branded = brandedTemplate
+          ? await perlaTemplate(
+              perlaLanguage(recipient.language, recipient.nationality).language,
+            )
+          : null;
+        const subject =
+          brandedTemplate ? unitEmailSubject(project, recipient.units.map(unit => unit.unitNumber)) :
+          this.renderTemplate(subjectTemplate, recipient, project);
+        const text =
+          branded?.text ||
+          this.renderTemplate(messageTemplate, recipient, project);
+        const attachments = [
+          ...(branded?.attachments || []),
+          ...attachmentBundle.shared,
+          ...(attachmentBundle.byCustomerId.get(recipient.customerId) || []),
+        ];
+        return {
+          recipient,
+          payload: {
+            to: recipient.email,
+            subject,
+            text,
+            html: branded?.html || this.toHtml(text),
+            replyTo: process.env.SMTP_USER,
+            actorId: user.id,
+            deliveryLanguage: perlaLanguage(
+              recipient.language,
+              recipient.nationality,
+            ).language,
+            unitIds: recipient.units.map((unit) => unit.id),
+            attachments: attachments.map((a) => ({
+              ...a,
+              content: a.content.toString("base64"),
+            })),
+          },
+        };
+      }),
+    );
+    const save = async (tx: any) => {
+      const enqueuedAt = Date.now();
+      const rows = jobs.map(({ recipient, payload }, index) => ({
+        createdAt: new Date(enqueuedAt + index),
+        id: randomUUID(),
+        recipient,
+        payload,
+      }));
+      await tx.bulkEmailRecipient.createMany({
+        data: rows.map((row) => ({
+          id: row.id,
+          ...this.campaignRecipientData(campaignId, row.recipient, "QUEUED"),
+          subject: row.payload.subject,
+          deliveryLanguage: row.payload.deliveryLanguage,
+        })),
+      });
+      await tx.bulkEmailJob.createMany({
+        data: rows.map((row) => ({
+          id: randomUUID(),
+          campaignId,
+          recipientId: row.id,
+          payload: row.payload,
+          createdAt: row.createdAt,
+        })),
+      });
+    };
+    if (transaction) await save(transaction);
+    else await this.prisma.$transaction(save, { timeout: 60000 });
+    return { successes: [], failures: [] };
+  }
 
-    for (const recipient of recipients) {
-      const to = recipient.email as string;
-      const subject = this.renderTemplate(subjectTemplate, recipient, project);
-      const message = this.renderTemplate(messageTemplate, recipient, project);
-      const units = recipient.units.map((unit) => unit.unitNumber);
-      const privateAttachments =
-        attachmentBundle.byCustomerId.get(recipient.customerId) || [];
-      const attachments = [...attachmentBundle.shared, ...privateAttachments];
+  private queuedResult(campaign: any, missingEmail: any[]) {
+    return {
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      campaignStatus: campaign.status,
+      project: campaign.project,
+      projectLabel: PROJECT_LABELS[campaign.project as ProjectType],
+      subject: campaign.subject,
+      sentAt: campaign.createdAt.toISOString(),
+      attempted: campaign.attemptedCount,
+      successCount: campaign.successCount,
+      failedCount: campaign.failedCount,
+      skippedMissingEmailCount: missingEmail.length,
+      successes: [],
+      failures: [],
+      missingEmail,
+      queued: true,
+      delivery: this.deliverySettings(),
+    };
+  }
 
-      try {
-        await this.email.sendMail({
-          to,
-          subject,
-          text: message,
-          html: this.toHtml(message),
-          replyTo: user.email,
-          attachments: attachments.length ? attachments : undefined,
-        });
+  deliverySettings() {
+    const policy = queuePolicy();
+    return {
+      queueEnabled: policy.enabled,
+      hourlyLimit: Number.isFinite(policy.hourly) ? policy.hourly : null,
+      dailyLimit: Number.isFinite(policy.daily) ? policy.daily : null,
+      intervalSeconds: policy.interval,
+      pausedReason: policy.enabled
+        ? null
+        : "Provider quota must be confirmed and queue enabled in backend settings.",
+    };
+  }
 
-        const recipientAttachmentNames = attachments
-          .map((attachment) => attachment.filename)
-          .join(", ");
-        await this.prisma.customerUnitSelectionLog.createMany({
-          data: recipient.units.map((unit) => ({
-            unitSelectionId: unit.id,
-            section: "COMMUNICATION",
-            field: "EMAIL",
-            oldValue: null,
-            newValue: `Bulk email\nProject: ${PROJECT_LABELS[project]}\nSubject: ${subject}\nRecipient: ${to}\nUnits: ${units.join(", ")}${
-              recipientAttachmentNames
-                ? `\nAttachments: ${recipientAttachmentNames}`
-                : ""
-            }\n\n${message}`,
-            createdById: user.id,
-          })),
-        });
+  async pauseCampaign(id: string) {
+    await this.getCampaign(id);
+    return this.db().bulkEmailCampaign.update({ where: { id }, data: { pausedAt: new Date(), pauseReason: "Kullanıcı tarafından duraklatıldı" } });
+  }
 
-        await this.db().bulkEmailRecipient.create({
-          data: this.campaignRecipientData(campaignId, recipient, "SENT", {
-            sentAt: new Date(),
-          }),
-        });
-
-        successes.push({
-          customerId: recipient.customerId,
-          name: recipient.fullName,
-          email: to,
-          units,
-        });
-      } catch (error: any) {
-        const readableError = this.readableMailError(error);
-
-        failures.push({
-          customerId: recipient.customerId,
-          name: recipient.fullName,
-          email: to,
-          units,
-          error: readableError,
-        });
-
-        await this.db().bulkEmailRecipient.create({
-          data: this.campaignRecipientData(campaignId, recipient, "FAILED", {
-            error: readableError,
-          }),
-        });
-      }
-    }
-
-    return { successes, failures };
+  async resumeCampaign(id: string) {
+    if (!queuePolicy().enabled) throw new BadRequestException("Backend gönderim ayarları etkin değil; kampanya duraklatılmış kalacak");
+    const campaign = await this.getCampaign(id);
+    if (campaign.status !== "SENDING") throw new BadRequestException("Tamamlanmış kampanya yeniden başlatılamaz");
+    return this.db().bulkEmailCampaign.update({ where: { id }, data: { pausedAt: null, pauseReason: null } });
   }
 
   async listCampaigns(project?: string | null) {
@@ -944,7 +1117,9 @@ export class BulkEmailService {
     if (String(input.dateTo || "").length <= 10) to.setHours(23, 59, 59, 999);
 
     if (from > to) {
-      throw new BadRequestException("Report start date must be before end date");
+      throw new BadRequestException(
+        "Report start date must be before end date",
+      );
     }
 
     return { from, to };
@@ -1007,14 +1182,22 @@ export class BulkEmailService {
     );
 
     const byProject = PROJECTS.map((project) => {
-      const rows = campaigns.filter((campaign: any) => campaign.project === project);
+      const rows = campaigns.filter(
+        (campaign: any) => campaign.project === project,
+      );
       return {
         project,
         projectLabel: PROJECT_LABELS[project],
         campaigns: rows.length,
-        attempted: rows.reduce((sum: number, row: any) => sum + row.attemptedCount, 0),
+        attempted: rows.reduce(
+          (sum: number, row: any) => sum + row.attemptedCount,
+          0,
+        ),
         sent: rows.reduce((sum: number, row: any) => sum + row.successCount, 0),
-        failed: rows.reduce((sum: number, row: any) => sum + row.failedCount, 0),
+        failed: rows.reduce(
+          (sum: number, row: any) => sum + row.failedCount,
+          0,
+        ),
         missingEmail: rows.reduce(
           (sum: number, row: any) => sum + row.missingEmailCount,
           0,
@@ -1022,10 +1205,13 @@ export class BulkEmailService {
       };
     }).filter((row) => row.campaigns > 0);
 
-    const byStatus = ["COMPLETED", "PARTIAL", "FAILED", "SENDING"].map((status) => ({
-      status,
-      count: campaigns.filter((campaign: any) => campaign.status === status).length,
-    }));
+    const byStatus = ["COMPLETED", "PARTIAL", "FAILED", "SENDING"].map(
+      (status) => ({
+        status,
+        count: campaigns.filter((campaign: any) => campaign.status === status)
+          .length,
+      }),
+    );
 
     const failedRecipients = campaigns
       .flatMap((campaign: any) =>
@@ -1115,12 +1301,58 @@ export class BulkEmailService {
 
   async retryFailedRecipients(user: ReqUser, id?: string | null) {
     const originalCampaign = await this.getCampaign(id);
+    const persistedJobs = await this.db().bulkEmailJob.count({
+      where: { campaignId: originalCampaign.id },
+    });
+    if (persistedJobs) {
+      const failedJobs = await this.db().bulkEmailJob.findMany({
+        where: { campaignId: originalCampaign.id, status: "FAILED" },
+      });
+      const eligible = failedJobs.filter(
+        (j: any) => j.payload && Object.keys(j.payload).length,
+      );
+      if (!eligible.length)
+        throw new BadRequestException(
+          "No confirmed failed deliveries available to retry",
+        );
+      await this.prisma.$transaction(async (tx: any) => {
+        let requeued = 0;
+        for (const job of eligible) {
+          const suppressed = await tx.bulkEmailSuppression.findUnique({
+            where: { email: job.payload.to },
+          });
+          if (suppressed) continue;
+          const changed = await tx.bulkEmailJob.updateMany({
+            where: { id: job.id, status: "FAILED" },
+            data: { status: "QUEUED", attempts: 0, availableAt: new Date() },
+          });
+          if (changed.count) {
+            requeued++;
+            await tx.bulkEmailRecipient.update({
+              where: { id: job.recipientId },
+              data: { status: "QUEUED", error: null },
+            });
+          }
+        }
+        if (!requeued)
+          throw new BadRequestException(
+            "Recipients are suppressed or already queued",
+          );
+        await tx.bulkEmailCampaign.update({
+          where: { id: originalCampaign.id },
+          data: { status: "SENDING" },
+        });
+      });
+      return this.queuedResult({ ...originalCampaign, status: "SENDING" }, []);
+    }
     const failedRecipients = (originalCampaign.recipients || []).filter(
       (recipient: any) => recipient.status === "FAILED" && recipient.customerId,
     );
 
     if (failedRecipients.length === 0) {
-      throw new BadRequestException("No failed recipients found for this campaign");
+      throw new BadRequestException(
+        "No failed recipients found for this campaign",
+      );
     }
 
     const selectedCustomerIds = Array.from(
@@ -1173,7 +1405,10 @@ export class BulkEmailService {
     );
     if (missing.length > 0) {
       const missingById = new Map(
-        failedRecipients.map((recipient: any) => [recipient.customerId, recipient]),
+        failedRecipients.map((recipient: any) => [
+          recipient.customerId,
+          recipient,
+        ]),
       );
       await this.db().bulkEmailRecipient.createMany({
         data: missing.map((customerId) => {
@@ -1212,12 +1447,7 @@ export class BulkEmailService {
       recipients,
       attachmentBundle,
     );
-    const status =
-      failures.length === 0
-        ? "COMPLETED"
-        : successes.length > 0
-          ? "PARTIAL"
-          : "FAILED";
+    const status = "SENDING";
 
     await this.db().bulkEmailCampaign.update({
       where: { id: campaign.id },
@@ -1234,6 +1464,8 @@ export class BulkEmailService {
       campaignId: campaign.id,
       campaignName: campaign.name,
       campaignStatus: status,
+      queued: true,
+      delivery: this.deliverySettings(),
       project: originalCampaign.project,
       projectLabel: PROJECT_LABELS[originalCampaign.project as ProjectType],
       subject: originalCampaign.subject,
@@ -1251,6 +1483,7 @@ export class BulkEmailService {
   async sendBulkEmail(
     user: ReqUser,
     dto: {
+      templateId?: string | null;
       campaignName?: string | null;
       project?: string | null;
       deliveryStatus?: string | null;
@@ -1266,6 +1499,13 @@ export class BulkEmailService {
     files?: Express.Multer.File[],
   ) {
     const project = this.normalizeProject(dto.project);
+    const brandedTemplate = dto.templateId === "perla-update";
+    if (dto.templateId && !brandedTemplate)
+      throw new BadRequestException("Unknown mail template");
+    if (brandedTemplate && project !== "LA_JOYA_PERLA")
+      throw new BadRequestException(
+        "Perla template is only available for Perla",
+      );
     const subjectTemplate = this.cleanStr(dto.subject);
     const messageTemplate = this.cleanStr(dto.message);
 
@@ -1288,7 +1528,9 @@ export class BulkEmailService {
       selectedCustomerIds,
     });
     if (preview.recipients.length === 0) {
-      throw new BadRequestException("No customers with email found for this project");
+      throw new BadRequestException(
+        "No customers with email found for this project",
+      );
     }
 
     const attachmentBundle = await this.buildAttachmentBundle(
@@ -1301,80 +1543,88 @@ export class BulkEmailService {
     const campaignName =
       this.cleanStr(dto.campaignName) ||
       `${PROJECT_LABELS[project]} - ${subjectTemplate}`;
-    const campaign = await this.db().bulkEmailCampaign.create({
-      data: {
-        name: campaignName,
-        project,
-        subject: subjectTemplate,
-        message: messageTemplate,
-        attachmentFileName: attachmentNames || null,
-        status: "SENDING",
-        totalUnits: preview.totalUnits,
-        uniqueCustomers: preview.uniqueCustomers,
-        attemptedCount: preview.recipients.length,
-        successCount: 0,
-        failedCount: 0,
-        missingEmailCount: preview.missingEmail.length,
-        createdById: user.id,
+    const requestKey = createHash("sha256")
+      .update(
+        JSON.stringify({
+          project,
+          subjectTemplate: brandedTemplate
+            ? "perla-update-units-v2"
+            : subjectTemplate,
+          messageTemplate: brandedTemplate
+            ? "perla-update-units-v2"
+            : messageTemplate,
+          brandedTemplate,
+          recipients: preview.recipients
+            .map((r) => ({
+              id: r.customerId,
+              email: r.email,
+              language: r.language,
+              nationality: r.nationality,
+              units: r.units.map((u) => u.id),
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id)),
+          attachments: [
+            ...attachmentBundle.shared,
+            ...[...attachmentBundle.byCustomerId.values()].flat(),
+          ].map((a) => ({
+            name: a.filename,
+            hash: createHash("sha256").update(a.content).digest("hex"),
+          })),
+        }),
+      )
+      .digest("hex");
+    const campaign = await this.prisma.$transaction(
+      async (tx: any) => {
+        // Serialize identical submissions across API replicas as well as browser retries.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${requestKey}))::text`;
+        const existing = await tx.bulkEmailCampaign.findUnique({
+          where: { requestKey },
+        });
+        if (existing) return existing;
+        const created = await tx.bulkEmailCampaign.create({
+          data: {
+            requestKey,
+            name: campaignName,
+            project,
+            subject: subjectTemplate,
+            message: messageTemplate,
+            attachmentFileName: attachmentNames || null,
+            status: "SENDING",
+            totalUnits: preview.totalUnits,
+            uniqueCustomers: preview.uniqueCustomers,
+            attemptedCount: preview.recipients.length,
+            missingEmailCount: preview.missingEmail.length,
+            createdById: user.id,
+          },
+        });
+        if (preview.missingEmail.length)
+          await tx.bulkEmailRecipient.createMany({
+            data: preview.missingEmail.map((r) =>
+              this.campaignRecipientData(created.id, r, "MISSING_EMAIL"),
+            ),
+          });
+        await this.sendRecipientsForCampaign(
+          user,
+          created.id,
+          project,
+          subjectTemplate,
+          messageTemplate,
+          preview.recipients,
+          attachmentBundle,
+          brandedTemplate,
+          tx,
+        );
+        return created;
       },
-    });
-
-    if (preview.missingEmail.length > 0) {
-      await this.db().bulkEmailRecipient.createMany({
-        data: preview.missingEmail.map((recipient) =>
-          this.campaignRecipientData(campaign.id, recipient, "MISSING_EMAIL"),
-        ),
-      });
-    }
-
-    const { successes, failures } = await this.sendRecipientsForCampaign(
-      user,
-      campaign.id,
-      project,
-      subjectTemplate,
-      messageTemplate,
-      preview.recipients,
-      attachmentBundle,
+      { timeout: 60000 },
     );
-
-    const status =
-      failures.length === 0
-        ? "COMPLETED"
-        : successes.length > 0
-          ? "PARTIAL"
-          : "FAILED";
-    await this.db().bulkEmailCampaign.update({
-      where: { id: campaign.id },
-      data: {
-        status,
-        successCount: successes.length,
-        failedCount: failures.length,
-        attemptedCount: preview.recipients.length,
-        missingEmailCount: preview.missingEmail.length,
-      },
-    });
-
-    return {
-      campaignId: campaign.id,
-      campaignName,
-      campaignStatus: status,
-      project,
-      projectLabel: PROJECT_LABELS[project],
-      subject: subjectTemplate,
-      sentAt: new Date().toISOString(),
-      attempted: preview.recipients.length,
-      successCount: successes.length,
-      failedCount: failures.length,
-      skippedMissingEmailCount: preview.missingEmail.length,
-      successes,
-      failures,
-      missingEmail: preview.missingEmail,
-    };
+    return this.queuedResult(campaign, preview.missingEmail);
   }
 
   async sendTestEmail(
     user: ReqUser,
     dto: {
+      templateId?: string | null;
       project?: string | null;
       deliveryStatus?: string | null;
       ownerId?: string | null;
@@ -1420,17 +1670,27 @@ export class BulkEmailService {
     const previewCustomerId = this.cleanStr(dto.previewCustomerId);
     const recipient =
       (previewCustomerId
-        ? preview.recipients.find(
-            (row) => row.customerId === previewCustomerId,
-          )
-        : null) ||
-      preview.recipients[0];
+        ? preview.recipients.find((row) => row.customerId === previewCustomerId)
+        : null) || preview.recipients[0];
 
     if (!recipient) {
-      throw new BadRequestException("No preview customer found for this filter");
+      throw new BadRequestException(
+        "No preview customer found for this filter",
+      );
     }
 
-    const subject = `[TEST] ${this.renderTemplate(subjectTemplate, recipient, project)}`;
+    if (
+      dto.templateId &&
+      (dto.templateId !== "perla-update" || project !== "LA_JOYA_PERLA")
+    )
+      throw new BadRequestException("Invalid mail template");
+    const branded =
+      dto.templateId === "perla-update"
+        ? await perlaTemplate(
+            perlaLanguage(recipient.language, recipient.nationality).language,
+          )
+        : null;
+    const subject = `[TEST] ${branded ? unitEmailSubject(project, recipient.units.map(unit => unit.unitNumber)) : this.renderTemplate(subjectTemplate, recipient, project)}`;
     const message = this.renderTemplate(messageTemplate, recipient, project);
     const attachmentBundle = await this.buildAttachmentBundle(
       project,
@@ -1439,21 +1699,24 @@ export class BulkEmailService {
       dto.selectedAttachmentIds,
     );
     const attachments = [
+      ...(branded?.attachments || []),
       ...attachmentBundle.shared,
       ...(attachmentBundle.byCustomerId.get(recipient.customerId) || []),
     ];
 
-    await this.email.sendMail({
+    const delivery = await this.email.sendMail({
       to,
       subject,
-      text: message,
-      html: this.toHtml(message),
-      replyTo: user.email,
+      text: branded?.text || message,
+      html: branded?.html || this.toHtml(message),
+      replyTo: process.env.SMTP_USER,
       attachments: attachments.length ? attachments : undefined,
     });
 
     return {
       ok: true,
+      messageId: delivery.messageId,
+      smtpAccepted: delivery.accepted?.length > 0,
       to,
       previewCustomerId: recipient.customerId,
       previewCustomerName: recipient.fullName,

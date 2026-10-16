@@ -708,6 +708,9 @@ model BulkEmailCampaign {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  pausedAt DateTime?
+  pauseReason String?
+  requestKey String? @unique
   recipients BulkEmailRecipient[]
 
   @@index([project, sentAt])
@@ -725,6 +728,8 @@ model BulkEmailRecipient {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
+  subject String?
+  deliveryLanguage String?
   customerName String
   companyName  String?
   email        String?
@@ -755,6 +760,10 @@ enum BulkEmailCampaignStatus {
 }
 
 enum BulkEmailRecipientStatus {
+  QUEUED
+  SENDING
+  UNCERTAIN
+  SKIPPED
   SENT
   FAILED
   MISSING_EMAIL
@@ -2141,4 +2150,35 @@ model SalesLedgerRepresentative {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   updatedAt DateTime @default(now()) @db.Timestamptz
   @@index([userId])
+}
+
+model BulkEmailJob {
+  id String @id @default(cuid())
+  recipientId String @unique
+  campaignId String
+  status String @default("QUEUED")
+  payload Json
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  startedAt DateTime?
+  messageId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, availableAt])
+  @@index([campaignId])
+}
+
+model BulkEmailDispatchState {
+  id String @id
+  nextSendAt DateTime @default(now())
+  windowStartedAt DateTime @default(now())
+  count Int @default(0)
+  dayStartedAt DateTime @default(now())
+  dayCount Int @default(0)
+}
+
+model BulkEmailSuppression {
+  email String @id
+  reason String
+  createdAt DateTime @default(now())
 }

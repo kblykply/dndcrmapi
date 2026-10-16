@@ -19,6 +19,8 @@ type SendMailInput = {
     filename: string;
     content: Buffer;
     contentType?: string;
+    cid?: string;
+    contentDisposition?: "inline" | "attachment";
   }>;
 };
 
@@ -53,6 +55,9 @@ export class EmailService {
     }
 
     return nodemailer.createTransport({
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 60000,
       host,
       port,
       secure,
@@ -79,10 +84,13 @@ export class EmailService {
     const enabled = this.boolConfig("IMAP_SAVE_SENT", true);
     if (!enabled) return null;
 
-    const host = this.cleanStr(process.env.IMAP_HOST) || this.requireConfig("SMTP_HOST");
+    const host =
+      this.cleanStr(process.env.IMAP_HOST) || this.requireConfig("SMTP_HOST");
     const port = Number(this.cleanStr(process.env.IMAP_PORT) || "993");
-    const user = this.cleanStr(process.env.IMAP_USER) || this.requireConfig("SMTP_USER");
-    const pass = this.cleanStr(process.env.IMAP_PASS) || this.requireConfig("SMTP_PASS");
+    const user =
+      this.cleanStr(process.env.IMAP_USER) || this.requireConfig("SMTP_USER");
+    const pass =
+      this.cleanStr(process.env.IMAP_PASS) || this.requireConfig("SMTP_PASS");
     const secure = this.boolConfig("IMAP_SECURE", port === 993);
     const sentFolder =
       this.cleanStr(process.env.IMAP_SENT_FOLDER) || "Gönderilmiş Öğeler";
@@ -108,6 +116,9 @@ export class EmailService {
         pass: config.pass,
       },
       logger: false,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
 
     try {
@@ -178,6 +189,13 @@ export class EmailService {
       raw,
     });
 
+    if (!result.accepted?.length) {
+      throw Object.assign(new Error("SMTP did not accept recipient"), {
+        code: "ERECIPIENT",
+        command: "RCPT TO",
+        responseCode: 550,
+      });
+    }
     await this.appendToSent(raw);
     return result;
   }

@@ -1,3 +1,4 @@
+import { BulkEmailQueueService } from "./bulk-email-queue.service";
 import { Module } from "@nestjs/common";
 import { EmailModule } from "../email/email.module";
 import { BulkEmailController } from "./bulk-email.controller";
@@ -6,6 +7,6 @@ import { BulkEmailService } from "./bulk-email.service";
 @Module({
   imports: [EmailModule],
   controllers: [BulkEmailController],
-  providers: [BulkEmailService],
+  providers: [BulkEmailService, BulkEmailQueueService],
 })
 export class BulkEmailModule {}
