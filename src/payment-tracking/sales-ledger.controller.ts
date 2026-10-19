@@ -18,7 +18,7 @@ import { SalesLedgerService } from './sales-ledger.service';
 
 @Controller('sales-ledger')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SALES')
+@Roles('SALES', 'ADMIN', 'MANAGER')
 export class SalesLedgerController {
   constructor(private readonly ledger: SalesLedgerService) {}
   @Get()

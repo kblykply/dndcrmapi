@@ -7,7 +7,7 @@ import type { PaymentSourceSnapshot } from './payment-tracking.types';
 export const normalizeSalesCode = (code: string) => code.trim().toUpperCase();
 export function salesLedgerSnapshot(
   snapshot: PaymentSourceSnapshot,
-  actorId: string,
+  actorId: string | null,
   mappings: { code: string; userId: string }[],
 ): PaymentSourceSnapshot {
   requireInvoiceOkSource(snapshot, 'value:DND');
@@ -29,8 +29,9 @@ export function salesLedgerSnapshot(
       ...new Set(item.representatives.map(normalizeSalesCode).filter(Boolean)),
     ];
     return (
-      codes.length > 0 &&
-      codes.every((code) => owners.get(code) === actorId) &&
+      (actorId === null ||
+        (codes.length > 0 &&
+          codes.every((code) => owners.get(code) === actorId))) &&
       matchesInvoiceOk(item, 'value:DND') &&
       item.authorization.status === 'matched' &&
       item.authorization.hasBlank &&

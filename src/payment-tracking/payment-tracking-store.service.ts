@@ -227,7 +227,7 @@ export class PaymentTrackingStoreService {
     const canAct = (role: string) =>
       eligibleRoles.some((allowed) => allowed === role) ||
       (input.salesScoped === true &&
-        role === 'SALES' &&
+        ['SALES', 'MANAGER'].includes(role) &&
         ['defer', 'reset', 'note', 'contact'].includes(input.type));
     if (!input.actor?.id || !canAct(input.actor.role))
       throw new ForbiddenException(

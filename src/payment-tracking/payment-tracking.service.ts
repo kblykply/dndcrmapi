@@ -1007,7 +1007,9 @@ export class PaymentTrackingService {
     key: string,
     input: unknown,
     actor: PaymentActor,
-    restrict?: (snapshot: PaymentSourceSnapshot) => Promise<PaymentSourceSnapshot>,
+    restrict?: (
+      snapshot: PaymentSourceSnapshot,
+    ) => Promise<PaymentSourceSnapshot>,
   ): Promise<PaymentTrackingDetail> {
     this.key(key);
     const action = parseTrackingAction(input);
@@ -1045,7 +1047,9 @@ export class PaymentTrackingService {
       sourceIdentity: item.identity,
       actor,
       ...action,
-      ...(restrict && actor.role === 'SALES' ? { salesScoped: true } : {}),
+      ...(restrict && ['SALES', 'MANAGER'].includes(actor.role)
+        ? { salesScoped: true }
+        : {}),
     });
     return this.describe(snapshot, item, true);
   }

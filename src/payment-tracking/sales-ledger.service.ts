@@ -27,7 +27,7 @@ export class SalesLedgerService {
     private readonly payments: PaymentTrackingService,
   ) {}
   async scoped(actor: PaymentActor, snapshot?: PaymentSourceSnapshot) {
-    if (actor.role !== 'SALES')
+    if (!['SALES', 'ADMIN', 'MANAGER'].includes(actor.role))
       throw new ForbiddenException('Bu alan satışçı hesaplarına açıktır.');
     const [data, mappings] = await Promise.all([
       snapshot ? Promise.resolve(snapshot) : this.source.snapshot(),
@@ -35,7 +35,13 @@ export class SalesLedgerService {
         select: { code: true, userId: true },
       }),
     ]);
-    return salesLedgerSnapshot(data, actor.id, mappings);
+    // Only authenticated supervisors may view the full portfolio. Query parameters
+    // never influence this access decision.
+    return salesLedgerSnapshot(
+      data,
+      actor.role === 'SALES' ? actor.id : null,
+      mappings,
+    );
   }
   async list(
     actor: PaymentActor,
@@ -121,7 +127,29 @@ export class SalesLedgerService {
         ...mappings.map((mapping) => mapping.code),
       ]),
     ].sort();
-    return { users, mappings, codes };
+    const portfolios = users.map((user) => {
+      // Use exactly the same ownership and financial scope as the salesperson view.
+      const scoped = salesLedgerSnapshot(snapshot, user.id, mappings);
+      return {
+        userId: user.id,
+        accountCount: scoped.cases.length,
+        customerCount: new Set(
+          scoped.cases
+            .map((item) => item.identity.customerCode)
+            .filter(Boolean),
+        ).size,
+        overdueCount: scoped.cases.filter(
+          (item) => (item.overdueAmount || 0) > 0,
+        ).length,
+      };
+    });
+    return {
+      users,
+      mappings,
+      codes,
+      portfolios,
+      importedAt: snapshot.importedAt || null,
+    };
   }
   async setMapping(code: string, userId: string | null) {
     code = normalizeSalesCode(code);

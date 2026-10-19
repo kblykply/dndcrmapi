@@ -173,6 +173,8 @@ describe('sales ledger isolation', () => {
   it('keeps sales and admin mapping routes behind distinct role guards', () => {
     expect(Reflect.getMetadata('roles', SalesLedgerController)).toEqual([
       'SALES',
+      'ADMIN',
+      'MANAGER',
     ]);
     expect(Reflect.getMetadata('roles', SalesLedgerMappingsController)).toEqual(
       ['ADMIN'],
@@ -207,11 +209,111 @@ describe('sales ledger isolation', () => {
     );
     return { ledger, prisma, payments };
   }
+  it('shows admin portfolio counts using the same private account scope as each salesperson', async () => {
+    const snapshot = source();
+    snapshot.importedAt = '2026-10-10T07:12:31.633Z';
+    const prisma = {
+      user: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'bob', name: 'Bob' },
+          { id: 'sabina', name: 'Sabina' },
+          { id: 'unmapped', name: 'Unmapped' },
+        ]),
+      },
+      salesLedgerRepresentative: {
+        findMany: jest.fn().mockResolvedValue(mappings),
+      },
+    };
+    const ledger = new SalesLedgerService(
+      prisma as unknown as PrismaService,
+      {
+        snapshot: jest.fn().mockResolvedValue(snapshot),
+      } as unknown as PaymentTrackingSourceService,
+      {} as PaymentTrackingStoreService,
+      {} as PaymentTrackingService,
+    );
+    const result = await ledger.mappings();
+    expect(result.portfolios).toEqual([
+      { userId: 'bob', accountCount: 1, customerCount: 1, overdueCount: 1 },
+      { userId: 'sabina', accountCount: 1, customerCount: 1, overdueCount: 1 },
+      {
+        userId: 'unmapped',
+        accountCount: 0,
+        customerCount: 0,
+        overdueCount: 0,
+      },
+    ]);
+    expect(result.codes).toContain('UNKNOWN');
+    expect(result.importedAt).toBe(snapshot.importedAt);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { role: 'SALES', isActive: true } }),
+    );
+  });
   it('rejects other roles even if called outside the HTTP guard', async () => {
     const { ledger } = service();
     await expect(
-      ledger.scoped({ id: 'admin', role: 'ADMIN' }),
+      ledger.scoped({ id: 'callcenter', role: 'CALLCENTER' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it.each(['ADMIN', 'MANAGER'])(
+    'lets %s see all eligible accounts, filter representatives and export the same scope',
+    async (role) => {
+      const { ledger, payments } = service();
+      const actor = { id: 'supervisor', role };
+      const all = await ledger.list(actor, { scope: 'all', currency: 'GBP' });
+      expect(all.total).toBe(6); // Includes unmapped and mixed-owner records.
+      expect(all.filterOptions.representatives.map((row) => row.value)).toEqual(
+        expect.arrayContaining(['BOB', 'SABINA', 'UNKNOWN']),
+      );
+      const filtered = await ledger.list(actor, {
+        scope: 'all',
+        currency: 'GBP',
+        representative: 'SABINA',
+      });
+      const exported = await ledger.list(
+        actor,
+        { scope: 'all', currency: 'GBP', representative: 'SABINA' },
+        true,
+      );
+      expect(filtered.total).toBe(2);
+      expect(exported.rows.map((row) => row.key)).toEqual(
+        filtered.rows.map((row) => row.key),
+      );
+      await ledger.detail(actor, source().cases[4].key);
+      expect(payments.describe.mock.calls[0][0].cases).toHaveLength(6);
+    },
+  );
+  it('keeps financial restrictions for supervisors as well as salespeople', () => {
+    const data = source();
+    data.cases[0].invoiceOk = {
+      status: 'matched',
+      values: ['OTHER'],
+      hasBlank: false,
+    };
+    data.cases[1].authorization = {
+      status: 'matched',
+      codes: ['PRIVATE'],
+      hasBlank: false,
+    };
+    expect(
+      salesLedgerSnapshot(data, null, mappings).cases.map(
+        (row) => row.identity.customerCode,
+      ),
+    ).toEqual(['C3', 'C4', 'C5', 'C6']);
+    data.authorizationSource.status = 'unavailable';
+    expect(() => salesLedgerSnapshot(data, null, mappings)).toThrow();
+  });
+  it('does not let a salesperson broaden scope using another representative filter', async () => {
+    const { ledger } = service();
+    const result = await ledger.list(
+      bob,
+      { scope: 'all', representative: 'SABINA' },
+      true,
+    );
+    expect(result.rows).toEqual([]);
+    expect(
+      result.filterOptions.representatives.map((row) => row.value),
+    ).toEqual(['BOB']);
   });
   it('rejects a known case belonging to another salesperson before reading its details', async () => {
     const { ledger, payments } = service();
