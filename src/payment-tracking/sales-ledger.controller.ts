@@ -50,6 +50,15 @@ export class SalesLedgerController {
   ) {
     return this.ledger.action(req.user, key, body);
   }
+  @Put(':key/followup-assignment')
+  @Roles('ADMIN', 'MANAGER')
+  assign(
+    @Req() req: { user: PaymentActor },
+    @Param('key') key: string,
+    @Body() body: unknown,
+  ) {
+    return this.ledger.assignFollowup(req.user, key, body);
+  }
 }
 @Controller('sales-ledger-mappings')
 @UseGuards(JwtAuthGuard, RolesGuard)

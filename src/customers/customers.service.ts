@@ -67,7 +67,7 @@ export class CustomersService {
   }
 
   private canSeeAllCustomers(user: ReqUser) {
-    return this.isAdmin(user) || this.isAftersales(user);
+    return this.isAdmin(user) || this.isAftersales(user) || this.isManager(user);
   }
 
   private cleanStr(v?: string | null) {
@@ -339,7 +339,6 @@ export class CustomersService {
     },
   ) {
     if (this.canSeeAllCustomers(user)) return true;
-    if (this.isManager(user)) return this.ownsCustomer(user, customer);
     if (this.isSales(user)) return this.isCustomerOwner(user, customer);
     return false;
   }
@@ -351,6 +350,8 @@ export class CustomersService {
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
+    // Managers can read every customer, but editing still requires assignment.
+    if (this.isManager(user)) return this.ownsCustomer(user, customer);
     return this.canSeeCustomer(user, customer);
   }
 
@@ -527,6 +528,12 @@ export class CustomersService {
       return customers.map((customer) => this.withAccessFlags(customer, true));
     }
 
+    if (this.isManager(user)) {
+      return customers.map((customer) =>
+        this.withAccessFlags(customer, this.canEditCustomer(user, customer)),
+      );
+    }
+
     return customers.map((customer) =>
       this.maskCustomerForLimitedUser(
         customer,
@@ -633,7 +640,7 @@ export class CustomersService {
             this.isCustomerOwner(user, customer),
             user,
           )
-        : this.withAccessFlags(customer, true),
+        : this.withAccessFlags(customer, this.canEditCustomer(user, customer)),
     );
 
     return {
@@ -1005,7 +1012,7 @@ export class CustomersService {
     });
 
     if (this.canSeeAllCustomers(user)) {
-      return this.withAccessFlags(updated, true);
+      return this.withAccessFlags(updated, this.canEditCustomer(user, updated));
     }
 
     return this.maskCustomerForLimitedUser(
@@ -1414,11 +1421,7 @@ export class CustomersService {
     }
 
     if (this.isManager(user)) {
-      if (!this.ownsCustomer(user, customer)) {
-        throw new ForbiddenException('No access');
-      }
-
-      return this.maskCustomerForLimitedUser(customer, true, user);
+      return this.withAccessFlags(customer, this.canEditCustomer(user, customer));
     }
 
     if (this.isSales(user)) {

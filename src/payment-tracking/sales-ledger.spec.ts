@@ -1,5 +1,10 @@
 import 'reflect-metadata';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { RolesGuard } from '../common/roles.guard';
 import { JwtAuthGuard } from '../common/jwt-auth.guard';
@@ -12,7 +17,10 @@ import {
   paymentTrackingCaseKey,
 } from './payment-tracking-source.service';
 import { PaymentTrackingStoreService } from './payment-tracking-store.service';
-import { salesLedgerSnapshot } from './sales-ledger-scope';
+import {
+  salesLedgerAccountKey,
+  salesLedgerSnapshot,
+} from './sales-ledger-scope';
 import { SalesLedgerService } from './sales-ledger.service';
 import {
   SalesLedgerController,
@@ -102,6 +110,58 @@ const mappings = [
   { code: 'SABINA', userId: 'sabina' },
 ];
 describe('sales ledger isolation', () => {
+  it('adds assigned company accounts in all currencies without replacing Logo ownership or leaking other units', () => {
+    const data = source();
+    const company = item(7, ['DND']);
+    const euro = {
+      ...company,
+      identity: { ...company.identity, currency: 'EUR' },
+    };
+    euro.key = paymentTrackingCaseKey(euro.identity);
+    const otherUnit = {
+      ...item(8, ['DND']),
+      identity: { ...company.identity, unitCode: 'LJ-A8' },
+    };
+    otherUnit.key = paymentTrackingCaseKey(otherUnit.identity);
+    data.cases.push(company, euro, otherUnit);
+    const before = JSON.stringify(data);
+    const assignments = [
+      { key: salesLedgerAccountKey(company.identity)!, userId: 'bob' },
+    ];
+    const result = salesLedgerSnapshot(data, 'bob', mappings, assignments);
+    expect(result.cases.map((row) => row.key)).toEqual([
+      data.cases[0].key,
+      company.key,
+      euro.key,
+    ]);
+    expect(
+      salesLedgerSnapshot(data, 'sabina', mappings, assignments).cases.map(
+        (row) => row.key,
+      ),
+    ).toEqual([data.cases[1].key]);
+    expect(JSON.stringify(data)).toBe(before);
+    expect(result.cases[1].representatives).toEqual(['DND']);
+    expect(
+      salesLedgerAccountKey({ customerCode: '', unitCode: 'LJ-A7' }),
+    ).toBeNull();
+    expect(
+      salesLedgerAccountKey({ ...company.identity, customerCode: ' C7' }),
+    ).not.toBe(assignments[0].key);
+  });
+  it('does not let manual assignment override invoice or authorization restrictions', () => {
+    const data = source();
+    data.cases[0].authorization.codes = ['PRIVATE'];
+    data.cases[1].invoiceOk!.values = ['OTHER'];
+    const assigned = data.cases
+      .slice(0, 2)
+      .map((row) => ({
+        key: salesLedgerAccountKey(row.identity)!,
+        userId: 'unmapped',
+      }));
+    expect(
+      salesLedgerSnapshot(data, 'unmapped', mappings, assigned).cases,
+    ).toEqual([]);
+  });
   it('matches only explicit owner codes and never falls back to all cases', () => {
     const data = source();
     expect(
@@ -185,6 +245,8 @@ describe('sales ledger isolation', () => {
   });
   function service() {
     const prisma = {
+      salesLedgerAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
       salesLedgerRepresentative: {
         findMany: jest.fn().mockResolvedValue(mappings),
       },
@@ -207,12 +269,212 @@ describe('sales ledger isolation', () => {
       store as unknown as PaymentTrackingStoreService,
       payments as unknown as PaymentTrackingService,
     );
-    return { ledger, prisma, payments };
+    return { ledger, prisma, payments, src, store };
   }
+  it('uses assignments for list, detail and export, and revokes them on the next request', async () => {
+    const { ledger, prisma, payments } = service();
+    const target = source().cases[4];
+    const assignment = {
+      key: salesLedgerAccountKey(target.identity),
+      userId: 'bob',
+      version: 1,
+      updatedAt: new Date(),
+      user: { id: 'bob', name: 'Bob', role: 'SALES', isActive: true },
+      changedBy: { name: 'Manager' },
+    };
+    prisma.salesLedgerAssignment.findMany.mockResolvedValue([
+      assignment,
+    ] as never);
+    const list = await ledger.list(bob, { scope: 'all', currency: 'GBP' });
+    expect(list.total).toBe(2);
+    const exported = await ledger.list(
+      bob,
+      { scope: 'all', currency: 'GBP' },
+      true,
+    );
+    expect(exported.rows.map((row) => row.key)).toEqual(
+      list.rows.map((row) => row.key),
+    );
+    const detail = await ledger.detail(bob, target.key);
+    expect(detail.item.followupAssignment).toMatchObject({
+      userId: 'bob',
+      userName: 'Bob',
+      version: 1,
+    });
+    expect(detail.canAssignFollowup).toBe(false);
+    expect(detail.followupAssignees).toEqual([]);
+    prisma.salesLedgerAssignment.findMany.mockResolvedValue([
+      {
+        ...assignment,
+        userId: 'sabina',
+        user: { ...assignment.user, id: 'sabina' },
+      },
+    ] as never);
+    await expect(ledger.detail(bob, target.key)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect((await ledger.list(bob, { scope: 'all' }, true)).total).toBe(1);
+    payments.action.mockClear();
+  });
+  it('ignores assignments to deactivated or non-sales users', async () => {
+    const { ledger, prisma } = service();
+    for (const user of [
+      { role: 'SALES', isActive: false },
+      { role: 'MANAGER', isActive: true },
+    ]) {
+      prisma.salesLedgerAssignment.findMany.mockResolvedValue([
+        {
+          key: salesLedgerAccountKey(source().cases[4].identity),
+          userId: 'bob',
+          user,
+          version: 1,
+          updatedAt: new Date(),
+        },
+      ] as never);
+      expect((await ledger.list(bob, { scope: 'all' })).total).toBe(1);
+    }
+  });
+  function assignmentService() {
+    const result = service();
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      user: {
+        findUnique: jest.fn(async ({ where }: { where: { id: string } }) => ({
+          role: where.id === 'manager' ? 'MANAGER' : 'SALES',
+          isActive: true,
+        })),
+      },
+      salesLedgerAssignment: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn().mockResolvedValue({}),
+      },
+      auditLog: { create: jest.fn().mockResolvedValue({}) },
+    };
+    const transaction = jest.fn(
+      async (fn: (db: typeof tx) => Promise<unknown>) => fn(tx),
+    );
+    Object.assign(result.prisma, { $transaction: transaction });
+    return { ...result, tx, transaction };
+  }
+  it('assigns an eligible account, records the actor and keeps source and mappings unchanged', async () => {
+    const { ledger, tx, src, prisma } = assignmentService();
+    const target = source().cases[4];
+    const result = await ledger.assignFollowup(
+      { id: 'manager', role: 'MANAGER' },
+      target.key,
+      { userId: 'bob', expectedVersion: 0 },
+    );
+    expect(src.snapshot).toHaveBeenCalledWith(true);
+    expect(tx.salesLedgerAssignment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: salesLedgerAccountKey(target.identity) },
+        create: expect.objectContaining({
+          customerCode: 'C5',
+          unitCode: 'LJ-A5',
+          userId: 'bob',
+          changedById: 'manager',
+        }),
+      }),
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          actorId: 'manager',
+          metaJson: {
+            customerCode: 'C5',
+            unitCode: 'LJ-A5',
+            previousUserId: null,
+            userId: 'bob',
+          },
+        }),
+      }),
+    );
+    expect(result.item.representatives).toEqual(['UNKNOWN']);
+    expect(prisma.salesLedgerRepresentative.findMany).toHaveBeenCalled();
+    expect(result.canAssignFollowup).toBe(true);
+  });
+  it('allows unassignment with version checking and retains an audit record', async () => {
+    const { ledger, tx } = assignmentService();
+    tx.salesLedgerAssignment.findUnique.mockResolvedValue({
+      userId: 'bob',
+      version: 2,
+    });
+    await ledger.assignFollowup(
+      { id: 'manager', role: 'MANAGER' },
+      source().cases[4].key,
+      { userId: null, expectedVersion: 2 },
+    );
+    expect(tx.salesLedgerAssignment.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          userId: null,
+          version: { increment: 1 },
+        }),
+      }),
+    );
+  });
+  it.each(['SALES', 'AFTERSALES', 'ACCOUNTING', 'PREVIEW'])(
+    'prevents %s from granting access',
+    async (role) => {
+      const { ledger, transaction } = assignmentService();
+      await expect(
+        ledger.assignFollowup({ id: 'bob', role }, source().cases[4].key, {
+          userId: 'bob',
+          expectedVersion: 0,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+  it('rejects stale assignment forms without overwriting a newer assignment', async () => {
+    const { ledger, tx } = assignmentService();
+    tx.salesLedgerAssignment.findUnique.mockResolvedValue({
+      userId: 'sabina',
+      version: 3,
+    });
+    await expect(
+      ledger.assignFollowup(
+        { id: 'manager', role: 'MANAGER' },
+        source().cases[4].key,
+        { userId: 'bob', expectedVersion: 2 },
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.salesLedgerAssignment.upsert).not.toHaveBeenCalled();
+  });
+  it.each([
+    { role: 'SALES', isActive: false },
+    { role: 'MANAGER', isActive: true },
+  ])('rejects an ineligible follow-up owner %j', async (target) => {
+    const { ledger, tx } = assignmentService();
+    tx.user.findUnique.mockImplementation(async ({ where }) =>
+      where.id === 'manager' ? { role: 'MANAGER', isActive: true } : target,
+    );
+    await expect(
+      ledger.assignFollowup(
+        { id: 'manager', role: 'MANAGER' },
+        source().cases[4].key,
+        { userId: 'bob', expectedVersion: 0 },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.salesLedgerAssignment.upsert).not.toHaveBeenCalled();
+  });
+  it('rechecks the manager role inside the assignment transaction', async () => {
+    const { ledger, tx } = assignmentService();
+    tx.user.findUnique.mockResolvedValue({ role: 'SALES', isActive: true });
+    await expect(
+      ledger.assignFollowup(
+        { id: 'manager', role: 'MANAGER' },
+        source().cases[4].key,
+        { userId: 'bob', expectedVersion: 0 },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(tx.salesLedgerAssignment.upsert).not.toHaveBeenCalled();
+  });
   it('shows admin portfolio counts using the same private account scope as each salesperson', async () => {
     const snapshot = source();
     snapshot.importedAt = '2026-10-10T07:12:31.633Z';
     const prisma = {
+      salesLedgerAssignment: { findMany: jest.fn().mockResolvedValue([]) },
       user: {
         findMany: jest.fn().mockResolvedValue([
           { id: 'bob', name: 'Bob' },
@@ -363,6 +625,8 @@ describe('sales ledger isolation', () => {
       store as unknown as PaymentTrackingStoreService,
     );
     const prisma = {
+      salesLedgerAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
       salesLedgerRepresentative: {
         findMany: jest.fn().mockResolvedValue(mappings),
       },

@@ -62,6 +62,13 @@ export interface PaymentInvoiceOk {
   hasBlank: boolean;
 }
 export interface PaymentSourceCase {
+  followupAssignment?: {
+    userId: string | null;
+    userName: string | null;
+    changedByName: string | null;
+    updatedAt: string | null;
+    version: number;
+  };
   key: string;
   identity: PaymentIdentity;
   customerName: string;

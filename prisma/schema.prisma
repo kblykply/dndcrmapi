@@ -89,6 +89,8 @@ model User {
   isActive     Boolean @default(true)
 
   salesLedgerRepresentatives SalesLedgerRepresentative[]
+  salesLedgerFollowups SalesLedgerAssignment[] @relation("SalesLedgerFollowup")
+  salesLedgerAssignmentsChanged SalesLedgerAssignment[] @relation("SalesLedgerAssignmentChangedBy")
   digitalTeamMember DigitalTeamMember?
   itTicketsRequested ItTicket[] @relation("ItRequester")
   itTicketsAssigned ItTicket[] @relation("ItAssignee")
@@ -2149,6 +2151,22 @@ model SalesLedgerRepresentative {
   userId String
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   updatedAt DateTime @default(now()) @db.Timestamptz
+  @@index([userId])
+}
+
+// CRM follow-up responsibility only; never replaces the imported Logo salesperson.
+// One exact customer/unit identity covers all eligible currencies for that account.
+model SalesLedgerAssignment {
+  key String @id @db.VarChar(64)
+  customerCode String
+  unitCode String
+  userId String?
+  user User? @relation("SalesLedgerFollowup", fields: [userId], references: [id], onDelete: SetNull)
+  changedById String?
+  changedBy User? @relation("SalesLedgerAssignmentChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  version Int @default(1)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  @@unique([customerCode, unitCode])
   @@index([userId])
 }
 

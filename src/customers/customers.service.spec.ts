@@ -1,6 +1,77 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 
+describe('CustomersService manager visibility', () => {
+  const manager = { id: 'manager-1', role: 'MANAGER' as const, email: 'manager@example.com' };
+  const salesCustomer = {
+    id: 'sales-customer',
+    fullName: 'Recently added by sales',
+    ownerId: 'sales-1',
+    phone: '+90 555 000 0000',
+    email: 'customer@example.com',
+    presentations: [],
+    documents: [],
+  };
+
+  it('lists sales-owned and unassigned customers with contact details, without granting edit access', async () => {
+    const rows = [salesCustomer, { ...salesCustomer, id: 'unassigned', ownerId: null }];
+    const prisma = { customer: { findMany: jest.fn().mockResolvedValue(rows) } };
+    const service = new CustomersService(prisma as any, {} as any);
+    const result = await service.listCustomers(manager);
+    expect(prisma.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(result).toHaveLength(2);
+    result.forEach(row => expect(row).toMatchObject({
+      phone: salesCustomer.phone, email: salesCustomer.email, canSeeContactDetails: true, canEdit: false,
+    }));
+  });
+
+  it('honors the selected salesperson and searches their contact fields without a manager ownership restriction', async () => {
+    const prisma = { customer: { findMany: jest.fn().mockResolvedValue([]) } };
+    const service = new CustomersService(prisma as any, {} as any);
+    await service.listCustomers(manager, { ownerId: 'sales-1', q: 'customer@example.com' });
+    const where = prisma.customer.findMany.mock.calls[0][0].where;
+    expect(where.ownerId).toBe('sales-1');
+    expect(where.OR).toBeUndefined();
+    expect(where.AND[0].OR).toContainEqual({ email: { contains: 'customer@example.com', mode: 'insensitive' } });
+  });
+
+  it('opens a salesperson customer detail but still forbids changing or deleting that customer', async () => {
+    const prisma = { customer: { findUnique: jest.fn().mockResolvedValue(salesCustomer) }, $transaction: jest.fn() };
+    const service = new CustomersService(prisma as any, {} as any);
+    await expect(service.getCustomerDetail(manager, salesCustomer.id)).resolves.toMatchObject({
+      email: salesCustomer.email, canSeeContactDetails: true, canEdit: false,
+    });
+    await expect(service.updateCustomer(manager, salesCustomer.id, { fullName: 'Changed' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.deleteCustomer(manager, salesCustomer.id)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ownerId: manager.id, presentations: [] },
+    { ownerId: 'sales-1', presentations: [{ assignedSalesId: manager.id }] },
+  ])('preserves assigned manager editing: %j', async (assignment) => {
+    const row = { ...salesCustomer, ...assignment };
+    const prisma = { customer: { findUnique: jest.fn().mockResolvedValue(row) } };
+    const service = new CustomersService(prisma as any, {} as any);
+    await expect(service.getCustomerDetail(manager, row.id)).resolves.toMatchObject({ canEdit: true });
+  });
+
+  it.each(['getNationalityReport', 'getDemographicsReport'] as const)('includes all customers in %s', async (method) => {
+    const prisma = { customer: { findMany: jest.fn().mockResolvedValue([]) } };
+    const service = new CustomersService(prisma as any, {} as any);
+    await service[method](manager);
+    expect(prisma.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
+  it('keeps unrelated roles out of the customer list and detail', async () => {
+    const prisma = { customer: { findUnique: jest.fn().mockResolvedValue(salesCustomer) } };
+    const service = new CustomersService(prisma as any, {} as any);
+    const actor = { ...manager, role: 'ACCOUNTING' as const };
+    await expect(service.listCustomers(actor)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.getCustomerDetail(actor, salesCustomer.id)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
 describe('CustomersService sales visibility', () => {
   const salesUser = {
     id: 'sales-1',
