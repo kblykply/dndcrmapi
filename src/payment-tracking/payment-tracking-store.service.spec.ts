@@ -153,6 +153,13 @@ function fixture() {
       ),
     },
     paymentTrackingEvent: {
+      findUnique: jest.fn(({ where }: { where: { requestId: string } }) =>
+        Promise.resolve(
+          structuredClone(
+            events.find((event) => event.requestId === where.requestId) ?? null,
+          ),
+        ),
+      ),
       create: jest.fn(
         ({
           data,
@@ -163,6 +170,8 @@ function fixture() {
             id: `event-${events.length + 1}`,
             createdAt: now,
             ...data,
+            message: data.message ?? null,
+            requestId: data.requestId ?? null,
           };
           events.push(event);
           return Promise.resolve(structuredClone(event));
@@ -637,4 +646,150 @@ describe('Payment tracking assignee cache', () => {
     });
     expect(events()).toHaveLength(0);
   });
+});
+
+const messageId = '12345678-1234-4123-8123-123456789012';
+function draft(overrides: Partial<PaymentTrackingStoreInput> = {}) {
+  return input({
+    type: 'message_draft',
+    messageId,
+    channel: 'whatsapp',
+    recipient: '+905321234567',
+    subject: '',
+    body: 'Full message\n' + 'x'.repeat(3000),
+    ...overrides,
+  });
+}
+describe('Payment message history', () => {
+  it('stores complete text, recipient, channel and trusted actor; confirmation copies the saved draft', async () => {
+    const { store, events } = fixture();
+    await store.apply(draft());
+    await store.apply(
+      input({ type: 'message_sent', messageId, body: '', expectedVersion: 1 }),
+    );
+    expect(events()).toHaveLength(2);
+    expect(events()[0]).toMatchObject({
+      type: 'message_draft',
+      body: draft().body,
+      message: { id: messageId, recipient: '+905321234567', subject: '' },
+      actorName: 'Muhasebe',
+      channel: 'whatsapp',
+    });
+    expect(events()[1]).toMatchObject({
+      type: 'message_sent',
+      body: events()[0].body,
+      message: events()[0].message,
+      actorId: 'accountant',
+      channel: 'whatsapp',
+    });
+    const history = await store.history(key);
+    expect(history.items[0]).toMatchObject({
+      type: 'message_sent',
+      message: { id: messageId },
+      actorId: 'accountant',
+    });
+    expect(history.items[0].body.length).toBeGreaterThan(3000);
+  });
+
+  it('keeps retries idempotent even with the original version', async () => {
+    const { store, events, rows } = fixture();
+    await store.apply(draft());
+    await store.apply(draft());
+    const confirm = input({
+      type: 'message_sent',
+      messageId,
+      body: '',
+      expectedVersion: 1,
+    });
+    await store.apply(confirm);
+    await store.apply(confirm);
+    expect(events()).toHaveLength(2);
+    expect(rows()[0].version).toBe(2);
+  });
+
+  it('does not reuse a draft ID with different content or another actor', async () => {
+    const { store, events } = fixture();
+    await store.apply(draft());
+    await expect(
+      store.apply(draft({ body: 'different' })),
+    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      store.apply(draft({ actor: { id: 'admin', role: 'ADMIN' } })),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(events()).toHaveLength(1);
+  });
+
+  it('requires the same author and case when confirming, and refuses confirmation without a draft', async () => {
+    const { store, events } = fixture();
+    await store.apply(draft());
+    await expect(
+      store.apply(
+        input({
+          type: 'message_sent',
+          messageId,
+          body: '',
+          expectedVersion: 1,
+          actor: { id: 'admin', role: 'ADMIN' },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      store.apply(
+        input({ key: secondKey, type: 'message_sent', messageId, body: '' }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      store.apply(
+        input({
+          type: 'message_sent',
+          messageId: '22345678-1234-4123-8123-123456789012',
+          body: '',
+          expectedVersion: 1,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(events()).toHaveLength(1);
+  });
+
+  it('rejects oversized messages, header injection and edited confirmation payloads', async () => {
+    const { store, events } = fixture();
+    await expect(
+      store.apply(draft({ body: 'x'.repeat(4001) })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      store.apply(
+        draft({
+          channel: 'email',
+          recipient: 'a@example.com\r\nBcc: b@example.com',
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      store.apply(input({ type: 'message_sent', messageId, body: 'edited' })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(events()).toHaveLength(0);
+  });
+
+  it.each(['SALES', 'MANAGER'])(
+    'permits %s only after server-side account scoping',
+    async (role) => {
+      const { store, events } = fixture();
+      const actor = { id: role === 'SALES' ? 'sales' : 'manager', role };
+      await expect(store.apply(draft({ actor }))).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      await store.apply(draft({ actor, salesScoped: true }));
+      await store.apply(
+        input({
+          type: 'message_sent',
+          messageId,
+          body: '',
+          expectedVersion: 1,
+          actor,
+          salesScoped: true,
+        }),
+      );
+      expect(events()).toHaveLength(2);
+    },
+  );
 });

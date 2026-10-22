@@ -2109,6 +2109,8 @@ model PaymentTrackingCase {
 }
 
 model PaymentTrackingEvent {
+  message    Json?
+  requestId  String? @unique @db.VarChar(64)
   id      String              @id @default(cuid())
   caseKey String              @db.VarChar(64)
   case    PaymentTrackingCase @relation(fields: [caseKey], references: [key], onDelete: Cascade)

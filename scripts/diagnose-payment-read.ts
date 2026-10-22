@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from '../src/payment-tracking/payment-tracking-contact.service';
 import 'reflect-metadata';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -28,7 +29,7 @@ async function main() {
     new PaymentTrackingCatalogService(database),
   );
   const store = new PaymentTrackingStoreService(prisma);
-  const service = new PaymentTrackingService(source, store);
+  const service = new PaymentTrackingService(source, store, new PaymentTrackingContactService(prisma));
   async function measure<T>(stage: string, read: () => Promise<T>) {
     const started = Date.now();
     try {

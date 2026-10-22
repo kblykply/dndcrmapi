@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from '../src/payment-tracking/payment-tracking-contact.service';
 import 'reflect-metadata';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -293,6 +294,7 @@ async function main() {
         history: async () => ({ items: [], hasMore: false }),
         assignables: async () => [],
       } as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({ customer: { findMany: async () => [] } } as never),
     );
     const detailSamples = multiCurrency.slice(0, 1);
     const tlSample = multiCurrency.find((items) =>

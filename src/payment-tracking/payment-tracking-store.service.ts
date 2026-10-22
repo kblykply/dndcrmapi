@@ -1,4 +1,9 @@
 import {
+  isMessageAction,
+  readPaymentMessage,
+  validateMessageAction,
+} from './payment-tracking-message';
+import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
@@ -29,7 +34,16 @@ export interface PaymentTrackingStoreInput extends PaymentTrackingAction {
 }
 
 const eligibleRoles = ['ADMIN', 'ACCOUNTING'] as const;
-const eventTypes = ['defer', 'reset', 'note', 'assign', 'priority', 'contact'];
+const eventTypes = [
+  'defer',
+  'reset',
+  'note',
+  'assign',
+  'priority',
+  'contact',
+  'message_draft',
+  'message_sent',
+];
 const channels = ['email', 'whatsapp', 'phone'];
 const ASSIGNEES_TTL_MS = 30_000;
 const userSelect = {
@@ -99,7 +113,9 @@ function state(row: PaymentTrackingCase): PaymentTrackingState {
 }
 
 function eventDto(row: PaymentTrackingEvent): PaymentTrackingEventDto {
+  const message = readPaymentMessage(row.message);
   return {
+    ...(message ? { message, actorId: row.actorId } : {}),
     id: row.id,
     type: row.type as PaymentTrackingEventDto['type'],
     body: row.body ?? '',
@@ -200,9 +216,17 @@ export class PaymentTrackingStoreService {
     )
       invalid('Takip kaydı sürümü geçersiz.');
     if (!eventTypes.includes(input.type)) invalid('Takip işlemi geçersiz.');
-    if (typeof input.body !== 'string' || input.body.length > 2000)
+    const messageAction = isMessageAction(input.type);
+    let message = messageAction ? validateMessageAction(input) : null;
+    const requestId = messageAction
+      ? `${input.messageId}:${input.type === 'message_sent' ? 'sent' : 'draft'}`
+      : null;
+    if (
+      typeof input.body !== 'string' ||
+      input.body.length > (messageAction ? 4000 : 2000)
+    )
       invalid('İşlem notu en fazla 2000 karakter olmalıdır.');
-    const body = input.body.trim();
+    const body = messageAction ? input.body : input.body.trim();
     if (['defer', 'note'].includes(input.type) && !body)
       invalid('Bu işlem için açıklama gereklidir.');
     const trackingDate =
@@ -228,7 +252,14 @@ export class PaymentTrackingStoreService {
       eligibleRoles.some((allowed) => allowed === role) ||
       (input.salesScoped === true &&
         ['SALES', 'MANAGER'].includes(role) &&
-        ['defer', 'reset', 'note', 'contact'].includes(input.type));
+        [
+          'defer',
+          'reset',
+          'note',
+          'contact',
+          'message_draft',
+          'message_sent',
+        ].includes(input.type));
     if (!input.actor?.id || !canAct(input.actor.role))
       throw new ForbiddenException(
         'Bu işlem için muhasebe yetkisi gereklidir.',
@@ -246,6 +277,29 @@ export class PaymentTrackingStoreService {
         const current = await tx.paymentTrackingCase.findUnique({
           where: { key },
         });
+        if (requestId) {
+          const existing = await tx.paymentTrackingEvent.findUnique({
+            where: { requestId },
+          });
+          if (existing) {
+            if (
+              existing.caseKey !== key ||
+              existing.actorId !== actor.id ||
+              existing.type !== input.type
+            )
+              conflict();
+            if (
+              input.type === 'message_draft' &&
+              (existing.body !== body ||
+                existing.channel !== input.channel ||
+                JSON.stringify(readPaymentMessage(existing.message)) !==
+                  JSON.stringify(message))
+            )
+              conflict();
+            if (!current) conflict();
+            return state(current);
+          }
+        }
         if ((current?.version ?? 0) !== input.expectedVersion) conflict();
         if (
           current &&
@@ -256,6 +310,28 @@ export class PaymentTrackingStoreService {
 
         const patch: Prisma.PaymentTrackingCaseUncheckedUpdateManyInput = {};
         let eventBody = body;
+        let eventChannel =
+          input.type === 'contact' || input.type === 'message_draft'
+            ? input.channel
+            : null;
+        if (input.type === 'message_sent') {
+          const draft = await tx.paymentTrackingEvent.findUnique({
+            where: { requestId: `${input.messageId}:draft` },
+          });
+          if (
+            !draft ||
+            draft.caseKey !== key ||
+            draft.type !== 'message_draft' ||
+            draft.actorId !== actor.id
+          )
+            throw new ForbiddenException(
+              'Yalnızca kendi hazırladığınız taslağın gönderimini onaylayabilirsiniz.',
+            );
+          message = readPaymentMessage(draft.message);
+          if (!message) invalid('Kayıtlı mesaj bilgisi bulunamadı.');
+          eventBody = draft.body ?? '';
+          eventChannel = draft.channel as 'email' | 'whatsapp';
+        }
         if (input.type === 'defer' || input.type === 'reset')
           patch.trackingDate = trackingDate;
         if (input.type === 'assign') {
@@ -326,7 +402,9 @@ export class PaymentTrackingStoreService {
               : null,
             actorId: actor.id,
             actorName: actor.name,
-            channel: input.type === 'contact' ? input.channel : null,
+            channel: eventChannel,
+            requestId,
+            ...(message ? { message: { ...message } } : {}),
           },
         });
         const updated = await tx.paymentTrackingCase.findUniqueOrThrow({

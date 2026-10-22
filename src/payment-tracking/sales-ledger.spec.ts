@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
 import 'reflect-metadata';
 import {
   BadRequestException,
@@ -623,6 +624,9 @@ describe('sales ledger isolation', () => {
     const payments = new PaymentTrackingService(
       src as unknown as PaymentTrackingSourceService,
       store as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({
+        customer: { findMany: jest.fn().mockResolvedValue([]) },
+      } as never),
     );
     const prisma = {
       salesLedgerAssignment: { findMany: jest.fn().mockResolvedValue([]) },

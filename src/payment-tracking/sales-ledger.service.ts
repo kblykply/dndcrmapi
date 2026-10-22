@@ -160,7 +160,7 @@ export class SalesLedgerService {
   }
   async action(actor: PaymentActor, key: string, body: unknown) {
     const type = (body as { type?: string })?.type;
-    if (!type || !['defer', 'reset', 'note', 'contact'].includes(type))
+    if (!type || !['defer', 'reset', 'note', 'contact', 'message_draft', 'message_sent'].includes(type))
       throw new ForbiddenException(
         'Bu işlem satışçı carilerinde kullanılamaz.',
       );

@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
 import 'reflect-metadata';
 import { BadRequestException } from '@nestjs/common';
 import {
@@ -136,6 +137,9 @@ function setup(cases: PaymentSourceCase[]) {
     service: new PaymentTrackingService(
       source as unknown as PaymentTrackingSourceService,
       store as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({
+        customer: { findMany: jest.fn().mockResolvedValue([]) },
+      } as never),
     ),
   };
 }

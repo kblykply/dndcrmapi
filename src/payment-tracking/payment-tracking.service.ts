@@ -1,4 +1,9 @@
 import {
+  isMessageAction,
+  validateMessageAction,
+} from './payment-tracking-message';
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -819,6 +824,9 @@ export function parseTrackingAction(input: unknown): PaymentTrackingAction {
           'assigneeId',
           'priority',
           'channel',
+          'messageId',
+          'recipient',
+          'subject',
         ].includes(key),
     )
   )
@@ -826,7 +834,16 @@ export function parseTrackingAction(input: unknown): PaymentTrackingAction {
   const type = option(
     body.type,
     'type',
-    ['defer', 'reset', 'note', 'assign', 'priority', 'contact'],
+    [
+      'defer',
+      'reset',
+      'note',
+      'assign',
+      'priority',
+      'contact',
+      'message_draft',
+      'message_sent',
+    ],
     '',
   ) as PaymentTrackingAction['type'];
   if (
@@ -839,8 +856,29 @@ export function parseTrackingAction(input: unknown): PaymentTrackingAction {
   const result: PaymentTrackingAction = {
     type,
     expectedVersion: body.expectedVersion,
-    body: text(body.body, 'body', 2000).trim(),
+    body: text(body.body, 'body', isMessageAction(type) ? 4000 : 2000),
   };
+  if (!isMessageAction(type)) result.body = result.body.trim();
+  if (
+    !isMessageAction(type) &&
+    ['messageId', 'recipient', 'subject'].some((key) => key in body)
+  )
+    invalid('Mesaj alanları bu işlemde kullanılamaz.');
+  if (isMessageAction(type)) {
+    result.messageId = text(body.messageId, 'messageId', 36);
+    if (type === 'message_draft') {
+      result.recipient = text(body.recipient, 'recipient', 320).trim();
+      result.subject = text(body.subject, 'subject', 200);
+      result.channel = option(
+        body.channel,
+        'channel',
+        ['email', 'whatsapp'],
+        '',
+      ) as 'email' | 'whatsapp';
+    } else if (['recipient', 'subject', 'channel'].some((key) => key in body))
+      invalid('Gönderim onayı kayıtlı taslağa bağlı olmalıdır.');
+    validateMessageAction(result);
+  }
   if (['defer', 'reset', 'note', 'contact'].includes(type) && !result.body)
     invalid('İşlem açıklaması veya not gerekli.');
   if (type === 'defer') {
@@ -879,6 +917,7 @@ export class PaymentTrackingService {
   constructor(
     private readonly source: PaymentTrackingSourceService,
     private readonly store: PaymentTrackingStoreService,
+    private readonly contacts: PaymentTrackingContactService,
   ) {}
 
   async list(
@@ -957,7 +996,9 @@ export class PaymentTrackingService {
         cases.map((entry) => entry.key),
         forceFresh,
       ),
-      this.source.contact(item.identity.customerCode),
+      this.source
+        .contact(item.identity.customerCode)
+        .then((contact) => this.contacts.complete(contact, item.identity)),
     ]);
     if (workflowRead.status === 'rejected') throw workflowRead.reason;
     if (contactRead.status === 'rejected') throw contactRead.reason;

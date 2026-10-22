@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
 import {
   SalesLedgerController,
   SalesLedgerMappingsController,
@@ -29,6 +30,7 @@ import { PaymentCollectionReportService } from './payment-collection-report.serv
     { provide: LogoDatabaseService, useClass: PaymentSnapshotDatabaseService },
     SalesLedgerService,
     PaymentTrackingService,
+    PaymentTrackingContactService,
     PaymentTrackingSourceService,
     PaymentTrackingStoreService,
     PaymentTrackingCatalogService,

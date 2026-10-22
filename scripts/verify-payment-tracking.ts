@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from '../src/payment-tracking/payment-tracking-contact.service';
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -32,7 +33,7 @@ async function main() {
     new PaymentTrackingCatalogService(database),
   );
   const store = new PaymentTrackingStoreService(prisma);
-  const service = new PaymentTrackingService(source, store);
+  const service = new PaymentTrackingService(source, store, new PaymentTrackingContactService(prisma));
   const started = Date.now();
   try {
     const snapshot = await source.snapshot(true);

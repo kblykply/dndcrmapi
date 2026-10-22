@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
 import 'reflect-metadata';
 import { BadRequestException } from '@nestjs/common';
 import { PROJECT_LABELS, PROJECT_TYPES } from '../common/projects';
@@ -461,6 +462,9 @@ describe('Payment main-project filtering and response contract', () => {
     const service = new PaymentTrackingService(
       source as unknown as PaymentTrackingSourceService,
       store as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({
+        customer: { findMany: jest.fn().mockResolvedValue([]) },
+      } as never),
     );
     const before = structuredClone(cases);
     const detail = await service.detail(cases[0].key);

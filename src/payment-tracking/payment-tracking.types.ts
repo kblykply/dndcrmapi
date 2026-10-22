@@ -145,9 +145,24 @@ export interface PaymentTrackingState {
   updatedAt: string;
   updatedByName: string;
 }
-export interface PaymentTrackingEventDto {
+export interface PaymentMessage {
   id: string;
-  type: 'defer' | 'reset' | 'note' | 'assign' | 'priority' | 'contact';
+  recipient: string;
+  subject: string;
+}
+export interface PaymentTrackingEventDto {
+  message?: PaymentMessage;
+  actorId?: string | null;
+  id: string;
+  type:
+    | 'defer'
+    | 'reset'
+    | 'note'
+    | 'assign'
+    | 'priority'
+    | 'contact'
+    | 'message_draft'
+    | 'message_sent';
   body: string;
   previousDate: string | null;
   nextDate: string | null;
@@ -156,6 +171,9 @@ export interface PaymentTrackingEventDto {
   createdAt: string;
 }
 export interface PaymentTrackingAction {
+  messageId?: string;
+  recipient?: string;
+  subject?: string;
   type: PaymentTrackingEventDto['type'];
   expectedVersion: number;
   body: string;
@@ -238,6 +256,9 @@ export interface PaymentFilterOption {
   caseCount: number;
 }
 export interface PaymentContact {
+  emailSource?: 'logo' | 'crm' | null;
+  phoneSource?: 'logo' | 'crm' | null;
+  crmFallbackStatus?: 'matched' | 'ambiguous' | 'unit_mismatch' | 'unavailable';
   email: string | null;
   phone: string | null;
   source: string | null;

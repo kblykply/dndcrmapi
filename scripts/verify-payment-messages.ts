@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from '../src/payment-tracking/payment-tracking-contact.service';
 import 'reflect-metadata';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -408,6 +409,7 @@ async function main() {
         history: async () => ({ items: [], hasMore: false }),
         assignables: async () => [],
       } as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({ customer: { findMany: async () => [] } } as never),
     );
     const variants = new Map<
       string,

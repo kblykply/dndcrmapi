@@ -1,3 +1,4 @@
+import { PaymentTrackingContactService } from './payment-tracking-contact.service';
 import 'reflect-metadata';
 import {
   BadRequestException,
@@ -539,6 +540,7 @@ describe('PaymentTrackingService with source/store/contact mocks', () => {
     apply: jest.Mock;
   };
   let contact: jest.Mock;
+  let crmRead: jest.Mock;
   let item: PaymentSourceCase;
   beforeEach(() => {
     item = sourceCase();
@@ -556,10 +558,39 @@ describe('PaymentTrackingService with source/store/contact mocks', () => {
       source: null,
       status: 'missing',
     });
+    crmRead = jest.fn().mockResolvedValue([]);
     service = new PaymentTrackingService(
       { snapshot: read, contact } as unknown as PaymentTrackingSourceService,
       store as unknown as PaymentTrackingStoreService,
+      new PaymentTrackingContactService({
+        customer: { findMany: crmRead },
+      } as never),
     );
+  });
+
+  it('returns CRM-enriched contact in the shared case detail without altering the Logo source', async () => {
+    crmRead.mockResolvedValue([
+      {
+        oldCustomerCode: item.identity.customerCode,
+        oldCariCodes: null,
+        email: 'customer@example.com',
+        phone: '+905321234567',
+        unitSelections: [],
+      },
+    ]);
+    const result = await service.detail(item.key);
+    expect(result.contact).toMatchObject({
+      email: 'customer@example.com',
+      phone: '+905321234567',
+      emailSource: 'crm',
+      phoneSource: 'crm',
+    });
+    expect(await contact()).toEqual({
+      email: null,
+      phone: null,
+      source: null,
+      status: 'missing',
+    });
   });
 
   it('validates list filters before source access and forwards explicit refresh', async () => {
@@ -985,5 +1016,58 @@ describe('Payment tracking controller access contract', () => {
     await controller.detail(key, { refresh: 'true' });
     expect(methods.detail).toHaveBeenLastCalledWith(key, { refresh: 'true' });
     expect(methods.action).toHaveBeenCalledWith(key, defer, actor);
+  });
+});
+
+describe('Payment message action validation', () => {
+  const messageId = '12345678-1234-4123-8123-123456789012';
+  it('preserves the exact draft text, recipient and subject', () => {
+    const body = '  Full draft\n' + 'x'.repeat(3000);
+    expect(
+      parseTrackingAction({
+        type: 'message_draft',
+        messageId,
+        recipient: 'a@example.com',
+        subject: 'Account update',
+        channel: 'email',
+        body,
+        expectedVersion: 0,
+      }),
+    ).toMatchObject({
+      body,
+      recipient: 'a@example.com',
+      subject: 'Account update',
+    });
+  });
+  it('confirmation accepts only a draft reference', () => {
+    expect(
+      parseTrackingAction({
+        type: 'message_sent',
+        messageId,
+        body: '',
+        expectedVersion: 1,
+      }),
+    ).toMatchObject({ type: 'message_sent', messageId });
+    for (const field of ['channel', 'recipient', 'subject']) {
+      expect(() =>
+        parseTrackingAction({
+          type: 'message_sent',
+          messageId,
+          body: '',
+          expectedVersion: 1,
+          [field]: 'forged',
+        }),
+      ).toThrow(BadRequestException);
+    }
+  });
+  it('does not allow message metadata on legacy actions', () => {
+    expect(() =>
+      parseTrackingAction({
+        type: 'note',
+        body: 'Note',
+        expectedVersion: 0,
+        messageId,
+      }),
+    ).toThrow(BadRequestException);
   });
 });
