@@ -350,8 +350,8 @@ export class CustomersService {
       presentations?: Array<{ assignedSalesId?: string | null }>;
     },
   ) {
-    // Managers can read every customer, but editing still requires assignment.
-    if (this.isManager(user)) return this.ownsCustomer(user, customer);
+    // Sales managers manage all customers, regardless of assignment.
+    if (this.isManager(user)) return true;
     return this.canSeeCustomer(user, customer);
   }
 
@@ -1040,12 +1040,6 @@ export class CustomersService {
 
     if (!customer) throw new NotFoundException('Customer not found');
 
-    if (!this.isAdmin(user) && !this.ownsCustomer(user, customer)) {
-      throw new ForbiddenException(
-        'Only owner manager or admin can delete customer',
-      );
-    }
-
     await this.prisma.$transaction(async (tx) => {
       const presentations = await tx.presentation.findMany({
         where: { customerId },
@@ -1710,7 +1704,7 @@ export class CustomersService {
     if (!presentation) throw new NotFoundException('Presentation not found');
 
     const canEdit =
-      this.isAdmin(user) || presentation.assignedSalesId === user.id;
+      this.isAdmin(user) || this.isManager(user) || presentation.assignedSalesId === user.id;
 
     if (!canEdit) throw new ForbiddenException('No access');
 
@@ -1749,7 +1743,7 @@ export class CustomersService {
     if (!presentation) throw new NotFoundException('Presentation not found');
 
     const canEdit =
-      this.isAdmin(user) || presentation.assignedSalesId === user.id;
+      this.isAdmin(user) || this.isManager(user) || presentation.assignedSalesId === user.id;
 
     if (!canEdit) throw new ForbiddenException('No access');
 

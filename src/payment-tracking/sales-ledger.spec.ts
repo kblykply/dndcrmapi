@@ -288,6 +288,8 @@ describe('sales ledger isolation', () => {
     ] as never);
     const list = await ledger.list(bob, { scope: 'all', currency: 'GBP' });
     expect(list.total).toBe(2);
+    expect(list.canAssignFollowup).toBe(false);
+    expect(list.followupAssignees).toEqual([]);
     const exported = await ledger.list(
       bob,
       { scope: 'all', currency: 'GBP' },
@@ -521,9 +523,14 @@ describe('sales ledger isolation', () => {
   it.each(['ADMIN', 'MANAGER'])(
     'lets %s see all eligible accounts, filter representatives and export the same scope',
     async (role) => {
-      const { ledger, payments } = service();
+      const { ledger, payments, prisma } = service();
+      const choices = [{ id: 'bob', name: 'Bob', role: 'SALES' }];
+      prisma.user.findMany.mockResolvedValue(choices as never);
       const actor = { id: 'supervisor', role };
       const all = await ledger.list(actor, { scope: 'all', currency: 'GBP' });
+      expect(all.canAssignFollowup).toBe(true);
+      expect(all.followupAssignees).toEqual(choices);
+      expect(prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { role: 'SALES', isActive: true } }));
       expect(all.total).toBe(6); // Includes unmapped and mixed-owner records.
       expect(all.filterOptions.representatives.map((row) => row.value)).toEqual(
         expect.arrayContaining(['BOB', 'SABINA', 'UNKNOWN']),

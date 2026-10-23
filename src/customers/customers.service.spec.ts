@@ -13,7 +13,7 @@ describe('CustomersService manager visibility', () => {
     documents: [],
   };
 
-  it('lists sales-owned and unassigned customers with contact details, without granting edit access', async () => {
+  it('lists sales-owned and unassigned customers with contact details and edit access', async () => {
     const rows = [salesCustomer, { ...salesCustomer, id: 'unassigned', ownerId: null }];
     const prisma = { customer: { findMany: jest.fn().mockResolvedValue(rows) } };
     const service = new CustomersService(prisma as any, {} as any);
@@ -21,7 +21,7 @@ describe('CustomersService manager visibility', () => {
     expect(prisma.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
     expect(result).toHaveLength(2);
     result.forEach(row => expect(row).toMatchObject({
-      phone: salesCustomer.phone, email: salesCustomer.email, canSeeContactDetails: true, canEdit: false,
+      phone: salesCustomer.phone, email: salesCustomer.email, canSeeContactDetails: true, canEdit: true,
     }));
   });
 
@@ -35,15 +35,42 @@ describe('CustomersService manager visibility', () => {
     expect(where.AND[0].OR).toContainEqual({ email: { contains: 'customer@example.com', mode: 'insensitive' } });
   });
 
-  it('opens a salesperson customer detail but still forbids changing or deleting that customer', async () => {
-    const prisma = { customer: { findUnique: jest.fn().mockResolvedValue(salesCustomer) }, $transaction: jest.fn() };
-    const service = new CustomersService(prisma as any, {} as any);
+  it('manages another salesperson customer, including editing and deleting', async () => {
+    const tx = {
+      customer: { update: jest.fn(), delete: jest.fn() },
+      presentation: { findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn() },
+      customerDocument: { deleteMany: jest.fn() },
+      customerUnitSelection: { deleteMany: jest.fn() },
+    };
+    const prisma = {
+      customer: { findUnique: jest.fn().mockResolvedValue(salesCustomer) },
+      $transaction: jest.fn(async (cb) => cb(tx)),
+    };
+    const notifications = { createManyForUsers: jest.fn() };
+    const service = new CustomersService(prisma as any, notifications as any);
     await expect(service.getCustomerDetail(manager, salesCustomer.id)).resolves.toMatchObject({
-      email: salesCustomer.email, canSeeContactDetails: true, canEdit: false,
+      email: salesCustomer.email, canSeeContactDetails: true, canEdit: true,
     });
-    await expect(service.updateCustomer(manager, salesCustomer.id, { fullName: 'Changed' })).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.deleteCustomer(manager, salesCustomer.id)).rejects.toBeInstanceOf(ForbiddenException);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    await service.updateCustomer(manager, salesCustomer.id, { fullName: 'Changed' });
+    expect(tx.customer.update).toHaveBeenCalledWith({ where: { id: salesCustomer.id }, data: { fullName: 'Changed' } });
+    await expect(service.deleteCustomer(manager, salesCustomer.id)).resolves.toEqual({ success: true });
+    expect(tx.customer.delete).toHaveBeenCalledWith({ where: { id: salesCustomer.id } });
+  });
+
+  it('manages presentations assigned to other salespeople', async () => {
+    const presentation = { id: 'presentation', assignedSalesId: 'sales-1', customerId: salesCustomer.id };
+    const prisma = {
+      presentation: { findUnique: jest.fn().mockResolvedValue(presentation), update: jest.fn().mockResolvedValue(presentation) },
+      presentationNote: { create: jest.fn().mockResolvedValue({ id: 'note' }) },
+    };
+    const service = new CustomersService(prisma as any, { createManyForUsers: jest.fn() } as any);
+    await service.updatePresentation(manager, presentation.id, { title: 'Updated presentation' });
+    expect(prisma.presentation.update).toHaveBeenCalledWith(expect.objectContaining({ data: { title: 'Updated presentation' } }));
+    await service.addPresentationNote(manager, presentation.id, { note: 'Follow up' });
+    expect(prisma.presentationNote.create).toHaveBeenCalled();
+    const salesperson = { ...manager, role: 'SALES' as const };
+    await expect(service.updatePresentation(salesperson, presentation.id, { title: 'Blocked' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.deleteCustomer(salesperson, salesCustomer.id)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it.each([

@@ -139,7 +139,12 @@ export class SalesLedgerService {
         assignees: [],
       };
     }
-    return { ...result, assignees: [] };
+    return {
+      ...result,
+      assignees: [],
+      followupAssignees: await this.followupOptions(actor),
+      canAssignFollowup: ['ADMIN', 'MANAGER'].includes(actor.role),
+    };
   }
   async detail(actor: PaymentActor, key: string) {
     const snapshot = await this.scoped(actor);

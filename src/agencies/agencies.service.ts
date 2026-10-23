@@ -375,7 +375,7 @@ export class AgenciesService {
     const useAllScope =
       this.isAdmin(user) ||
       this.isSales(user) ||
-      (this.isManager(user) && query?.scope === 'all');
+      (this.isManager(user) && query?.scope !== 'mine');
 
     if (!useAllScope) {
       where.assignedSalesId = user.id;
@@ -674,13 +674,7 @@ export class AgenciesService {
       throw new ForbiddenException('No access to delete agency');
     }
 
-    const agency = await this.getAccessibleAgencyOrThrow(user, agencyId);
-
-    if (!this.isAdmin(user) && !this.ownsAgency(user, agency)) {
-      throw new ForbiddenException(
-        'Only assigned manager or admin can delete agency',
-      );
-    }
+    await this.getAccessibleAgencyOrThrow(user, agencyId);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.agencyTask.deleteMany({ where: { agencyId } });
@@ -979,9 +973,7 @@ export class AgenciesService {
 
     if (!task) throw new NotFoundException('Task not found');
 
-    const ownerCanEdit =
-      this.isAdmin(user) ||
-      (task.agency?.assignedSalesId === user.id && user.role === 'MANAGER');
+    const ownerCanEdit = this.isAdmin(user) || this.isManager(user);
 
     const salesCanEditOwn = this.isSales(user) && task.assignedToId === user.id;
 

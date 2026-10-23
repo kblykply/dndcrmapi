@@ -2202,3 +2202,184 @@ model BulkEmailSuppression {
   reason String
   createdAt DateTime @default(now())
 }
+// Construction data is isolated from Logo snapshots and customer finance records.
+model ConstructionProject {
+  id String @id
+  crmProject ProjectType @unique
+  name String
+  notes String @default("")
+  sources ConstructionSource[]
+  trades ConstructionTrade[]
+  units ConstructionUnit[]
+  claims ConstructionClaim[]
+  budgets ConstructionBudget[]
+  issues ConstructionIssue[]
+  activities ConstructionActivity[]
+  createdAt DateTime @default(now())
+}
+
+model ConstructionSource {
+  id String @id
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  kind String
+  fileName String
+  sha256 String @unique
+  sourceDate DateTime?
+  dateBasis String
+  snapshot Json
+  importedAt DateTime @default(now())
+  @@index([projectId, kind])
+}
+
+model ConstructionTrade {
+  id String @id
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name String
+  weight Decimal @db.Decimal(8, 4)
+  position Int
+  entries ConstructionProgress[]
+  @@unique([projectId, position])
+}
+
+model ConstructionUnit {
+  id String @id
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  block String
+  label String
+  position Int
+  included Boolean @default(true)
+  scopeNote String @default("")
+  sourceRef String
+  entries ConstructionProgress[]
+  @@unique([projectId, block, label])
+  @@index([projectId, block, position])
+}
+
+model ConstructionProgress {
+  id String @id
+  unitId String
+  unit ConstructionUnit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  tradeId String
+  trade ConstructionTrade @relation(fields: [tradeId], references: [id], onDelete: Restrict)
+  status String @default("NOT_DONE")
+  quality String @default("UNCHECKED")
+  note String @default("")
+  checkedAt DateTime?
+  sourceStatus String
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@unique([unitId, tradeId])
+}
+
+model ConstructionClaim {
+  id String @id @default(cuid())
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  contractor String
+  number String
+  period DateTime
+  currency String @default("GBP")
+  taxRate Decimal @db.Decimal(8, 4)
+  adjustment Decimal @db.Decimal(20, 6)
+  adjustmentNote String @default("")
+  deduction Decimal @db.Decimal(20, 6) @default(0)
+  sourceNet Decimal? @db.Decimal(20, 6)
+  sourceRef String?
+  note String @default("")
+  version Int @default(1)
+  lines ConstructionClaimLine[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([projectId, contractor, number])
+  @@index([projectId, period])
+}
+
+model ConstructionClaimLine {
+  id String @id @default(cuid())
+  claimId String
+  claim ConstructionClaim @relation(fields: [claimId], references: [id], onDelete: Restrict)
+  position Int
+  code String
+  name String
+  unit String
+  previousQty Decimal @db.Decimal(20, 6)
+  measuredQty Decimal? @db.Decimal(20, 6)
+  acceptedQty Decimal @db.Decimal(20, 6)
+  unitPrice Decimal @db.Decimal(20, 8)
+  sourceAmount Decimal? @db.Decimal(20, 6)
+  sourceRef String?
+  note String @default("")
+  measurements Json
+  @@unique([claimId, position])
+}
+
+model ConstructionBudget {
+  id String @id @default(cuid())
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name String
+  currency String @default("GBP")
+  sourceTotal Decimal? @db.Decimal(20, 6)
+  sourceRef String?
+  items ConstructionBudgetItem[]
+  createdAt DateTime @default(now())
+  @@index([projectId])
+}
+
+model ConstructionBudgetItem {
+  id String @id @default(cuid())
+  budgetId String
+  budget ConstructionBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+  category String
+  position Int
+  name String
+  unit String
+  quantity Decimal @db.Decimal(20, 6)
+  unitPrice Decimal @db.Decimal(20, 8)
+  completedQty Decimal? @db.Decimal(20, 6)
+  paid Decimal? @db.Decimal(20, 6)
+  sourceAmount Decimal @db.Decimal(20, 6)
+  sourceRef String
+  sourceFormula String?
+  note String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@unique([budgetId, position])
+}
+
+model ConstructionIssue {
+  id String @id
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  area String
+  severity String
+  title String
+  detail String
+  requiredInfo String
+  sourceRef String
+  owner String
+  status String @default("OPEN")
+  resolution String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@index([projectId, status])
+}
+
+model ConstructionActivity {
+  id String @id @default(cuid())
+  projectId String
+  project ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  entityType String
+  entityId String
+  actorId String
+  actorName String
+  reason String
+  before Json
+  after Json
+  createdAt DateTime @default(now())
+  @@index([projectId, createdAt, id])
+  @@index([entityType, entityId, createdAt])
+}

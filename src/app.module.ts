@@ -30,6 +30,8 @@ import { DigitalTeamModule } from './digital-team/digital-team.module';
 import { ItSupportModule } from './it-support/it-support.module';
 import { PaymentTrackingModule } from './payment-tracking/payment-tracking.module';
 
+import { ConstructionModule } from './construction/construction.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -60,6 +62,7 @@ import { PaymentTrackingModule } from './payment-tracking/payment-tracking.modul
     DigitalTeamModule,
     ItSupportModule,
     PaymentTrackingModule,
+    ConstructionModule,
   ],
   controllers: [HealthController],
 })

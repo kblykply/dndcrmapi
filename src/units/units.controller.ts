@@ -70,7 +70,7 @@ export class UnitsController {
   }
 
   @Delete(":id")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "MANAGER")
   remove(@Req() req: any, @Param("id") id: string) {
     if (!id?.trim()) {
       throw new BadRequestException("Unit id is required");

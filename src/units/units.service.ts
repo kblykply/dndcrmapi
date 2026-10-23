@@ -379,7 +379,7 @@ export class UnitsService {
   }
 
   private unitLogVisibility(user: ReqUser): "all" | "communication" {
-    return this.isAdmin(user) ? "all" : "communication";
+    return this.isAdmin(user) || this.isManager(user) ? "all" : "communication";
   }
 
   private logValue(value: unknown) {
@@ -623,8 +623,8 @@ export class UnitsService {
   }
 
   async deleteUnit(user: ReqUser, id: string) {
-    if (!this.isAdmin(user)) {
-      throw new ForbiddenException("Only admin can delete units");
+    if (!this.isAdmin(user) && !this.isManager(user)) {
+      throw new ForbiddenException("Only admin or manager can delete units");
     }
 
     const unit = await this.prisma.customerUnitSelection.findUnique({
@@ -846,8 +846,8 @@ export class UnitsService {
       dto.isCanceled !== undefined ||
       dto.cancelReason !== undefined
     ) {
-      if (!this.isAdmin(user) && !this.isAftersales(user)) {
-        throw new ForbiddenException("Only admin or aftersales can cancel units");
+      if (!this.isAdmin(user) && !this.isManager(user) && !this.isAftersales(user)) {
+        throw new ForbiddenException("Only admin, manager or aftersales can cancel units");
       }
 
       const nextCanceled =
