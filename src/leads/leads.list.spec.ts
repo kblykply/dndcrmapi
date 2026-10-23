@@ -57,7 +57,13 @@ describe('Lead list pagination and count contract', () => {
     });
     expect(query.include).toBeUndefined();
     expect(query.select).toBeUndefined();
-    expect(query.orderBy.at(-1)).toEqual({ id: 'asc' });
+    expect(query.orderBy).toEqual([
+      { newPriorityAt: { sort: 'desc', nulls: 'last' } },
+      { nextFollowUpAt: 'asc' },
+      { lastActivityAt: 'desc' },
+      { createdAt: 'desc' },
+      { id: 'asc' },
+    ]);
   });
 
   it('explicitly omits totals and does not query COUNT on a cached pagination request', async () => {

@@ -226,6 +226,9 @@ model Lead {
   nextFollowUpAt DateTime?
   lastActivityAt DateTime?
 
+  // Fresh inbound leads stay ahead of follow-ups until first contact or handoff.
+  newPriorityAt DateTime?
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -248,6 +251,7 @@ model Lead {
   @@index([phone])
   @@index([lastActivityAt])
   @@index([nextFollowUpAt, status])
+  @@index([newPriorityAt])
   @@index([metaPsid])
   @@index([metaLeadId])
   @@index([metaPlatform])

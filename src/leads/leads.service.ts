@@ -319,6 +319,7 @@ export class LeadsService {
           email,
           source,
           status: "NEW",
+          newPriorityAt: new Date(),
           ownerCallCenterId: user.role === "CALLCENTER" ? user.id : null,
         },
       }),
@@ -405,6 +406,7 @@ export class LeadsService {
       this.prisma.lead.findMany({
         where,
         orderBy: [
+          { newPriorityAt: { sort: "desc", nulls: "last" } },
           { nextFollowUpAt: "asc" },
           { lastActivityAt: "desc" },
           { createdAt: "desc" },
@@ -611,26 +613,30 @@ export class LeadsService {
     }
 
     const act = await this.withRetry(() =>
-      this.prisma.leadActivity.create({
-        data: {
-          leadId,
-          type: input.type as any,
-          summary,
-          details: input.details,
-          callOutcome: callOutcome as any,
-          createdById: user.id,
-        },
-      }),
-    );
+      this.prisma.$transaction(async (tx) => {
+        const activity = await tx.leadActivity.create({
+          data: {
+            leadId,
+            type: input.type as any,
+            summary,
+            details: input.details,
+            callOutcome: callOutcome as any,
+            createdById: user.id,
+          },
+        });
 
-    await this.withRetry<LeadRow>(() =>
-      this.prisma.lead.update({
-        where: { id: leadId },
-        data: {
-          lastActivityAt: new Date(),
-          ...(lastContactAt ? { lastContactAt } : {}),
-          ...(nextFollowUpAt ? { nextFollowUpAt } : {}),
-        },
+        await tx.lead.update({
+          where: { id: leadId },
+          data: {
+            lastActivityAt: new Date(),
+            ...(["CALL", "WHATSAPP", "EMAIL", "MEETING"].includes(input.type)
+              ? { newPriorityAt: null }
+              : {}),
+            ...(lastContactAt ? { lastContactAt } : {}),
+            ...(nextFollowUpAt ? { nextFollowUpAt } : {}),
+          },
+        });
+        return activity;
       }),
     );
 
@@ -684,7 +690,7 @@ export class LeadsService {
       this.prisma.$transaction(async (tx) => {
         const u = await tx.lead.update({
           where: { id: leadId },
-          data: { status: to as any },
+          data: { status: to as any, newPriorityAt: null },
         });
 
         await tx.leadStageHistory.create({
@@ -776,6 +782,7 @@ async sendToManager(user: ReqUser, leadId: string, managerId: string) {
         data: {
           status: "MANAGER_REVIEW" as any,
           assignedManagerId: managerId,
+          newPriorityAt: null,
           lastActivityAt: new Date(),
         },
       });
@@ -864,6 +871,7 @@ async sendToManager(user: ReqUser, leadId: string, managerId: string) {
           data: {
             status: nextStatus,
             assignedSalesId: salesId,
+            newPriorityAt: null,
           },
         });
 

@@ -100,6 +100,7 @@ export class MetaService {
         email,
         source: "Instagram Lead Ads",
         status: "NEW" as any,
+        newPriorityAt: new Date(),
         ownerCallCenterId,
 
         metaPlatform: "LEAD_ADS" as any,
